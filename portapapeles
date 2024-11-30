@@ -1,0 +1,88 @@
+const arqueoForm = require('./forms/arqueoForm.js');
+const gastoForm = require('./forms/gastoForm.js');
+const OperacionFactory = require('./models/OperacionFactory');
+
+document.addEventListener('DOMContentLoaded', () => {
+    // ... existing code ...
+
+    function handleFormSubmit(e, type) {
+        e.preventDefault();
+        try {
+            const formData = new FormData(e.target);
+            const operacion = OperacionFactory.createOperacion(type);
+            
+            // Fill base data
+            operacion.fecha = formData.get('fecha') || formData.get('fecha_ingreso');
+            operacion.importe = parseFloat(formData.get('importe'));
+            
+            // Fill specific data based on type
+            if (type === 'arqueo') {
+                operacion.caja = formData.get('caja');
+                operacion.tercero = formData.get('tercero');
+                operacion.naturaleza = formData.get('naturaleza');
+                operacion.texto = formData.get('texto');
+                
+                // Get aplicaciones
+                const partidas = formData.getAll('partida[]');
+                const importes = formData.getAll('importe[]');
+                partidas.forEach((partida, index) => {
+                    operacion.addAplicacion(partida, parseFloat(importes[index]));
+                });
+            } else if (type === 'gasto') {
+                operacion.expediente = formData.get('expediente');
+                operacion.fpago = formData.get('fpago');
+                operacion.tpago = formData.get('tpago');
+                operacion.texto = formData.get('texto');
+                
+                // Get aplicaciones
+                const funcionales = formData.getAll('funcional[]');
+                const economicas = formData.getAll('economica[]');
+                const importes = formData.getAll('importe[]');
+                funcionales.forEach((funcional, index) => {
+                    operacion.addAplicacion(
+                        funcional, 
+                        economicas[index], 
+                        parseFloat(importes[index])
+                    );
+                });
+            }
+
+            // Validate before adding
+            operacion.validate();
+            
+            addOperacion(operacion);
+            formContainer.style.display = 'none';
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    function addOperacion(operacion) {
+        operaciones.push(operacion);
+        const newRow = operacionesTable.insertRow();
+        newRow.innerHTML = `
+            <td>${operacion.tipo}</td>
+            <td>${operacion.fecha}</td>
+            <td>${operacion.importe.toFixed(2)}€</td>
+            <td>
+                <button onclick="editOperacion(${operaciones.length - 1})">Editar</button>
+                <button onclick="deleteOperacion(${operaciones.length - 1})">Eliminar</button>
+            </td>
+        `;
+    }
+
+    // Update save functionality
+    saveOperacionesButton.addEventListener('click', async () => {
+        try {
+            // Convert all operations to JSON before saving
+            const operacionesJSON = operaciones.map(op => op.toJSON());
+            await window.electronAPI.saveContableTask(operacionesJSON);
+            window.close();
+        } catch (error) {
+            console.error("Error saving operations:", error);
+            alert("Error al guardar las operaciones");
+        }
+    });
+    
+    // ... rest of the code ...
+});

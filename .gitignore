@@ -1,0 +1,45 @@
+##.gitignore for Electron project
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build output
+dist/
+build/
+out/
+
+# Runtime data
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE specific files
+.vscode/
+*.swp
+*.swo
+*.swn
+
+# Electron specific
+.electron-builder.env
+
+# Environment files
+.env
+.env.local
+.env.*.local

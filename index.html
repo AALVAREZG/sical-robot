@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generador Asientos Contables Sical</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Generador Asientos Contables Sical</h1>
+    <div id="tabs">
+        <button class="tab-button active" data-tab="cuentas">Cuentas</button>
+        <button class="tab-button" data-tab="otros">Otros</button>
+    </div>
+    <div id="content">
+        <div id="cuentas" class="tab-content active">
+            <button id="selectFile">SELECT FILE</button>
+            <div id="resultado"></div>
+            <div id="cajas"></div>
+            <div class="table-container">
+                <table id="records">
+                    <thead>
+                        <tr>
+                            <th>CAJA</th>
+                            <th>FECHA</th>
+                            <th>CONCEPTO</th>
+                            <th>IMPORTE</th>
+                            <th>SALDO</th>
+                            <th>FECHA INSERCIÓN</th>
+                            <th>IMPORTADO</th>
+                            <th>CONTABILIZADO</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        <div id="otros" class="tab-content">
+            <!-- Content for "Otros" tab -->
+        </div>
+    </div>
+    <script src="renderer.js"></script>
+</body>
+</html>

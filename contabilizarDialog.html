@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Operaciones Contables</title>
+    <link rel="stylesheet" href="dialog.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Operaciones Contables</h2>
+
+        <div id="operacionesList">
+            <table id="operacionesTable">
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Fecha</th>
+                        <th>Importe</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Las operaciones se añadirán aquí dinámicamente -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="form-actions">
+            <button id="addArqueo">Añadir Arqueo</button>
+            <button id="addGasto">Añadir Gasto</button>
+        </div>
+
+        <button id="exportOperacionesToAPI">EXPORT TO API</button>
+
+        <div id="formContainer">
+            <!-- Los formularios se insertarán aquí dinámicamente -->
+        </div>
+    </div>
+
+    <script>
+        // Configure Electron's renderer to use modules
+        require('./contabilizarDialog.js');
+    </script>
+</body>
+</html>
