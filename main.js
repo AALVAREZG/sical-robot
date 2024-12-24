@@ -9,6 +9,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    minWidth: 800,  // Add minimum window size
+    minHeight: 600,
     backgroundColor: '#1e1e1e',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -19,8 +21,26 @@ function createWindow() {
     }
   });
 
+  // Add window state management
+  let windowState = {
+    x: undefined,
+    y: undefined,
+    width: 1200,
+    height: 800,
+  };
+
+  mainWindow.on('resize', () => {
+    const bounds = mainWindow.getBounds();
+    windowState = bounds;
+  });
+
+  mainWindow.on('move', () => {
+    const bounds = mainWindow.getBounds();
+    windowState.x = bounds.x;
+    windowState.y = bounds.y;
+  });
+
   mainWindow.loadFile('index.html');
-  mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(createWindow);

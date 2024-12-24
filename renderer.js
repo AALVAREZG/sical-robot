@@ -1,10 +1,11 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM Content Loaded");
     loadCajas();
     setupTabButtons();
     setupSelectFileButton();
+    setupFilters(); 
 });
-
 
 async function loadCajas() {
     console.log("loadCajas function called");
@@ -25,10 +26,18 @@ async function loadCajas() {
 
 async function loadRecordsForCaja(caja) {
     try {
+        const tableContainer = document.querySelector('.table-container');
+        showLoading(tableContainer);
+        
         const result = await window.electronAPI.getLast100Records(caja);
-        displayRecords(result.data);
+        currentRecords = result.data;
+        
+        applyFilters(); // This will filter and display the records
+        hideLoading(tableContainer);
     } catch (error) {
         console.error("Error loading records:", error);
+        hideLoading(tableContainer);
+        showError("Error loading records");
     }
 }
 
@@ -141,3 +150,98 @@ window.electronAPI.onTaskSaved((result) => {
 
 const information = document.getElementById('info')
 information.innerText = `👋 This app is using Chrome (v${versions.chrome()}), Node.js (v${versions.node()}), and Electron (v${versions.electron()})`
+
+
+let currentPage = 1;
+const pageSize = 25;
+let sortColumn = null;
+let sortDirection = 'asc';
+let searchTerm = '';
+
+function showLoading(element) {
+  element.classList.add('loading');
+}
+
+function hideLoading(element) {
+  element.classList.remove('loading');
+}
+
+function updateStatusBar(totalRecords) {
+  const statusBar = document.querySelector('.status-bar');
+  statusBar.textContent = `Total records: ${totalRecords} | Page ${currentPage}`;
+}
+
+function setupSearch() {
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = 'Search records...';
+  searchInput.addEventListener('input', debounce((e) => {
+    searchTerm = e.target.value;
+    loadRecordsForCaja(currentCaja);
+  }, 300));
+  
+  document.querySelector('.search-bar').appendChild(searchInput);
+}
+
+function setupPagination(totalRecords) {
+  const totalPages = Math.ceil(totalRecords / pageSize);
+  const pagination = document.querySelector('.pagination');
+  pagination.innerHTML = `
+    <button ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">Previous</button>
+    <span>Page ${currentPage} of ${totalPages}</span>
+    <button ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">Next</button>
+  `;
+}
+
+function setupTableSorting() {
+  document.querySelectorAll('th').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const column = th.textContent.toLowerCase();
+      if (sortColumn === column) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortColumn = column;
+        sortDirection = 'asc';
+      }
+      loadRecordsForCaja(currentCaja);
+    });
+  });
+}
+
+// Add keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'r') {
+    e.preventDefault();
+    loadRecordsForCaja(currentCaja);
+  }
+});
+
+let currentRecords = [];
+let filteredRecords = [];
+
+function setupFilters() {
+    const searchInput = document.getElementById('searchInput');
+    const filterField = document.getElementById('filterField');
+
+    searchInput.addEventListener('input', applyFilters);
+    filterField.addEventListener('change', applyFilters);
+}
+
+function applyFilters() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const filterField = document.getElementById('filterField').value;
+    
+    filteredRecords = currentRecords.filter(record => {
+        if (filterField === 'all') {
+            return Object.values(record).some(value => 
+                String(value).toLowerCase().includes(searchTerm)
+            );
+        }
+        
+        return String(record[filterField]).toLowerCase().includes(searchTerm);
+    });
+
+    displayRecords(filteredRecords);
+    updateStatusBar(filteredRecords.length);
+}

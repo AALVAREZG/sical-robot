@@ -4,6 +4,8 @@ body {
     padding: 0;
     background-color: #1e1e1e;
     color: #ffffff;
+    min-width: 320px;
+    overflow-x: auto;
 }
 
 h1 {
@@ -17,6 +19,85 @@ h5 {
     padding: 10px;
     background-color: #252526;
     font-size: 12px;
+}
+
+.container {
+    width: 100%;
+    padding: 0 15px;
+    margin: 0 auto;
+}
+
+/* Responsive table */
+.table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}
+
+#records {
+min-width: 800px; /* Minimum width before horizontal scroll */
+}
+
+/* Responsive buttons */
+.cajas-container {
+display: flex;
+flex-wrap: wrap;
+gap: 8px;
+margin: 10px 0;
+}
+
+.cajas-container button {
+flex: 0 1 auto;
+white-space: nowrap;
+}
+
+/* Actions bar responsive */
+.actions-bar {
+display: flex;
+flex-wrap: wrap;
+gap: 10px;
+margin: 10px 0;
+}
+
+/* Search bar responsive */
+.search-bar {
+flex-direction: row;
+flex-wrap: wrap;
+}
+
+.search-bar input {
+min-width: 200px;
+}
+
+/* Status bar responsive */
+.status-bar {
+display: flex;
+flex-wrap: wrap;
+gap: 15px;
+font-size: 11px;
+}
+
+/* Responsive typography */
+@media (max-width: 768px) {
+h1 { font-size: 16px; }
+h5 { font-size: 11px; }
+button { padding: 4px 8px; }
+th, td { padding: 6px; font-size: 12px; }
+}
+
+/* Table responsive columns */
+@media (max-width: 1024px) {
+.hide-on-mobile {
+    display: none;
+}
+
+td, th {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 }
 
 #tabs {
@@ -122,4 +203,64 @@ button {
 
 button:hover {
     background-color: #1177bb;
+}
+
+
+.loading {
+    position: relative;
+    opacity: 0.6;
+    pointer-events: none;
+}
+  
+.loading::after {
+content: '';
+position: absolute;
+top: 50%;
+left: 50%;
+width: 30px;
+height: 30px;
+border: 2px solid #f3f3f3;
+border-top: 2px solid #3498db;
+border-radius: 50%;
+animation: spin 1s linear infinite;
+}
+
+.status-bar {
+position: fixed;
+bottom: 0;
+left: 0;
+right: 0;
+height: 25px;
+background: #252526;
+padding: 5px 10px;
+font-size: 12px;
+border-top: 1px solid #3c3c3c;
+}
+
+
+.pagination {
+display: flex;
+justify-content: center;
+gap: 10px;
+margin: 20px 0;
+}
+
+.search-bar {
+display: flex;
+gap: 10px;
+margin: 20px 0;
+}
+
+.search-bar input {
+flex: 1;
+padding: 8px;
+border: 1px solid #3c3c3c;
+border-radius: 4px;
+background: #252526;
+color: white;
+}
+
+@keyframes spin {
+0% { transform: translate(-50%, -50%) rotate(0deg); }
+100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
