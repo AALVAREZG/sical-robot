@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSelectFileButton();
 });
 
+
 async function loadCajas() {
     console.log("loadCajas function called");
     try {
@@ -137,3 +138,6 @@ window.electronAPI.onTaskSaved((result) => {
         loadRecordsForCaja(caja);  // Assuming this function exists to reload data
     }
 });
+
+const information = document.getElementById('info')
+information.innerText = `👋 This app is using Chrome (v${versions.chrome()}), Node.js (v${versions.node()}), and Electron (v${versions.electron()})`

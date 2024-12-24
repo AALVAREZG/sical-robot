@@ -11,3 +11,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onTaskSaved: (callback) => ipcRenderer.on('task-saved', (_, result) => callback(result)),
     exportOperacionesToAPI: (operaciones) => ipcRenderer.invoke('export-operaciones-api', operaciones),
 });
+
+contextBridge.exposeInMainWorld('versions', {
+    node: () => process.versions.node,
+    chrome: () => process.versions.chrome,
+    electron: () => process.versions.electron
+    // we can also expose variables, not just functions
+  })
