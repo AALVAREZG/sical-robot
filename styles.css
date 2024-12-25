@@ -27,12 +27,93 @@ h5 {
     margin: 0 auto;
 }
 
+
+/* Layout containers */
+.app-layout {
+display: flex;
+height: calc(100vh - 85px); /* Account for header and status bar */
+margin-top: 10px;
+}
+
+.sidebar {
+width: 200px;
+min-width: 200px;
+background: #252526;
+border-right: 1px solid #3c3c3c;
+padding: 10px;
+overflow-y: auto;
+}
+
+.main-content {
+flex: 1;
+padding: 0 15px;
+overflow-y: auto;
+}
+
+/* Cajas container styling */
+.cajas-container {
+display: flex;
+flex-direction: column;
+gap: 8px;
+}
+* Update the cajas button styles in styles.css */
+
+.cajas-container button {
+    width: 100%;
+    text-align: left;
+    padding: 10px 15px;
+    background: #2d2d2d;
+    border: 1px solid #3c3c3c;
+    border-radius: 4px;
+    color: #cccccc;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    position: relative;
+    overflow: hidden;
+}
+
+.cajas-container button:hover {
+    background: #383838;
+    border-color: #4c4c4c;
+    transform: translateX(2px);
+}
+
+.cajas-container button.active {
+    background: linear-gradient(to right, #0e639c, #1177bb);
+    color: white;
+    border-color: #2188d6;
+    font-weight: 500;
+    padding-left: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transform: translateX(4px);
+}
+
+.cajas-container button.active::before {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    background: white;
+    border-radius: 50%;
+}
+
+.cajas-container button:focus {
+    outline: none;
+    border-color: #0e639c;
+}
+
 /* Responsive table */
 .table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     max-height: calc(100vh - 200px);
     overflow-y: auto;
+    margin-bottom: 30px;
+    
 }
 
 #records {
@@ -70,13 +151,28 @@ flex-wrap: wrap;
 min-width: 200px;
 }
 
-/* Status bar responsive */
-.status-bar {
-display: flex;
-flex-wrap: wrap;
-gap: 15px;
-font-size: 11px;
-}
+/* Make content area responsive */
+@media (max-width: 768px) {
+    .app-layout {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #3c3c3c;
+    }
+    
+    .cajas-container {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    
+    .cajas-container button {
+        width: auto;
+    }
+    }
 
 /* Responsive typography */
 @media (max-width: 768px) {
@@ -224,18 +320,45 @@ border-top: 2px solid #3498db;
 border-radius: 50%;
 animation: spin 1s linear infinite;
 }
+/* Status bar responsive */
+.status-bar {
+    display: flex;
+    
+    }
 
 .status-bar {
-position: fixed;
-bottom: 0;
-left: 0;
-right: 0;
-height: 25px;
-background: #252526;
-padding: 5px 10px;
-font-size: 12px;
-border-top: 1px solid #3c3c3c;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 24px;
+    background: #252526;
+    border-top: 1px solid #3c3c3c;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    font-size: 11px;
+    align-items: center;
+    padding: 0 10px;
+    z-index: 1000;
 }
+
+.status-item {
+display: flex;
+align-items: center;
+padding: 0 15px;
+border-right: 1px solid #3c3c3c;
+}
+
+.status-item:last-child {
+border-right: none;
+}
+
+.status-icon {
+margin-right: 5px;
+font-size: 14px;
+}
+
 
 
 .pagination {
@@ -264,3 +387,50 @@ color: white;
 0% { transform: translate(-50%, -50%) rotate(0deg); }
 100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
+
+
+/* Record status styling */
+tr.positive-amount {
+    background-color: rgba(40, 167, 69, 0.1) !important;
+  }
+  
+  tr.negative-amount {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+  }
+  
+  tr.contabilized {
+    border-left: 3px solid #28a745;
+  }
+  
+  tr.uncontabilized {
+    border-left: 3px solid #dc3545;
+  }
+  
+  /* Column alignment */
+  td.currency {
+    text-align: right;
+    font-family: monospace;
+    white-space: nowrap;
+  }
+  
+  td.date {
+    text-align: center;
+    white-space: nowrap;
+  }
+  
+  /* Status indicators */
+  .status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+  }
+  
+  .status-indicator.contabilized {
+    background-color: #28a745;
+  }
+  
+  .status-indicator.uncontabilized {
+    background-color: #dc3545;
+  }

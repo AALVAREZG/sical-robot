@@ -25,39 +25,45 @@
                 </div>
                 
                 <div id="resultado"></div>
-                <div id="cajas" class="cajas-container"></div>
+                <div class="app-layout">
+                    <div class="sidebar">
+                        <div id="cajas" class="cajas-container"></div>
+                    </div>
+                    
+                    <div class="main-content">
                 
-                <div class="search-bar">
-                    <input type="text" id="searchInput" placeholder="Search records...">
-                    <select id="filterField">
-                        <option value="all">All Fields</option>
-                        <option value="caja">Caja</option>
-                        <option value="fecha">Fecha</option>
-                        <option value="concepto">Concepto</option>
-                    </select>
-                </div>
+                        <div class="search-bar">
+                            <input type="text" id="searchInput" placeholder="Search records...">
+                            <select id="filterField">
+                                <option value="all">All Fields</option>
+                                <option value="caja">Caja</option>
+                                <option value="fecha">Fecha</option>
+                                <option value="concepto">Concepto</option>
+                            </select>
+                        </div>
 
-                <div class="table-container">
-                    <table id="records">
-                        <thead>
-                            <tr>
-                                <th data-sort="caja">CAJA</th>
-                                <th data-sort="fecha">FECHA</th>
-                                <th data-sort="concepto">CONCEPTO</th>
-                                <th data-sort="importe">IMPORTE</th>
-                                <th data-sort="saldo" class="hide-on-mobile">SALDO</th>
-                                <th data-sort="insertion_date" class="hide-on-mobile">FECHA INSERCIÓN</th>
-                                <th data-sort="alreadyInDatabase">IMP</th>
-                                <th data-sort="is_contabilized">CONT</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
+                        <div class="table-container">
+                            <table id="records">
+                                <thead>
+                                    <tr>
+                                        <th data-sort="caja">CAJA</th>
+                                        <th data-sort="fecha">FECHA</th>
+                                        <th data-sort="concepto">CONCEPTO</th>
+                                        <th data-sort="importe">IMPORTE</th>
+                                        <th data-sort="saldo" class="hide-on-mobile">SALDO</th>
+                                        <th data-sort="insertion_date" class="hide-on-mobile">FECHA INSERCIÓN</th>
+                                        <th data-sort="alreadyInDatabase">IMP</th>
+                                        <th data-sort="is_contabilized">CONT</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
 
-                <div class="pagination"></div>
-            </div>
+                        <div class="pagination"></div>
+                    </div>
+                </div>    
             
             <div id="otros" class="tab-content">
                 <!-- Content for "Otros" tab -->
@@ -65,9 +71,18 @@
         </div>
 
         <div class="status-bar">
-            <span id="recordCount"></span>
-            <span id="currentCaja"></span>
-            <span id="lastUpdate"></span>
+            <div class="status-item">
+                <span class="status-icon">📊</span>
+                Total: 0 | Filtered: 0
+            </div>
+            <div class="status-item">
+                <span class="status-icon">📁</span>
+                Caja: None
+            </div>
+            <div class="status-item">
+                <span class="status-icon">⏱️</span>
+                Updated: --:--:--
+            </div>
         </div>
     </div>
 

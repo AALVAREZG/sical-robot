@@ -88,7 +88,7 @@ init() {
         let id_apunte_contable_var = null
         const params = [
           id, record.caja, record.fecha, record.concepto,
-          record.importe, record.saldo, record.num_apunte, idx, //idx = current date and index of this row in processed file
+          record.importe, record.saldo, record.num_apunte, idx, //idx = hash of current date and index of this row in processed file
           is_contabilized_var, //1 for true, 0 for false
           id_apunte_contable_var // initialized with null value
         ];

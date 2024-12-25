@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFilters(); 
 });
 
-async function loadCajas() {
+async function loadCajas_old() {
     console.log("loadCajas function called");
     try {
         const result = await window.electronAPI.getCajas();
@@ -17,6 +17,33 @@ async function loadCajas() {
             const button = document.createElement('button');
             button.textContent = caja.caja;
             button.onclick = () => loadRecordsForCaja(caja.caja);
+            cajasDiv.appendChild(button);
+        });
+    } catch (error) {
+        console.error("Error in loadCajas:", error);
+    }
+}
+
+async function loadCajas() {
+    console.log("loadCajas function called");
+    try {
+        const result = await window.electronAPI.getCajas();
+        console.log("get-cajas result:", result);
+        const cajasDiv = document.getElementById('cajas');
+        cajasDiv.innerHTML = ''; // Clear existing buttons
+        
+        result.data.forEach(caja => {
+            const button = document.createElement('button');
+            button.textContent = caja.caja;
+            button.onclick = () => {
+                // Remove active class from all buttons
+                document.querySelectorAll('.cajas-container button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                // Add active class to clicked button
+                button.classList.add('active');
+                loadRecordsForCaja(caja.caja);
+            };
             cajasDiv.appendChild(button);
         });
     } catch (error) {
@@ -42,26 +69,49 @@ async function loadRecordsForCaja(caja) {
 }
 
 
-
 function displayRecords(records) {
     const tbody = document.querySelector('#records tbody');
     tbody.innerHTML = '';
     
-    records.sort((a, b) => new Date(b.insertion_date) - new Date(a.insertion_date));
-    
     records.forEach(record => {
         const tr = document.createElement('tr');
-        const formattedImporte = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(record.importe);
-        const formattedSaldo = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(record.saldo);
+        
+        // Add classes for styling
+        tr.classList.add(record.importe >= 0 ? 'positive-amount' : 'negative-amount');
+        tr.classList.add(record.is_contabilized ? 'contabilized' : 'uncontabilized');
+        
+        // Format date
+        
+        const formattedDate = formatDate(record.fecha);
+        const date = new Date(formattedDate);
+        
+        // Format currency
+        const formattedImporte = new Intl.NumberFormat('es-ES', { 
+            style: 'currency', 
+            currency: 'EUR',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(record.importe);
+        
+        const formattedSaldo = new Intl.NumberFormat('es-ES', { 
+            style: 'currency', 
+            currency: 'EUR',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(record.saldo);
+
         tr.innerHTML = `
             <td>${record.caja}</td>
-            <td>${record.fecha}</td>
+            <td class="date">${formattedDate}</td>
             <td>${record.concepto}</td>
-            <td>${formattedImporte}</td>
-            <td>${formattedSaldo}</td>
-            <td>${record.insertion_date}</td>
-            <td>${record.alreadyInDatabase ? 'Yes' : 'No'} </td>
-            <td>${record.is_contabilized ? 'Yes' : 'No'} </td>
+            <td class="currency">${formattedImporte}</td>
+            <td class="currency">${formattedSaldo}</td>
+            <td class="date">${record.insertion_date}</td>
+            <td class="text-center">${record.alreadyInDatabase ? '✓' : '✗'}</td>
+            <td class="text-center">
+                <span class="status-indicator ${record.is_contabilized ? 'contabilized' : 'uncontabilized'}"></span>
+                ${record.is_contabilized ? '✓' : '✗'}
+            </td>
             <td>
                 <button onclick="toggleContabilizado('${record.id}', '${record.caja}', ${!record.is_contabilized})">
                     ${record.is_contabilized ? 'Desmarcar' : 'Marcar'} Contabilizado
@@ -228,6 +278,7 @@ function setupFilters() {
     filterField.addEventListener('change', applyFilters);
 }
 
+// Update applyFilters function
 function applyFilters() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const filterField = document.getElementById('filterField').value;
@@ -238,10 +289,122 @@ function applyFilters() {
                 String(value).toLowerCase().includes(searchTerm)
             );
         }
-        
         return String(record[filterField]).toLowerCase().includes(searchTerm);
     });
 
     displayRecords(filteredRecords);
-    updateStatusBar(filteredRecords.length);
+    statusBar.updateStatus({ filteredRecords: filteredRecords.length });
+}
+
+class StatusBar {
+    constructor() {
+        this.totalRecords = 0;
+        this.filteredRecords = 0;
+        this.currentCaja = '';
+        this.lastUpdate = new Date();
+        this.isLoading = false;
+    }
+
+    updateStatus({ totalRecords, filteredRecords, currentCaja }) {
+        if (totalRecords !== undefined) this.totalRecords = totalRecords;
+        if (filteredRecords !== undefined) this.filteredRecords = filteredRecords;
+        if (currentCaja !== undefined) this.currentCaja = currentCaja;
+        this.lastUpdate = new Date();
+        this.render();
+    }
+
+    setLoading(isLoading) {
+        this.isLoading = isLoading;
+        this.render();
+    }
+
+    render() {
+        const statusBar = document.querySelector('.status-bar');
+        statusBar.innerHTML = `
+            <div class="status-item">
+                <span class="status-icon">📊</span>
+                Total: ${this.totalRecords} | Filtered: ${this.filteredRecords}
+            </div>
+            <div class="status-item">
+                <span class="status-icon">📁</span>
+                Caja: ${this.currentCaja || 'None'}
+            </div>
+            <div class="status-item">
+                <span class="status-icon">⏱️</span>
+                Updated: ${this.lastUpdate.toLocaleTimeString()}
+            </div>
+            ${this.isLoading ? '<div class="status-item">⌛ Loading...</div>' : ''}
+        `;
+    }
+}
+
+// Initialize status bar
+const statusBar = new StatusBar();
+
+// Update loadRecordsForCaja function
+async function loadRecordsForCaja(caja) {
+    try {
+        statusBar.setLoading(true);
+        statusBar.updateStatus({ currentCaja: caja });
+        
+        const result = await window.electronAPI.getLast100Records(caja);
+        currentRecords = result.data;
+        
+        applyFilters();
+        statusBar.setLoading(false);
+        statusBar.updateStatus({
+            totalRecords: currentRecords.length,
+            filteredRecords: filteredRecords.length
+        });
+    } catch (error) {
+        console.error("Error loading records:", error);
+        statusBar.setLoading(false);
+        showError("Error loading records");
+    }
+}
+
+
+function parseSpanishDate(dateStr) {
+    if (!dateStr) return null;
+    
+    // Handle different separators
+    const cleanDate = dateStr.replace(/[.-]/g, '/');
+    
+    // Split the date parts
+    const parts = cleanDate.split('/');
+    if (parts.length !== 3) return null;
+    
+    // Parse parts (handle single and double digit days/months)
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // JS months are 0-based
+    const year = parseInt(parts[2], 10);
+    
+    // Validate values
+    if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+    if (day < 1 || day > 31) return null;
+    if (month < 0 || month > 11) return null;
+    if (year < 1900 || year > 2100) return null;
+    
+    const date = new Date(year, month, day);
+    
+    // Verify valid date (handles months with less than 31 days)
+    if (date.getDate() !== day || date.getMonth() !== month || date.getFullYear() !== year) {
+        return null;
+    }
+    
+    return date;
+}
+
+function formatDate(date) {
+    if (!date) return '';
+    if (typeof date === 'string') {
+        date = parseSpanishDate(date);
+        if (!date) return '';
+    }
+    
+    return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
 }
