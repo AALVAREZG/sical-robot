@@ -434,3 +434,16 @@ tr.positive-amount {
   .status-indicator.uncontabilized {
     background-color: #dc3545;
   }
+
+  .error-toast {
+    display: none;
+    position: fixed;
+    bottom: 30px;
+    right: 20px;
+    background-color: #dc3545;
+    color: white;
+    padding: 15px 25px;
+    border-radius: 4px;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}

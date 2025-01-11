@@ -81,7 +81,6 @@ function displayRecords(records) {
         tr.classList.add(record.is_contabilized ? 'contabilized' : 'uncontabilized');
         
         // Format date
-        
         const formattedDate = formatDate(record.fecha);
         const date = new Date(formattedDate);
         
@@ -100,9 +99,12 @@ function displayRecords(records) {
             maximumFractionDigits: 2
         }).format(record.saldo);
 
+        
+
         tr.innerHTML = `
             <td>${record.caja}</td>
-            <td class="date">${formattedDate}</td>
+            <td class="date">${record.fecha}</td>
+            <td class="date">${formatDate(record.normalized_date)}</td>
             <td>${record.concepto}</td>
             <td class="currency">${formattedImporte}</td>
             <td class="currency">${formattedSaldo}</td>
@@ -123,6 +125,82 @@ function displayRecords(records) {
         `;
         tbody.appendChild(tr);
     });
+}
+
+function formatDate(date) {
+    if (!date) return '';
+    if (typeof date === 'string') {
+        date = parseEnglishDate(date);
+        if (!date) return '';
+    }
+    
+    return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: '2-digit'
+    });
+}
+
+function parseEnglishDate(dateStr) {
+    if (!dateStr) return null;
+    
+    // Handle different separators
+    const cleanDate = dateStr.replace(/[.-]/g, '/');
+    
+    // Split the date parts
+    const parts = cleanDate.split('/');
+    if (parts.length !== 3) return null;
+    
+    // Parse parts (handle single and double digit days/months)
+    const day = parseInt(parts[1], 10);
+    const month = parseInt(parts[0], 10) - 1; // JS months are 0-based
+    const year = parseInt(parts[2], 10);
+    
+    // Validate values
+    if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+    if (day < 1 || day > 31) return null;
+    if (month < 0 || month > 11) return null;
+    if (year < 1900 || year > 2100) return null;
+    
+    const date = new Date(year, month, day);
+    
+    // Verify valid date (handles months with less than 31 days)
+    if (date.getDate() !== day || date.getMonth() !== month || date.getFullYear() !== year) {
+        return null;
+    }
+    
+    return date;
+}
+
+function parseSpanishDate(dateStr) {
+    if (!dateStr) return null;
+    
+    // Handle different separators
+    const cleanDate = dateStr.replace(/[.-]/g, '/');
+    
+    // Split the date parts
+    const parts = cleanDate.split('/');
+    if (parts.length !== 3) return null;
+    
+    // Parse parts (handle single and double digit days/months)
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // JS months are 0-based
+    const year = parseInt(parts[2], 10);
+    
+    // Validate values
+    if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+    if (day < 1 || day > 31) return null;
+    if (month < 0 || month > 11) return null;
+    if (year < 1900 || year > 2100) return null;
+    
+    const date = new Date(year, month, day);
+    
+    // Verify valid date (handles months with less than 31 days)
+    if (date.getDate() !== day || date.getMonth() !== month || date.getFullYear() !== year) {
+        return null;
+    }
+    
+    return date;
 }
 
 async function toggleContabilizado(id, caja, newState) {
@@ -364,47 +442,31 @@ async function loadRecordsForCaja(caja) {
 }
 
 
-function parseSpanishDate(dateStr) {
-    if (!dateStr) return null;
-    
-    // Handle different separators
-    const cleanDate = dateStr.replace(/[.-]/g, '/');
-    
-    // Split the date parts
-    const parts = cleanDate.split('/');
-    if (parts.length !== 3) return null;
-    
-    // Parse parts (handle single and double digit days/months)
-    const day = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1; // JS months are 0-based
-    const year = parseInt(parts[2], 10);
-    
-    // Validate values
-    if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
-    if (day < 1 || day > 31) return null;
-    if (month < 0 || month > 11) return null;
-    if (year < 1900 || year > 2100) return null;
-    
-    const date = new Date(year, month, day);
-    
-    // Verify valid date (handles months with less than 31 days)
-    if (date.getDate() !== day || date.getMonth() !== month || date.getFullYear() !== year) {
-        return null;
-    }
-    
-    return date;
+
+
+async function setupSelectFileButton() {
+    const selectFileButton = document.getElementById('selectFile');
+    selectFileButton.addEventListener('click', async () => {
+        try {
+            const filePath = await window.electronAPI.selectFile();
+            if (filePath) {
+                const records = await window.electronAPI.processFile(filePath);
+                await window.electronAPI.showPreviewDialog(records);
+            }
+        } catch (error) {
+            console.error('Error processing file:', error);
+            showError('Error processing file');
+        }
+    });
 }
 
-function formatDate(date) {
-    if (!date) return '';
-    if (typeof date === 'string') {
-        date = parseSpanishDate(date);
-        if (!date) return '';
-    }
-    
-    return date.toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    });
+
+
+function showError(message) {
+    const errorToast = document.getElementById('errorToast');
+    errorToast.textContent = message;
+    errorToast.style.display = 'block';
+    setTimeout(() => {
+        errorToast.style.display = 'none';
+    }, 3000);
 }

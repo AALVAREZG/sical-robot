@@ -10,6 +10,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openContableTaskDialog: () => ipcRenderer.invoke('openContableTaskDialog'),
     onTaskSaved: (callback) => ipcRenderer.on('task-saved', (_, result) => callback(result)),
     exportOperacionesToAPI: (operaciones) => ipcRenderer.invoke('export-operaciones-api', operaciones),
+    selectFile: () => ipcRenderer.invoke('select-file'),
+    processFile: (filePath) => ipcRenderer.invoke('process-file', filePath),
+    showPreviewDialog: (records) => ipcRenderer.invoke('show-preview-dialog', records),
+    onPreviewData: (callback) => ipcRenderer.on('preview-data', (_, data) => callback(data)),
+    importRecords: (records) => ipcRenderer.invoke('import-records', records)
 });
 
 contextBridge.exposeInMainWorld('versions', {
@@ -18,3 +23,5 @@ contextBridge.exposeInMainWorld('versions', {
     electron: () => process.versions.electron
     // we can also expose variables, not just functions
   })
+
+

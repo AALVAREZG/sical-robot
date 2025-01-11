@@ -14,25 +14,22 @@ class Database {
         console.log('Connected to database');
       }
     });
-
+    console.log('CALLING init database.......');
     this.init();
   }
-
-  
-
 init() {
     this.db.run(`CREATE TABLE IF NOT EXISTS movimientos_bancarios (
       id TEXT PRIMARY KEY,
       caja TEXT,
       fecha TEXT,
+      normalized_date TEXT,
       concepto TEXT,
       importe REAL,
       saldo REAL,
-      num_apunte_bancario TEXT,
+      id_apunte_banco TEXT,
       insertion_date TEXT,
       is_contabilized INTEGER,
-      id_apunte_contable TEXT,
-      already
+      id_apunte_contable TEXT
     )`);
   }
 
@@ -47,10 +44,14 @@ init() {
 
 
   async storeProcessedRecords2(processedRecords) {
+    /* Processed records may be passed in argument in a list of records with next fields:
+      record.caja, record.fecha, record.normalized_date, record.concepto,
+      record.importe, record.saldo, record.num_apunte
+    */
     const insertSql = `
       INSERT OR IGNORE INTO movimientos_bancarios 
-      (id, caja, fecha, concepto, importe, saldo, num_apunte_bancario, insertion_date, is_contabilized, id_apunte_contable)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, caja, fecha, normalized_date, concepto, importe, saldo, id_apunte_banco, insertion_date, is_contabilized, id_apunte_contable)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const selectSql = `SELECT * FROM movimientos_bancarios WHERE id = ? ORDER BY insertion_date`;
 
@@ -87,7 +88,7 @@ init() {
         let is_contabilized_var = 0
         let id_apunte_contable_var = null
         const params = [
-          id, record.caja, record.fecha, record.concepto,
+          id, record.caja, record.fecha, record.normalized_date, record.concepto,
           record.importe, record.saldo, record.num_apunte, idx, //idx = hash of current date and index of this row in processed file
           is_contabilized_var, //1 for true, 0 for false
           id_apunte_contable_var // initialized with null value
