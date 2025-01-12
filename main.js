@@ -4,8 +4,10 @@ const Database = require('./database.js');
 const { dialog } = require('electron');
 const XLSX = require('xlsx');
 const fs = require('fs');
-const CAJARURAL_FILENAME = 'movimientos';
-const CAJARURAL_EXTENSION = '.xlsx';
+const CAJARURAL_FILENAME = 'CRURAL';
+const CAJARURAL_EXTENSION = '.XLSX';
+const CAIXABANK_FILENAME = 'CAIXABANK';
+const CAIXABANK_EXTENSION = '.XLS';
 
 let mainWindow;
 const db = new Database('./prueba05.sqlite');
@@ -146,22 +148,11 @@ ipcMain.handle('process-file', async (event, filePath) => {
     This involve process each bank file type (csv, xls, xlsx, etc)
     with the corresponding logic to extract the data and return it.
   */ 
-  const fileExtension = path.extname(filePath).toLowerCase();
-  const filename = path.parse(path.basename(filePath).toLowerCase()).name;
-  let data = [];
-  
-  if (fileExtension === '.csv') {
-      const content = fs.readFileSync(filePath, 'utf8');
-      data = processCSV(content);
-
-  }else if (fileExtension === '.xls') {
-      const workbook = XLSX.readFile(filePath, {
-          cellDates: true,
-          dateNF: 'dd/mm/yyyy'
-      });
-      data = processExcel(workbook);
-
-  } else if (fileExtension === CAJARURAL_EXTENSION && filename.startsWith(CAJARURAL_FILENAME)) { 
+  const fileExtension = path.extname(filePath).toUpperCase();
+  const filename = path.parse(path.basename(filePath).toUpperCase()).name;
+  let records = [];
+  console.log('filename: ', filename, '    fileExtension: ' ,fileExtension)
+  if (fileExtension === CAJARURAL_EXTENSION && filename.startsWith(CAJARURAL_FILENAME)) { 
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
@@ -170,11 +161,85 @@ ipcMain.handle('process-file', async (event, filePath) => {
     if (filename.endsWith('sec')) { //CUENTA SECUNDARIA
       caja = '239_CRURAL_MUR_8923';
     } 
-    records = XLSX.utils.sheet_to_json(sheet, { range:3, header: ['FECHA', 'FVALOR', 'CONCEPTO', 'IMPORTE', 'SALDO', 'NUM_APUNTE' ] }); //begin for 3rd row
-    data = processCRuralRecords(records, caja);
+    const rawRecords = XLSX.utils.sheet_to_json(sheet, { 
+      range: 3, 
+      header: ['FECHA', 'FVALOR', 'CONCEPTO', 'CONCEPTOADIC', 'IMPORTE', 'SALDO'] 
+  });
+  
+    // Process records and check if they exist in database
+    records = await checkExistingRecords(processCRuralRecords(rawRecords, caja));
+
+  } else if (fileExtension === CAIXABANK_EXTENSION && filename.startsWith(CAIXABANK_FILENAME)) { 
+    const workbook = XLSX.readFile(filePath, {
+      cellDates: true,
+      dateNF: 'dd-mm-yyyy',
+      raw: false
+    });
+    const firstSheetName  = workbook.SheetNames[0];
+    const firstSheet  = workbook.Sheets[firstSheetName];
+    
+    let caja = '200_CAIXABNK - 2064'
+    
+
+    if (filename.endsWith('3616')) { //CUENTA SECUNDARIA
+      caja = '204_CAIXABNK_REC_3616';
+    } 
+    const rawRecords = XLSX.utils.sheet_to_json(firstSheet, { 
+      range: 3, 
+      header: ['FECHA', 'FVALOR', 'CONCEPTO', 'CONCEPTOADIC', 'IMPORTE', 'SALDO']  
+  });
+   
+    // Process records and check if they exist in database
+    records = await checkExistingRecords(processCaixaBnkRecords(rawRecords, caja));
   }
-  return data;
+    return records;
 });
+
+function processCaixaBnkRecords(records, caja) {
+  // Here you would typically process the records, add hash identifiers, 
+  // save to database, etc.
+  
+  // For this example, we're just adding an id to each record
+  try {
+    const processedXlsRecords = records.map((record, index) => ({
+        caja: caja,
+        fecha: record.FECHA.toLocaleDateString('es-ES', {
+          year: 'numeric',
+          month: '2-digit', 
+          day: '2-digit',}),
+        normalized_date: normalizeCaixaBankDate(record.FECHA),
+        concepto: record.CONCEPTO + ' | ' + record.CONCEPTOADIC,
+        importe: record.IMPORTE,
+        saldo: record.SALDO,
+        num_apunte: 0,
+        idx: index
+   })).sort((a, b) => {
+      const [aMonth, aDay, aYear] = a.normalized_date.split('-');
+      const [bMonth, bDay, bYear] = b.normalized_date.split('-');
+      const dateA = new Date(aYear, aMonth - 1, aDay);
+      const dateB = new Date(bYear, bMonth - 1, bDay);
+      return dateB - dateA;
+    });
+  
+  return processedXlsRecords
+  } catch (error) {
+    console.error('Error storing records:', error);
+    return error
+  }
+
+}
+
+function normalizeCaixaBankDate(date) { 
+  //date is a string in format d|dd / m|mm / yyyy
+  //const [year, month, day] = date.split('-');
+  //let _s_date = `${year}-${month}-${day}`;
+  const d = new Date(date);
+  return  d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit', 
+    day: '2-digit'
+  }).replace(/\//g, '-');
+}
 
 function processCRuralRecords(records, caja) {
   // Here you would typically process the records, add hash identifiers, 
@@ -220,6 +285,27 @@ function normalizeCRuralDate(date) {
   }).replace(/\//g, '-');
 }
 
+async function checkExistingRecords(records) {
+  // Check if records already exist in database based on hash.
+  const processedRecords = [];
+  
+  for (const record of records) {
+      // Generate hash for comparison
+      const hash = db.generateHash(record);
+      
+      // Check if record exists
+      const exists = await db.checkRecordExists(hash);
+      
+      processedRecords.push({
+          ...record,
+          alreadyInDatabase: exists
+      });
+  }
+  
+  return processedRecords;
+}
+
+
 function normalizeDate_OLD(date) { //date is a string in format dd/mm/yyyy
   const [day, month, year] = date.split('/');
   return `${year}-${month}-${day}`;
@@ -261,6 +347,9 @@ ipcMain.handle('show-preview-dialog', (event, records) => {
 ipcMain.handle('import-records', async (event, records) => {
   try {
       const results = await db.storeProcessedRecords2(records);
+      BrowserWindow.getAllWindows().forEach(window => {
+        window.webContents.send('records-imported');
+    });
       return { success: true, data: results };
   } catch (error) {
       console.error('Error importing records:', error);

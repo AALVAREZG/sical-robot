@@ -452,6 +452,7 @@ async function setupSelectFileButton() {
             if (filePath) {
                 const records = await window.electronAPI.processFile(filePath);
                 await window.electronAPI.showPreviewDialog(records);
+                loadCajas();
             }
         } catch (error) {
             console.error('Error processing file:', error);
@@ -460,7 +461,13 @@ async function setupSelectFileButton() {
     });
 }
 
-
+window.electronAPI.onRecordsImported(() => {
+    loadCajas();
+    const activeCajaButton = document.querySelector('.cajas-container button.active');
+    if (activeCajaButton) {
+        loadRecordsForCaja(activeCajaButton.textContent);
+    }
+});
 
 function showError(message) {
     const errorToast = document.getElementById('errorToast');
@@ -470,3 +477,4 @@ function showError(message) {
         errorToast.style.display = 'none';
     }, 3000);
 }
+

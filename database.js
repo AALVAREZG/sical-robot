@@ -120,7 +120,7 @@ init() {
     const selectSql = `
       SELECT * FROM movimientos_bancarios 
       WHERE caja = ? 
-      ORDER BY insertion_date DESC 
+      ORDER BY normalized_date DESC 
       LIMIT ? OFFSET ?
     `;
   
@@ -150,7 +150,7 @@ init() {
 
   async getExistingCajas() {
     console.log('Starting in database getExistingCajas:');
-    const selectSql = `SELECT DISTINCT caja FROM movimientos_bancarios;`;
+    const selectSql = `SELECT DISTINCT caja FROM movimientos_bancarios ORDER BY caja;`;
   
     return new Promise((resolve, reject) => {
       this.db.all(selectSql, (err, rows) => {
@@ -200,6 +200,20 @@ init() {
     }
   }
   
+
+  
+  async checkRecordExists(hash) {
+    return new Promise((resolve, reject) => {
+        const sql = 'SELECT COUNT(*) as count FROM movimientos_bancarios WHERE id = ?';
+        this.db.get(sql, [hash], (err, row) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(row.count > 0);
+            }
+        });
+    });
+  }
   
 
   close() {

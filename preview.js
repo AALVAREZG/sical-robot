@@ -15,7 +15,14 @@ document.addEventListener('DOMContentLoaded', () => {
         previewTable.innerHTML = '';
         records.forEach(record => {
             const tr = document.createElement('tr');
-            tr.classList.add(record.importe >= 0 ? 'positive-amount' : 'negative-amount');
+
+             // Add classes for styling
+             tr.classList.add(record.importe >= 0 ? 'positive-amount' : 'negative-amount');
+             if (!record.alreadyInDatabase) {
+                 tr.classList.add('new-record');
+                 tr.addEventListener('mouseenter', () => tr.classList.add('highlight-new'));
+                 tr.addEventListener('mouseleave', () => tr.classList.remove('highlight-new'));
+             }
             
             const formattedImporte = new Intl.NumberFormat('es-ES', { 
                 style: 'currency', 
@@ -36,13 +43,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${record.concepto}</td>
                 <td class="currency">${formattedImporte}</td>
                 <td class="currency">${formattedSaldo}</td>
-                <td class="text-center">
-                    <input type="checkbox" ${record.alreadyInDatabase ? 'checked disabled' : ''}>
-                    ${record.alreadyInDatabase ? '✓' : ''}
+                <td class="text-center import-status">
+                    <input type="checkbox" ${record.alreadyInDatabase ? 'checked disabled' : 'checked'}>
+                    <span class="status-icon">
+                        ${record.alreadyInDatabase ? '&#x2713;' : '<span class="new-badge">NEW</span>'}
+                    </span>
                 </td>
             `;
+            
             previewTable.appendChild(tr);
         });
+
+        updateImportButton();
+    }
+
+    function updateImportButton() {
+        const newRecordsCount = recordsData.filter(r => !r.alreadyInDatabase).length;
+        importButton.textContent = `Import Selected (${newRecordsCount} new)`;
+        importButton.disabled = newRecordsCount === 0;
     }
 
     function formatDate(date) {
@@ -85,6 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
         errorToast.className = 'error-toast';
         errorToast.textContent = message;
         document.body.appendChild(errorToast);
-        setTimeout(() => errorToast.remove(), 3000);
+        setTimeout(() => errorToast.remove(), 5000);
     }
 });
