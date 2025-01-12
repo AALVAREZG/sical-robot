@@ -418,6 +418,12 @@ tr.positive-amount {
     white-space: nowrap;
   }
   
+  td.long-date {
+    text-align: center;
+    white-space: nowrap;
+    font-size: 8px;
+  }
+
   /* Status indicators */
   .status-indicator {
     display: inline-block;

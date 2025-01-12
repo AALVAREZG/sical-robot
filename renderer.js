@@ -108,7 +108,7 @@ function displayRecords(records) {
             <td>${record.concepto}</td>
             <td class="currency">${formattedImporte}</td>
             <td class="currency">${formattedSaldo}</td>
-            <td class="date">${record.insertion_date}</td>
+            <td class="long-date">${record.insertion_date}</td>
             <td class="text-center">${record.alreadyInDatabase ? '✓' : '✗'}</td>
             <td class="text-center">
                 <span class="status-indicator ${record.is_contabilized ? 'contabilized' : 'uncontabilized'}"></span>
