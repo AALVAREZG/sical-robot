@@ -8,6 +8,8 @@ const CAJARURAL_FILENAME = 'CRURAL';
 const CAJARURAL_EXTENSION = '.XLSX';
 const CAIXABANK_FILENAME = 'CAIXABANK';
 const CAIXABANK_EXTENSION = '.XLS';
+const BBVA_FILENAME = 'BBVA';
+const BBVA_EXTENSION = '.XLSX';
 
 let mainWindow;
 const db = new Database('./prueba05.sqlite');
@@ -170,11 +172,7 @@ ipcMain.handle('process-file', async (event, filePath) => {
     records = await checkExistingRecords(processCRuralRecords(rawRecords, caja));
 
   } else if (fileExtension === CAIXABANK_EXTENSION && filename.startsWith(CAIXABANK_FILENAME)) { 
-    const workbook = XLSX.readFile(filePath, {
-      cellDates: true,
-      dateNF: 'dd-mm-yyyy',
-      raw: false
-    });
+    const workbook = XLSX.readFile(filePath);
     const firstSheetName  = workbook.SheetNames[0];
     const firstSheet  = workbook.Sheets[firstSheetName];
     
@@ -183,7 +181,7 @@ ipcMain.handle('process-file', async (event, filePath) => {
 
     if (filename.endsWith('3616')) { //CUENTA SECUNDARIA
       caja = '204_CAIXABNK_REC_3616';
-    } 
+    }
     const rawRecords = XLSX.utils.sheet_to_json(firstSheet, { 
       range: 3, 
       header: ['FECHA', 'FVALOR', 'CONCEPTO', 'CONCEPTOADIC', 'IMPORTE', 'SALDO']  
@@ -191,9 +189,79 @@ ipcMain.handle('process-file', async (event, filePath) => {
    
     // Process records and check if they exist in database
     records = await checkExistingRecords(processCaixaBnkRecords(rawRecords, caja));
+
+
+  } else if (fileExtension === BBVA_EXTENSION && filename.startsWith(BBVA_FILENAME)) { 
+    const workbook = XLSX.readFile(filePath, {
+      cellDates: true,
+      dateNF: 'dd-mm-yyyy',
+      raw: false
+    });
+    const firstSheetName  = workbook.SheetNames[0];
+    const firstSheet  = workbook.Sheets[firstSheetName];
+    
+    
+    let caja = '207_BBVA - 0342'
+    
+
+    if (filename.endsWith('9994')) { //CUENTA SECUNDARIA
+      caja = '207_BBVA_PCONTIGO_9994';
+    } 
+    const rawRecords = XLSX.utils.sheet_to_json(firstSheet, { 
+      range: 16, 
+      header: ['COL_VOID_1', 'COL_VOID_2', 'FECHA', 'FVALOR', 'CUENTA', 'CODIGO', 'CONCEPTO', 'BENEFIARIO_ORDENANTE', 'OBSERVACIONES', 'IMPORTE', 'SALDO']  
+  });
+    console.log('rawRecords: ', rawRecords[0])
+    // Process records and check if they exist in database
+    records = await checkExistingRecords(processBBVARecords(rawRecords, caja));
   }
     return records;
 });
+
+function processBBVARecords(records, caja) {
+  // Here you would typically process the records, add hash identifiers, 
+  // save to database, etc.
+  
+  // For this example, we're just adding an id to each record
+  try {
+    const processedXlsRecords = records.map((record, index) => (
+      beneficiario = record.BENEFIARIO_ORDENANTE ? record.BENEFIARIO_ORDENANTE : 'N/D',
+      {
+        caja: caja,
+        fecha: record.FECHA,
+        normalized_date: normalizeBBVADate(record.FECHA),
+        concepto: record.CONCEPTO + ' | ' + record.OBSERVACIONES + ' | ' + beneficiario,
+        importe: record.IMPORTE,
+        saldo: record.SALDO,
+        num_apunte: 0,
+        idx: index
+   })).sort((a, b) => {
+      const [aMonth, aDay, aYear] = a.normalized_date.split('-');
+      const [bMonth, bDay, bYear] = b.normalized_date.split('-');
+      const dateA = new Date(aYear, aMonth - 1, aDay);
+      const dateB = new Date(bYear, bMonth - 1, bDay);
+      return dateB - dateA;
+    });
+  
+  return processedXlsRecords
+  } catch (error) {
+    console.error('Error storing records:', error);
+    return error
+  }
+
+}
+
+function normalizeBBVADate(date) { 
+  //date is a string in format dd / mm / yyyy
+  const [day, month, year] = date.split('/');
+  let _s_date = `${year}-${month}-${day}`;
+  const d = new Date(_s_date);
+  return  d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit', 
+    day: '2-digit'
+  }).replace(/\//g, '-');
+}
 
 function processCaixaBnkRecords(records, caja) {
   // Here you would typically process the records, add hash identifiers, 
