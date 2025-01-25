@@ -48,6 +48,7 @@ init() {
       record.caja, record.fecha, record.normalized_date, record.concepto,
       record.importe, record.saldo, record.num_apunte
     */
+    console.log('Starting storeProcessedRecords2 with first processedRecords:', processedRecords[0,1]);
     const insertSql = `
       INSERT OR IGNORE INTO movimientos_bancarios 
       (id, caja, fecha, normalized_date, concepto, importe, saldo, id_apunte_banco, insertion_date, is_contabilized, id_apunte_contable)

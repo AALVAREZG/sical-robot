@@ -172,7 +172,11 @@ ipcMain.handle('process-file', async (event, filePath) => {
     records = await checkExistingRecords(processCRuralRecords(rawRecords, caja));
 
   } else if (fileExtension === CAIXABANK_EXTENSION && filename.startsWith(CAIXABANK_FILENAME)) { 
-    const workbook = XLSX.readFile(filePath);
+    const workbook = XLSX.readFile(filePath, {
+      cellDates: true,
+      dateNF: 'dd-mm-yyyy',
+      raw: false
+    });
     const firstSheetName  = workbook.SheetNames[0];
     const firstSheet  = workbook.Sheets[firstSheetName];
     
@@ -188,8 +192,9 @@ ipcMain.handle('process-file', async (event, filePath) => {
   });
    
     // Process records and check if they exist in database
+    console.log('records: ', rawRecords[1,2])
     records = await checkExistingRecords(processCaixaBnkRecords(rawRecords, caja));
-
+    
 
   } else if (fileExtension === BBVA_EXTENSION && filename.startsWith(BBVA_FILENAME)) { 
     const workbook = XLSX.readFile(filePath, {
@@ -211,7 +216,7 @@ ipcMain.handle('process-file', async (event, filePath) => {
       range: 16, 
       header: ['COL_VOID_1', 'COL_VOID_2', 'FECHA', 'FVALOR', 'CUENTA', 'CODIGO', 'CONCEPTO', 'BENEFIARIO_ORDENANTE', 'OBSERVACIONES', 'IMPORTE', 'SALDO']  
   });
-    console.log('rawRecords: ', rawRecords[0])
+    //console.log('rawRecords: ', rawRecords[0])
     // Process records and check if they exist in database
     records = await checkExistingRecords(processBBVARecords(rawRecords, caja));
   }
@@ -443,3 +448,11 @@ function createPreviewDialog(records) {
       previewWindow.webContents.send('preview-data', records);
   });
 }
+
+ipcMain.handle('check-record-exists', async (event, hash) => {
+  return await db.checkRecordExists(hash);
+});
+
+ipcMain.handle('generate-hash', async (event, record) => {
+  return db.generateHash(record);
+});

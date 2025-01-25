@@ -15,7 +15,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     showPreviewDialog: (records) => ipcRenderer.invoke('show-preview-dialog', records),
     onPreviewData: (callback) => ipcRenderer.on('preview-data', (_, data) => callback(data)),
     importRecords: (records) => ipcRenderer.invoke('import-records', records),
-    onRecordsImported: (callback) => ipcRenderer.on('records-imported', callback)
+    onRecordsImported: (callback) => ipcRenderer.on('records-imported', callback),
+    checkRecordExists: (hash) => ipcRenderer.invoke('check-record-exists', hash),
+    generateHash: (record) => ipcRenderer.invoke('generate-hash', record)
 });
 
 contextBridge.exposeInMainWorld('versions', {

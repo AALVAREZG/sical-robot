@@ -3,74 +3,72 @@ document.addEventListener('DOMContentLoaded', () => {
     const importButton = document.getElementById('importRecords');
     const cancelButton = document.getElementById('cancelImport');
 
-    let recordsData = [];
+    let processedRecords = []; /// Array of records to be displayed in the preview table. Contains both grouped and non-grouped records.
 
-    // Listen for data from main process
-    window.electronAPI.onPreviewData((data) => {
-        recordsData = data;
-        displayRecords(data);
+    window.electronAPI.onPreviewData(async (data) => {
+        //console.log('Preview data:', data);
+        processedRecords = await processGroupedRecords(data);
+        //console.log('Processed records:', processedRecords);
+        // Sort all records by date
+        processedRecords.sort((a, b) => b.normalized_date.localeCompare(a.normalized_date));
+        displayRecords(processedRecords);
     });
 
-    function displayRecords(records) {
-        previewTable.innerHTML = '';
+    async function processGroupedRecords(records) {
+        const groups = {};
+        const nonGroupedRecords = [];
+
         records.forEach(record => {
-            const tr = document.createElement('tr');
-
-             // Add classes for styling
-             tr.classList.add(record.importe >= 0 ? 'positive-amount' : 'negative-amount');
-             if (!record.alreadyInDatabase) {
-                 tr.classList.add('new-record');
-                 tr.addEventListener('mouseenter', () => tr.classList.add('highlight-new'));
-                 tr.addEventListener('mouseleave', () => tr.classList.remove('highlight-new'));
-             }
+            const match = record.concepto.match(/TRANSFERENCIAS \| ([A-Za-z0-9]{6,9}) 41016796-E\.I\. CASAR \|/);
             
-            const formattedImporte = new Intl.NumberFormat('es-ES', { 
-                style: 'currency', 
-                currency: 'EUR',
-                minimumFractionDigits: 2
-            }).format(record.importe);
-
-            const formattedSaldo = new Intl.NumberFormat('es-ES', { 
-                style: 'currency', 
-                currency: 'EUR',
-                minimumFractionDigits: 2
-            }).format(record.saldo);
-
-            tr.innerHTML = `
-                <td>${record.caja}</td>
-                <td class="date">${record.fecha}</td>
-                <td class="date">${record.normalized_date}</td>
-                <td>${record.concepto}</td>
-                <td class="currency">${formattedImporte}</td>
-                <td class="currency">${formattedSaldo}</td>
-                <td class="text-center import-status">
-                    <input type="checkbox" ${record.alreadyInDatabase ? 'checked disabled' : 'checked'}>
-                    <span class="status-icon">
-                        ${record.alreadyInDatabase ? '&#x2713;' : '<span class="new-badge">NEW</span>'}
-                    </span>
-                </td>
-            `;
-            
-            previewTable.appendChild(tr);
+            if (match) {
+                const dateKey = record.normalized_date;
+                if (!groups[dateKey]) {
+                    groups[dateKey] = {
+                        records: [],
+                        total: 0
+                    };
+                }
+                groups[dateKey].records.push(record);
+                groups[dateKey].total += record.importe;
+            } else {
+                nonGroupedRecords.push(record);
+            }
         });
 
-        updateImportButton();
-    }
+       // Create and check grouped records
+    const groupedRecords = [];
+    for (const [date, group] of Object.entries(groups)) {
+        const [year, month] = date.split('-');
+        const monthName = new Date(year, month - 1).toLocaleString('es-ES', { month: 'long' });
+        
+        const groupedRecord = {
+            idx: group.records[0].idx,
+            caja: group.records[0].caja,
+            fecha: group.records[0].fecha,
+            normalized_date: date,
+            concepto: `TRANSFERENCIAS 41016796-E.I. CASARICHE ${monthName.toUpperCase()} ${year} (totalizado: ${group.records.length} beneficiarios)`,
+            importe: group.total,
+            saldo: group.records[group.records.length - 1].saldo,
+            is_grouped: true
+        };
 
-    function updateImportButton() {
-        const newRecordsCount = recordsData.filter(r => !r.alreadyInDatabase).length;
-        importButton.textContent = `Import Selected (${newRecordsCount} new)`;
-        importButton.disabled = newRecordsCount === 0;
-    }
-
-    function formatDate(date) {
-        if (!date) return '';
-        const d = new Date(date);
-        return d.toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
+        const hash = await window.electronAPI.generateHash(groupedRecord);
+        const exists = await window.electronAPI.checkRecordExists(hash);
+        
+        groupedRecords.push({
+            ...groupedRecord,
+            alreadyInDatabase: exists,
         });
+    }
+
+        return [...nonGroupedRecords, ...groupedRecords];
+    }
+
+    const checkGroupedRecordExistInDatabase = async (record) => {
+        const hash = await window.electronAPI.generateHash(record);
+        const exists = await window.electronAPI.checkRecordExists(hash);
+        return exists;
     }
 
     importButton.addEventListener('click', async () => {
@@ -80,9 +78,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return checkbox && !checkbox.disabled && checkbox.checked;
             })
             .map(row => {
-                const index = row.rowIndex - 1; // Adjust for header row
-                return recordsData[index];
+                const index = row.rowIndex - 1;
+                const record = processedRecords[index];
+                return record;
             });
+            
 
         if (selectedRows.length > 0) {
             try {
@@ -94,15 +94,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    cancelButton.addEventListener('click', () => {
-        window.close();
-    });
+    function displayRecords(records) {
+        previewTable.innerHTML = '';
+        records.forEach(record => {
+            const tr = document.createElement('tr');
+            tr.classList.add(record.importe >= 0 ? 'positive-amount' : 'negative-amount');
+            
+            const formattedImporte = new Intl.NumberFormat('es-ES', { 
+                style: 'currency', 
+                currency: 'EUR'
+            }).format(record.importe);
 
-    function showError(message) {
-        const errorToast = document.createElement('div');
-        errorToast.className = 'error-toast';
-        errorToast.textContent = message;
-        document.body.appendChild(errorToast);
-        setTimeout(() => errorToast.remove(), 5000);
+            const formattedSaldo = new Intl.NumberFormat('es-ES', { 
+                style: 'currency', 
+                currency: 'EUR'
+            }).format(record.saldo);
+
+            tr.innerHTML = `
+                <td>${record.caja}</td>
+                <td class="date">${record.fecha}</td>
+                <td class="date">${record.normalized_date}</td>
+                <td>${record.concepto}${record.is_grouped ? ' (Grouped)' : ''}</td>
+                <td class="currency">${formattedImporte}</td>
+                <td class="currency">${formattedSaldo}</td>
+                <td class="text-center import-status">
+                    <input type="checkbox" ${record.alreadyInDatabase ? 'checked disabled' : 'checked'}>
+                    <span class="status-icon">
+                        ${record.alreadyInDatabase ? '✓' : '<span class="new-badge">NEW</span>'}
+                    </span>
+                </td>
+            `;
+            
+            previewTable.appendChild(tr);
+        });
+
+        updateImportButton();
     }
+    
+    function updateImportButton() {
+        const newRecordsCount = processedRecords.filter(r => !r.alreadyInDatabase).length;
+        importButton.textContent = `Import Selected (${newRecordsCount} new)`;
+        importButton.disabled = newRecordsCount === 0;
+    }
+
 });
