@@ -68,161 +68,11 @@ async function loadRecordsForCaja(caja) {
     }
 }
 
-// Lodash is available globally as '_' from CDN
-function displayGroupedRecords(records) {
-    const tbody = document.querySelector('#records tbody');
-    tbody.innerHTML = '';
-
-    // Separate matching and non-matching records
-    const groupedData = {};
-    const nonMatchingRecords = [];
-    
-    records.forEach(record => {
-        const match = record.concepto.match(/TRANSFERENCIAS \| ([A-Za-z0-9]{6,9}) 41016796-E\.I\. CASAR \| Junta de Andalucia/);
-        
-        if (match) {
-            const dateKey = record.normalized_date;
-            if (!groupedData[dateKey]) {
-                groupedData[dateKey] = {
-                    records: [],
-                    total: 0
-                };
-            }
-            groupedData[dateKey].records.push(record);
-            groupedData[dateKey].total += record.importe;
-        } else {
-            nonMatchingRecords.push(record);
-        }
-    });
-
-    // Combine all records in date order
-    const allRecords = [...nonMatchingRecords];
-
-    // Add group summary records
-    Object.entries(groupedData).forEach(([date, group]) => {
-        const [month, day, year] = date.split('-');
-        const monthName = new Date(year, month - 1).toLocaleString('es-ES', { month: 'long' });
-        
-        // Create summary record
-        const summaryRecord = {
-            id: `group-${date}`,
-            caja: group.records[0].caja,
-            fecha: group.records[0].fecha,
-            normalized_date: date,
-            concepto: `TRANSFERENCIAS 41016796-E.I. CASARICHE ${monthName.toUpperCase()} ${year}`,
-            importe: group.total,
-            saldo: group.records[group.records.length - 1].saldo,
-            insertion_date: group.records[0].insertion_date,
-            alreadyInDatabase: true,
-            is_contabilized: group.records.every(r => r.is_contabilized),
-            isGroup: true,
-            groupRecords: group.records
-        };
-        
-        allRecords.push(summaryRecord);
-    });
-
-    // Sort all records by date
-    allRecords.sort((a, b) => b.normalized_date.localeCompare(a.normalized_date));
-
-    // Display all records
-    allRecords.forEach(record => {
-        const tr = createRecordRow(record);
-        tbody.appendChild(tr);
-        
-        // If it's a group record, add hidden detail rows
-        if (record.isGroup) {
-            const detailsContainer = document.createElement('tbody');
-            detailsContainer.className = 'group-details';
-            detailsContainer.style.display = 'none';
-            
-            record.groupRecords.forEach(detail => {
-                const detailRow = createRecordRow(detail);
-                detailRow.classList.add('group-detail-row');
-                detailsContainer.appendChild(detailRow);
-            });
-            
-            tbody.appendChild(detailsContainer);
-            
-            // Add click handler to group row
-            tr.classList.add('group-row');
-            tr.addEventListener('click', () => {
-                detailsContainer.style.display = detailsContainer.style.display === 'none' ? '' : 'none';
-                tr.classList.toggle('expanded');
-            });
-        }
-    });
-}
-
-function createRecordRow(record) {
-    const tr = document.createElement('tr');
-    tr.classList.add(record.importe >= 0 ? 'positive-amount' : 'negative-amount');
-    tr.classList.add(record.is_contabilized ? 'contabilized' : 'uncontabilized');
-    if (record.isGroup) tr.classList.add('group-summary');
-    
-    const formattedImporte = new Intl.NumberFormat('es-ES', { 
-        style: 'currency', 
-        currency: 'EUR',
-        minimumFractionDigits: 2
-    }).format(record.importe);
-    
-    const formattedSaldo = new Intl.NumberFormat('es-ES', { 
-        style: 'currency', 
-        currency: 'EUR',
-        minimumFractionDigits: 2
-    }).format(record.saldo);
-
-    tr.innerHTML = `
-        <td>${record.caja}</td>
-        <td class="date">${record.fecha}</td>
-        <td class="date">${record.normalized_date}</td>
-        <td>${record.concepto}${record.isGroup ? ' ▼' : ''}</td>
-        <td class="currency">${formattedImporte}</td>
-        <td class="currency">${formattedSaldo}</td>
-        <td class="long-date">${record.insertion_date}</td>
-        <td class="text-center">${record.alreadyInDatabase ? '✓' : '✗'}</td>
-        <td class="text-center">
-            <span class="status-indicator ${record.is_contabilized ? 'contabilized' : 'uncontabilized'}"></span>
-        </td>
-        <td>
-            ${!record.isGroup ? `
-                <button onclick="toggleContabilizado('${record.id}', '${record.caja}', ${!record.is_contabilized})">
-                    ${record.is_contabilized ? 'Desmarcar' : 'Marcar'}
-                </button>
-                <button onclick="contabilizar('${record.id}', '${record.caja}')">Contabilizar</button>
-            ` : ''}
-        </td>
-    `;
-    return tr;
-}
-
-// Add to your existing styles
-const additionalStyles = `
-    .group-summary {
-        background-color: #2d2d2d !important;
-        cursor: pointer;
-    }
-    
-    .group-summary:hover {
-        background-color: #3d3d3d !important;
-    }
-    
-    .group-detail-row {
-        background-color: #1a1a1a !important;
-    }
-    
-    .group-summary.expanded td:nth-child(4)::after {
-        content: ' ▲';
-    }
-`;
-
-
-
 
 // Replace the existing displayRecords function
-window.displayRecords = displayGroupedRecords;
+//window.displayRecords = displayGroupedRecords;
 
-function displayRecords_old(records) {
+function displayRecords(records) {
     const tbody = document.querySelector('#records tbody');
     tbody.innerHTML = '';
     
@@ -617,6 +467,16 @@ async function setupSelectFileButton() {
 window.electronAPI.onRecordsImported((caja) => {
     loadRecordsForCaja(caja);
     statusBar.updateStatus({ currentCaja: caja });
+});
+
+
+window.electronAPI.onPreviewData(async (data) => {
+    //console.log('Preview data:', data);
+    processedRecords = await processGroupedRecords(data);
+    //console.log('Processed records:', processedRecords);
+    // Sort all records by date
+    processedRecords.sort((a, b) => b.normalized_date.localeCompare(a.normalized_date));
+    displayRecords(processedRecords);
 });
 
 function showError(message) {
