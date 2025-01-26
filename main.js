@@ -420,8 +420,9 @@ ipcMain.handle('show-preview-dialog', (event, records) => {
 ipcMain.handle('import-records', async (event, records) => {
   try {
       const results = await db.storeProcessedRecords2(records);
+      const caja = records[0].caja;
       BrowserWindow.getAllWindows().forEach(window => {
-        window.webContents.send('records-imported');
+        window.webContents.send('records-imported', caja);
     });
       return { success: true, data: results };
   } catch (error) {

@@ -614,12 +614,9 @@ async function setupSelectFileButton() {
     });
 }
 
-window.electronAPI.onRecordsImported(() => {
-    loadCajas();
-    const activeCajaButton = document.querySelector('.cajas-container button.active');
-    if (activeCajaButton) {
-        loadRecordsForCaja(activeCajaButton.textContent);
-    }
+window.electronAPI.onRecordsImported((caja) => {
+    loadRecordsForCaja(caja);
+    statusBar.updateStatus({ currentCaja: caja });
 });
 
 function showError(message) {

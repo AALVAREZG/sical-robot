@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="text-center import-status">
                     <input type="checkbox" ${record.alreadyInDatabase ? 'checked disabled' : 'checked'}>
                     <span class="status-icon">
-                        ${record.alreadyInDatabase ? '✓' : '<span class="new-badge">NEW</span>'}
+                        ${record.alreadyInDatabase ? '&check;' : '<span class="new-badge">NEW</span>'}
                     </span>
                 </td>
             `;
@@ -136,5 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
         importButton.textContent = `Import Selected (${newRecordsCount} new)`;
         importButton.disabled = newRecordsCount === 0;
     }
+
+    cancelButton.addEventListener('click', () => {
+        window.close();
+    });
 
 });
