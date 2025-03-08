@@ -107,11 +107,9 @@ function displayRecords(records) {
         tr.innerHTML = `
             <td>${record.caja}</td>
             <td class="date">${record.fecha}</td>
-            <td class="date">${formatDate(record.normalized_date)}</td>
             <td>${record.concepto}</td>
             <td class="currency">${formattedImporte}</td>
             <td class="currency">${formattedSaldo}</td>
-            <td class="long-date">${record.insertion_date}</td>
             <td class="text-center">${record.alreadyInDatabase ? '✓' : '✗'}</td>
             <td class="text-center">
                 <span class="status-indicator ${record.is_contabilized ? 'contabilized' : 'uncontabilized'}"></span>
@@ -121,7 +119,7 @@ function displayRecords(records) {
                 <button onclick="toggleContabilizado('${record.id}', '${record.caja}', ${!record.is_contabilized})">
                     ${record.is_contabilized ? 'Desmarcar' : 'Marcar'} Contabilizado
                 </button>
-                <button onclick="contabilizar('${record.id}', '${record.caja}', ${!record.is_contabilized})">   
+                <button onclick="openContableTaskDialog('${record.id}', '${record.caja}', ${!record.is_contabilized})">   
                     ${record.is_contabilized ? '' : 'Contabilizar'}
                 </button>
             </td>
@@ -145,6 +143,7 @@ function formatDate(date) {
 }
 
 function parseEnglishDate(dateStr) {
+    console.log("parseEnglishDate function called: ", dateStr);
     if (!dateStr) return null;
     
     // Handle different separators
@@ -206,29 +205,8 @@ function parseSpanishDate(dateStr) {
     return date;
 }
 
-async function toggleContabilizado(id, caja, newState) {
-    const confirmMessage = newState ? 'Are you sure?' : 'Are you sure you want to unmark this record as contabilized?';
-    if (confirm(confirmMessage)) {
-        try {
-            const result = await window.electronAPI.toggleContabilizado({ operation_id: id, operation_caja: caja, new_state: newState });
-            displayRecords(result.data);
-        } catch (error) {
-            console.error("Error toggling contabilizado:", error);
-        }
-    }
-}
 
-async function contabilizar_old(id, caja) {
-    // Implement the logic for "Editar Opciones" here
-    console.log(`Contabilize options for record ${id} in caja ${caja}`);
-    // You might want to open a modal or a new window for editing options
-    try {
-        const result = await window.electronAPI.contabilizar({ operation_id: id, operation_caja: caja});
-        displayRecords(result.data);
-    } catch (error) {
-        console.error("Error contabilizando:", error);
-    }
-}
+
 
 async function editarOpciones(id, caja) {
     // Implement the logic for "Editar Opciones" here
@@ -262,10 +240,23 @@ function setupSelectFileButton() {
     });
 }
 
-async function contabilizar(id, caja) {
+async function toggleContabilizado(id, caja, newState) {
+    const confirmMessage = newState ? 'Are you sure?' : 'Are you sure you want to unmark this record as contabilized?';
+    if (confirm(confirmMessage)) {
+        try {
+            const result = await window.electronAPI.toggleContabilizado({operationId: id, operationCaja: caja, newState: newState });
+            displayRecords(result.data);
+        } catch (error) {
+            console.error("Error toggling contabilizado:", error);
+        }
+    }
+}
+
+async function openContableTaskDialog(id, caja, new_state) {
     console.log(`Contabilizar for record ${id} in caja ${caja}`);
     try {
-        await window.electronAPI.openContableTaskDialog();
+        await window.electronAPI.openContableTaskDialog({operationId: id, operationCaja: caja, newState: new_state});
+        
     } catch (error) {
         console.error("Error opening contable task dialog:", error);
     }
@@ -486,5 +477,40 @@ function showError(message) {
     setTimeout(() => {
         errorToast.style.display = 'none';
     }, 3000);
+}
+
+
+// Show toast message
+function showToast(message, isError = false) {
+    const toast = document.getElementById('errorToast');
+    if (!toast) return;
+    
+    toast.textContent = message;
+    toast.style.backgroundColor = isError ? 'var(--danger)' : 'var(--accent)';
+    toast.style.display = 'block';
+    
+    setTimeout(() => {
+        toast.style.display = 'none';
+    }, 3000);
+}
+
+// Update status bar
+function updateStatusBar(total, filtered, cajaName, timestamp = null) {
+    const statusTotal = document.getElementById('statusTotal');
+    const statusCaja = document.getElementById('statusCaja');
+    const statusTime = document.getElementById('statusTime');
+    
+    if (statusTotal) {
+        statusTotal.textContent = `Total: ${total} | Filtered: ${filtered}`;
+    }
+    
+    if (statusCaja) {
+        statusCaja.textContent = `Caja: ${cajaName || 'None'}`;
+    }
+    
+    if (statusTime) {
+        const time = timestamp || new Date().toLocaleTimeString();
+        statusTime.textContent = `Updated: ${time}`;
+    }
 }
 

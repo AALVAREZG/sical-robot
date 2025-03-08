@@ -4,13 +4,35 @@ const Database = require('./database.js');
 const { dialog } = require('electron');
 const XLSX = require('xlsx');
 const fs = require('fs');
+
+
+
+
+// Import the simplified bank translator module
+const bankTranslator = require('./bank-translator');
+
+// Extract functions and variables from bank-translator.js
+const { 
+  //transactionPatterns,
+  formatearFecha,
+  obtenerMes,
+  translateBankOperation,
+  createFallbackResult,
+  // New exports
+  savePatterns,
+  loadPatterns,
+  initializePatterns,
+  
+} = bankTranslator;
+
+// Your existing main.js code continues here..
+
 const CAJARURAL_FILENAME = 'CRURAL';
 const CAJARURAL_EXTENSION = '.XLSX';
 const CAIXABANK_FILENAME = 'CAIXABANK';
 const CAIXABANK_EXTENSION = '.XLS';
 const BBVA_FILENAME = 'BBVA';
 const BBVA_EXTENSION = '.XLSX';
-// Add at the top with other requires
 
 let mainWindow;
 const db = new Database('./prueba05.sqlite');
@@ -54,7 +76,16 @@ function createWindow() {
 }
 
 app.whenReady().then(createWindow);
-
+// Initialize when the app starts
+app.whenReady().then(async () => {
+  // Your existing code...
+  console.log("async loads and initializations .....")
+  // Load the simplified model (no TensorFlow)
+  
+  await initializePatterns();
+  
+  // Continue with your app initialization...
+});
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
@@ -76,66 +107,12 @@ ipcMain.handle('get-last-100-records', async (event, caja) => {
   return await db.getLast100RecordsByCaja(caja);
 });
 
-ipcMain.handle('toggleContabilizado', async (event, { operation_id, operation_caja, new_state }) => {
-  console.log('NOTE AS CONTABILIZADO')
-  await db.setContabilizedStatus(operation_id, new_state);
-  return await db.getLast100RecordsByCaja(operation_caja);
-});
-
-/*
-ipcMain.handle('contabilizar', async (event, { id, caja }) => {
-  // Implement the logic for "Contabilizar" here
-  // This might involve updating the database
-  await db.contabilizar(id);
-  return await db.getLast100RecordsByCaja(caja);
-});
-*/
-
 ipcMain.handle('editar-opciones', async (event, { id, caja }) => {
   // Implement the logic for "Editar Opciones" here
   // This might involve opening a new window or returning data to edit
   return await db.getRecordOptions(id);
 });
 
-function createContableTaskDialog(parentWindow) {
-  let dialog = new BrowserWindow({
-      parent: parentWindow,
-      modal: true,
-      width: 1366,
-      height: 768,
-      webPreferences: {
-          nodeIntegration: false,
-          contextIsolation: true,
-          preload: path.join(__dirname, 'preload.js')
-      }
-  });
-
-  dialog.loadFile('contabilizarDialog.html');
-  dialog.webContents.openDevTools(); // Optional, for debugging
-}
-
-function createContableTaskDialog_old(parentWindow) {
-  let dialog = new BrowserWindow({
-      parent: parentWindow,
-      modal: true,
-      width: 1366,
-      height: 768,
-      webPreferences: {
-          preload: path.join(__dirname, 'preload.js'),
-          nodeIntegration: true,
-          contextIsolation: false
-      }
-  });
-
-  dialog.loadFile('contabilizarDialog.html');
-  dialog.once('ready-to-show', () => {
-      dialog.show();
-  });
-}
-
-ipcMain.handle('openContableTaskDialog', (event) => {
-  createContableTaskDialog(BrowserWindow.fromWebContents(event.sender));
-});
 
 ipcMain.handle('export-operaciones-api', async (event, operaciones) => {
   console.log('Exporting operations to API:', operaciones);
@@ -143,10 +120,6 @@ ipcMain.handle('export-operaciones-api', async (event, operaciones) => {
   return { success: true };
 });
 
-ipcMain.on('save-contable-task-old', (event, task) => {
-  console.log('Saving task:', task);
-  event.reply('task-saved', { success: true });
-});
 
 ipcMain.handle('select-file', async () => {
   const result = await dialog.showOpenDialog({
@@ -280,7 +253,7 @@ function normalizeBBVADate(date) {
   const [day, month, year] = date.split('/');
   let _s_date = `${year}-${month}-${day}`;
   const d = new Date(_s_date);
-  return  d.toLocaleDateString('en-CA', {  //en-CA format is yyyy-mm-dd
+  return  d.toLocaleDateString('en-CA', {
     year: 'numeric',
     month: '2-digit', 
     day: '2-digit'
@@ -321,7 +294,12 @@ function processCaixaBnkRecords(records, caja) {
 
 }
 
-function normalizeCaixaBankDate(date) { 
+function normalizeCaixaBankDate(date) {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function normalizeCaixaBankDate_old(date) { 
   //date is a string in format d|dd / m|mm / yyyy
   //const [year, month, day] = date.split('-');
   //let _s_date = `${year}-${month}-${day}`;
@@ -477,39 +455,131 @@ ipcMain.handle('generate-hash', async (event, record) => {
   return db.generateHash(record);
 });
 
+//
+ipcMain.handle('toggleContabilizado', async (event, { operationId, operationCaja, newState }) => {
+  console.log('NOTE AS CONTABILIZADO')
+  await db.setContabilizedStatus(operationId, newState);
+  return await db.getLast100RecordsByCaja(operationCaja);
+});
 
-
-// Add these IPC handlers where you have other ipcMain handlers
-ipcMain.handle('read-tasks', async () => {
-    const tasksPath = path.join(__dirname, 'tasks.json');
-    console.log('Reading tasks from:', tasksPath);
-    try {
-        const data = await fs.promises.readFile(tasksPath, 'utf8');
-        return JSON.parse(data);
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            const defaultData = {
-                num_operaciones: 0,
-                liquido_operaciones: 0,
-                operaciones: []
-            };
-            await fs.promises.writeFile(tasksPath, JSON.stringify(defaultData, null, 2));
-            return defaultData;
-        }
-        throw error;
+// Add these handlers for the contabilizarDialog
+ipcMain.handle('open-contabilizar-dialog', async (event, { operationId, operationCaja, newState }) => { 
+  console.log('Opening contabilizar dialog for operation:', operationId);
+  
+  const contabilizarWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    parent: mainWindow,
+    modal: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      enableRemoteModule: true
     }
+  });
+
+  contabilizarWindow.loadFile('contabilizarDialog.html', {
+    query: { id: operationId }
+  });
+
+  // For debugging
+  contabilizarWindow.webContents.openDevTools({ mode: 'detach' });
+
+  return new Promise((resolve) => {
+    // Use a unique channel name based on operationId to avoid conflicts
+    const responseChannel = `submit-tasks-response-${operationId}`;
+    console.log('Created response channel:', responseChannel);
+    
+    // Set up a one-time listener for this specific window
+    const submitListener = (event, data) => {
+      console.log('Received data on channel:', responseChannel);
+      if (event.sender.id === contabilizarWindow.webContents.id) {
+        resolve(data);
+        ipcMain.removeListener(responseChannel, submitListener);
+      }
+    };
+    
+    ipcMain.on(responseChannel, submitListener);
+    
+    // Set the response channel in the window so it knows which channel to use
+    contabilizarWindow.webContents.executeJavaScript(`
+      window.responseChannel = "${responseChannel}";
+      console.log('Response channel set:', window.responseChannel);
+    `);
+
+    contabilizarWindow.on('closed', () => {
+      console.log('Contabilizar dialog closed');
+      ipcMain.removeListener(responseChannel, submitListener);
+      resolve(null);
+    });
+  });
 });
 
-ipcMain.handle('save-tasks', async (event, taskData) => {
-    const tasksPath = path.join(__dirname, 'tasks.json');
-    await fs.promises.writeFile(tasksPath, JSON.stringify(taskData, null, 2));
-    return true;
+// Get bank operation data
+ipcMain.handle('get-bank-operation', async (event, id) => {
+  console.log('Getting bank operation data for ID:', id);
+  const result = await db.getRecord(id);
+  recordForId = result.data;
+  console.log("Retrieved data for record: ", recordForId)
+ 
+  return [recordForId.caja, recordForId.fecha, recordForId.concepto, recordForId.importe, recordForId.saldo]
 });
 
-// Optional: add a handler for window closing
-ipcMain.on('close-window', (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (window) {
-        window.close();
+// Expose the translateBankOperation function from bank-translator.js
+ipcMain.handle('translate-operation', async (event, data) => {
+  console.log('IPC: Translating bank operation:', data);
+  return translateBankOperation(data);
+});
+
+// Show save dialog and save translation
+ipcMain.handle('show-save-dialog-and-save', async (event, translation) => {
+  try {
+    console.log('Showing save dialog for translation ...');
+    const now = new Date().getUTCMilliseconds();
+    const filename = `./data/samples/traduction_${now}.json`;
+    const { dialog } = require('electron');
+    const path = await dialog.showSaveDialog({
+      title: 'Guardar resultado ...',
+      defaultPath: filename,
+      filters: [
+        { name: 'JSON', extensions: ['json'] }
+      ]
+    });
+    
+    if (!path.canceled) {
+      console.log('Saving translation to:', path.filePath);
+      fs.writeFileSync(path.filePath, JSON.stringify(translation, null, 2));
+      return { success: true };
+    } else {
+      console.log('Save dialog canceled');
+      return { success: false, canceled: true };
     }
+  } catch (error) {
+    console.error('Error saving translation:', error);
+    return { success: false, error: error.message };
+  }
 });
+
+ipcMain.handle('train-model', async (event, trainingData) => {
+  try {
+    console.log('Adding new pattern based on example:', trainingData);
+    
+    // Get the input and output data
+    const input = trainingData.input;
+    const output = trainingData.output;
+    const description = trainingData.description || "trained: " + trainingData.input.concepto; // Get description if provided
+    
+    // Use the enhanced pattern creation function with description
+    const newPattern = createPatternFromExample(input, output, description);
+    
+    // Add the pattern and save to storage
+    // This is a placeholder function that doesn't exist
+    // await addPattern(newPattern);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error adding pattern:', error);
+    return { success: false, error: error.message };
+  }
+});
+

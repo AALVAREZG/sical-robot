@@ -16,6 +16,7 @@ out/
 
 # Data Files
 extractos*/
+data/samples*/
 
 # Logs
 logs
@@ -47,7 +48,6 @@ Thumbs.db
 .env.local
 .env.*.local
 
-# Temp files
-tasks.json
-tasks.json.bak
-contabilizarDialog.js.bak
+# Bak and Temp files
+*.bak*
+*.tmp   

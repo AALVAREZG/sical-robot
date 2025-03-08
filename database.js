@@ -135,8 +135,7 @@ init() {
             ...row,
             alreadyInDatabase: true
           })) : [];
-  
-          resolve({
+            resolve({
             status: 'success',
             message: `Retrieved ${rows ? rows.length : 0} records for caja ${caja}`,
             total_records: rows ? rows.length : 0,
@@ -216,6 +215,27 @@ init() {
     });
   }
   
+  async getRecord(hash) {
+    return new Promise((resolve, reject) => {
+        //const sql = 'SELECT COUNT(*) as count FROM movimientos_bancarios WHERE id = ?';
+        const selectSql = `
+          SELECT * FROM movimientos_bancarios 
+          WHERE id = ? 
+          `;
+        this.db.get(selectSql, [hash], (err, rows) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve({
+                  status: 'success',
+                  message: `Retrieved ${rows ? rows.length : 0} records `,
+                  total_records: rows ? rows.length : 0,
+                  data: rows || []
+                });
+            }
+        });
+    });
+  }
 
   close() {
     return new Promise((resolve, reject) => {
