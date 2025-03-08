@@ -17,8 +17,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     importRecords: (records) => ipcRenderer.invoke('import-records', records),
     onRecordsImported: (callback) => ipcRenderer.on('records-imported', (_, caja) => callback(caja)),
     checkRecordExists: (hash) => ipcRenderer.invoke('check-record-exists', hash),
-    generateHash: (record) => ipcRenderer.invoke('generate-hash', record)
+    generateHash: (record) => ipcRenderer.invoke('generate-hash', record),
+    readTasks: () => ipcRenderer.invoke('read-tasks'),
+    saveTasks: (taskData) => ipcRenderer.invoke('save-tasks', taskData),
+    closeWindow: () => ipcRenderer.send('close-window')
 });
+
 
 contextBridge.exposeInMainWorld('versions', {
     node: () => process.versions.node,

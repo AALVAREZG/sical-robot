@@ -10,6 +10,7 @@ const CAIXABANK_FILENAME = 'CAIXABANK';
 const CAIXABANK_EXTENSION = '.XLS';
 const BBVA_FILENAME = 'BBVA';
 const BBVA_EXTENSION = '.XLSX';
+// Add at the top with other requires
 
 let mainWindow;
 const db = new Database('./prueba05.sqlite');
@@ -97,6 +98,23 @@ ipcMain.handle('editar-opciones', async (event, { id, caja }) => {
 });
 
 function createContableTaskDialog(parentWindow) {
+  let dialog = new BrowserWindow({
+      parent: parentWindow,
+      modal: true,
+      width: 1366,
+      height: 768,
+      webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          preload: path.join(__dirname, 'preload.js')
+      }
+  });
+
+  dialog.loadFile('contabilizarDialog.html');
+  dialog.webContents.openDevTools(); // Optional, for debugging
+}
+
+function createContableTaskDialog_old(parentWindow) {
   let dialog = new BrowserWindow({
       parent: parentWindow,
       modal: true,
@@ -214,7 +232,8 @@ ipcMain.handle('process-file', async (event, filePath) => {
     } 
     const rawRecords = XLSX.utils.sheet_to_json(firstSheet, { 
       range: 16, 
-      header: ['COL_VOID_1', 'COL_VOID_2', 'FECHA', 'FVALOR', 'CUENTA', 'CODIGO', 'CONCEPTO', 'BENEFIARIO_ORDENANTE', 'OBSERVACIONES', 'IMPORTE', 'SALDO']  
+      //header: ['COL_VOID_1', 'COL_VOID_2', 'FECHA', 'FVALOR', 'CUENTA', 'CODIGO', 'CONCEPTO', 'BENEFIARIO_ORDENANTE', 'OBSERVACIONES', 'IMPORTE', 'SALDO']  
+      header: ['COL_VOID_1', 'COL_VOID_2', 'FECHA', 'FVALOR', 'CODIGO', 'CONCEPTO', 'BENEFIARIO_ORDENANTE', 'OBSERVACIONES', 'IMPORTE', 'SALDO']  
   });
     //console.log('rawRecords: ', rawRecords[0])
     // Process records and check if they exist in database
@@ -261,7 +280,7 @@ function normalizeBBVADate(date) {
   const [day, month, year] = date.split('/');
   let _s_date = `${year}-${month}-${day}`;
   const d = new Date(_s_date);
-  return  d.toLocaleDateString('en-US', {
+  return  d.toLocaleDateString('en-CA', {  //en-CA format is yyyy-mm-dd
     year: 'numeric',
     month: '2-digit', 
     day: '2-digit'
@@ -456,4 +475,41 @@ ipcMain.handle('check-record-exists', async (event, hash) => {
 
 ipcMain.handle('generate-hash', async (event, record) => {
   return db.generateHash(record);
+});
+
+
+
+// Add these IPC handlers where you have other ipcMain handlers
+ipcMain.handle('read-tasks', async () => {
+    const tasksPath = path.join(__dirname, 'tasks.json');
+    console.log('Reading tasks from:', tasksPath);
+    try {
+        const data = await fs.promises.readFile(tasksPath, 'utf8');
+        return JSON.parse(data);
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            const defaultData = {
+                num_operaciones: 0,
+                liquido_operaciones: 0,
+                operaciones: []
+            };
+            await fs.promises.writeFile(tasksPath, JSON.stringify(defaultData, null, 2));
+            return defaultData;
+        }
+        throw error;
+    }
+});
+
+ipcMain.handle('save-tasks', async (event, taskData) => {
+    const tasksPath = path.join(__dirname, 'tasks.json');
+    await fs.promises.writeFile(tasksPath, JSON.stringify(taskData, null, 2));
+    return true;
+});
+
+// Optional: add a handler for window closing
+ipcMain.on('close-window', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (window) {
+        window.close();
+    }
 });

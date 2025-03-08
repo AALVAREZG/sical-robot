@@ -46,3 +46,8 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# Temp files
+tasks.json
+tasks.json.bak
+contabilizarDialog.js.bak
