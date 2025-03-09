@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contabilizar Operaciones</title>
+    <!-- External CSS files -->
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/modal.css">
+    <link rel="stylesheet" href="css/editors.css">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Contabilizar Operaciones</h1>
+            <div>
+                <!--<button id="trainAIBtn" class="secondary">Entrenar IA</button>-->
+                <button id="saveBtn">Guardar</button>
+            </div>
+        </div>
+        
+        <div class="bank-operation">
+            <h3>Operación Bancaria</h3>
+            <div class="bank-operation-details">
+                <div>
+                    <div class="bank-operation-field">CAJA</div>
+                    <div id="bankBox"></div>
+                </div>
+                <div>
+                    <div class="bank-operation-field">FECHA</div>
+                    <div id="bankDate"></div>
+                </div>
+                <div>
+                    <div class="bank-operation-field">CONCEPTO</div>
+                    <div id="bankConcept"></div>
+                </div>
+                <div>
+                    <div class="bank-operation-field">IMPORTE</div>
+                    <div id="bankAmount"></div>
+                </div>
+                <div>
+                    <div class="bank-operation-field">SALDO</div>
+                    <div id="bankBalance"></div>
+                </div>
+            </div>
+            
+            <!-- AI suggestion section -->
+            <div class="ai-suggestion">
+                <div class="ai-suggestion-header">
+                    <div class="ai-icon">🤖 Sugerencia de IA</div>
+                    <div class="suggestion-actions">
+                        <button id="acceptAllBtn">Aceptar Todo</button>
+                        <button id="rejectAllBtn" class="secondary">Rechazar</button>
+                    </div>
+                </div>
+                <div class="ai-suggestion-info">
+                    <div id="aiSuggestionCount"></div>
+                    <div id="patternDisplay">Patrón seleccionado: <span id="selectedPattern">Ninguno</span></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="accounting-tasks">
+            <h3>Tareas Contables</h3>
+            <div id="taskContainer"></div>
+            
+            <button id="addTaskBtn" class="task-add-btn">Añadir Tarea</button>
+        </div>
+        
+        <div class="controls">
+            <button id="cancelBtn" class="secondary">Cancelar</button>
+            <button id="confirmBtn">Confirmar</button>
+        </div>
+    </div>
+    
+    <!-- Debug Console -->
+    <div id="debugConsole"></div>
+    <button id="debugToggle"><i class="fas fa-bug"></i></button>
+    
+    <!-- Task Modal -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle" class="modal-title">Editar Tarea</h2>
+                <span class="close">&times;</span>
+            </div>
+            
+            <div class="modal-body">
+                <div class="form-field">
+                    <label for="taskType">Tipo de Tarea</label>
+                    <select id="taskType">
+                        <option value="arqueo">Arqueo</option>
+                        <option value="ado220">ADO</option>
+                        <!-- Add other task types as needed -->
+                    </select>
+                </div>
+                
+                <!-- Dynamic form fields based on task type will be inserted here -->
+                <div id="dynamicFormFields"></div>
+            </div>
+            
+            <div class="modal-footer">
+                <button id="cancelModalBtn" class="btn btn-secondary">Cancelar</button>
+                <button id="saveModalBtn" class="btn btn-primary">Guardar</button>
+            </div>
+        </div>
+    </div>
+    
+     
+   <script src="js/contabilizarMain.js"></script>
+</body>
+</html>

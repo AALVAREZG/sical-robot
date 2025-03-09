@@ -1,0 +1,350 @@
+/**
+ * Main application styles
+ */
+
+/* Base Styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+    color: #333;
+    line-height: 1.5;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Header Styles */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 0;
+    color: #333;
+}
+
+h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+h3 {
+    margin-bottom: 15px;
+}
+
+/* Bank Operation Styles */
+.bank-operation {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    border-left: 4px solid #4285F4;
+}
+
+.bank-operation-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.bank-operation-field {
+    font-weight: bold;
+    color: #555;
+    font-size: 13px;
+}
+
+/* Task Card Styles */
+.accounting-tasks {
+    margin-top: 20px;
+}
+
+.task-card {
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 15px;
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.2s ease-in-out;
+}
+
+.task-card:hover {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+}
+
+.task-type {
+    background-color: #E1F5FE;
+    color: #0277BD;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.task-type.arqueo {
+    background-color: #E8F5E9;
+    color: #2E7D32;
+}
+
+.task-type.ado220 {
+    background-color: #FFF8E1;
+    color: #FF8F00;
+}
+
+.edit-button {
+    background-color: #f1f1f1;
+    color: #333;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.edit-button:hover {
+    background-color: #e4e4e4;
+}
+
+button.delete {
+    background-color: #F44336;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    padding: 3px 8px;
+    font-size: 12px;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+button.delete:hover {
+    background-color: #D32F2F;
+}
+
+.task-detail-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.field-label {
+    font-size: 12px;
+    color: #666;
+}
+
+.field-value {
+    font-weight: 500;
+}
+
+/* Button Styles */
+button {
+    padding: 8px 15px;
+    background-color: #4285F4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 10px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #3367D6;
+}
+
+button.secondary {
+    background-color: #f1f1f1;
+    color: #333;
+}
+
+button.secondary:hover {
+    background-color: #e4e4e4;
+}
+
+.task-add-btn {
+    background-color: #4CAF50;
+    margin: 10px 0;
+    display: flex;
+    align-items: center;
+}
+
+.task-add-btn:hover {
+    background-color: #45a049;
+}
+
+.task-add-btn::before {
+    content: "+";
+    font-size: 16px;
+    margin-right: 6px;
+}
+
+.controls {
+    text-align: right;
+    margin: 20px 0;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+/* AI Suggestion Styles */
+.ai-suggestion {
+    background-color: #E3F2FD;
+    padding: 15px;
+    border-radius: 5px;
+    margin: 15px 0;
+    border-left: 4px solid #2196F3;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.ai-suggestion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.ai-icon {
+    font-weight: bold;
+    color: #2196F3;
+    display: flex;
+    align-items: center;
+}
+
+.suggestion-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.ai-suggestion-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    font-size: 14px;
+}
+
+#patternDisplay {
+    color: #555;
+}
+
+#selectedPattern {
+    font-weight: bold;
+    color: #2196F3;
+}
+
+/* Debug Console Styles */
+#debugConsole {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 400px;
+    max-height: 300px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 10px;
+    overflow-y: auto;
+    z-index: 9999;
+    border-top-left-radius: 5px;
+    display: none;
+}
+
+#debugConsole.visible {
+    display: block;
+}
+
+#debugToggle {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 10000;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.debug-line {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 3px 0;
+}
+
+.debug-error {
+    color: #ff5252;
+}
+
+.debug-warn {
+    color: #ffca28;
+}
+
+.debug-info {
+    color: #4fc3f7;
+}
+
+/* Animation */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+    .bank-operation-details {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .task-detail-row {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .suggestion-actions {
+        flex-direction: column;
+    }
+    
+    .controls button {
+        width: 100%;
+        margin: 5px 0;
+    }
+    
+    #debugConsole {
+        width: 100%;
+        right: 0;
+    }
+}

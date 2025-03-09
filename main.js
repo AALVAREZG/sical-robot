@@ -478,7 +478,7 @@ ipcMain.handle('open-contabilizar-dialog', async (event, { operationId, operatio
     }
   });
 
-  contabilizarWindow.loadFile('contabilizarDialog.html', {
+  contabilizarWindow.loadFile(path.join(__dirname, 'contabilizarDialog/contabilizarDialog.html'), {
     query: { id: operationId }
   });
 
