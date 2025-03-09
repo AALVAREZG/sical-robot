@@ -29,6 +29,19 @@ function obtenerMes(fechaISO) {
   return meses[fecha.getMonth()];
 }
 
+function getMes(fechaDDMMYYYY) {
+  const meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+  
+  // Parse ddmmYYYY format
+  const day = fechaDDMMYYYY.substring(0, 2);
+  const month = fechaDDMMYYYY.substring(2, 4);
+  const year = fechaDDMMYYYY.substring(4, 8);
+  
+  // JavaScript months are 0-indexed, so subtract 1 from the parsed month
+  const monthIndex = parseInt(month, 10) - 1;
+  
+  return meses[monthIndex];
+}
 // Enhanced pattern-based translator with all fields
 function translateBankOperation(bankData) {
   const [caja, fecha, concepto, importe] = bankData;

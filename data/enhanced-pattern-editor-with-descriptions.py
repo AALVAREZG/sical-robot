@@ -1,10 +1,128 @@
 import json
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
-import os
+import os, re
 import subprocess
 import tempfile
 import sys
+
+class SimpleJSEditor(scrolledtext.ScrolledText):
+    """A simple JavaScript editor with basic syntax highlighting"""
+    
+    def __init__(self, master=None, **kwargs):
+        # Set default font for code
+        if 'font' not in kwargs:
+            kwargs['font'] = ('Consolas', 10)
+        
+        # Initialize ScrolledText widget
+        super().__init__(master, **kwargs)
+        
+        # Create tags for syntax highlighting
+        self.create_tags()
+        
+        # Bind events for syntax highlighting
+        self.bind('<KeyRelease>', self.highlight_text)
+        self.bind('<FocusIn>', self.highlight_text)
+        
+    def create_tags(self):
+        # Define colors for different syntax elements
+        self.tag_configure('keyword', foreground='#0000FF')  # Blue
+        self.tag_configure('string', foreground='#008000')   # Green
+        self.tag_configure('comment', foreground='#808080')  # Gray
+        self.tag_configure('function', foreground='#800080') # Purple
+        self.tag_configure('number', foreground='#FF8000')   # Orange
+        self.tag_configure('operator', foreground='#B22222') # Firebrick
+        
+    def highlight_text(self, event=None):
+        # Delete all existing tags
+        for tag in ['keyword', 'string', 'comment', 'function', 'number', 'operator']:
+            self.tag_remove(tag, '1.0', 'end')
+        
+        # Get all text
+        text_content = self.get('1.0', 'end')
+        
+        # Highlight keywords
+        keywords = ['const', 'let', 'var', 'function', 'return', 'if', 'else',
+                   'for', 'while', 'do', 'switch', 'case', 'default', 'break',
+                   'continue', 'try', 'catch', 'finally', 'throw', 'new', 'delete',
+                   'typeof', 'instanceof', 'void', 'this', 'null', 'undefined',
+                   'true', 'false', 'in', 'of', 'export', 'import', 'from', 'as',
+                   'class', 'extends', 'super', 'get', 'set', 'static', 'await', 'async']
+        
+        for keyword in keywords:
+            self.highlight_pattern(r'\b' + keyword + r'\b', 'keyword')
+        
+        # Highlight strings
+        self.highlight_pattern(r'"[^"\\]*(\\.[^"\\]*)*"', 'string')
+        self.highlight_pattern(r"'[^'\\]*(\\.[^'\\]*)*'", 'string')
+        self.highlight_pattern(r"`[^`\\]*(\\.[^`\\]*)*`", 'string')
+        
+        # Highlight comments
+        self.highlight_pattern(r'//[^\n]*', 'comment')
+        # Multiline comments - simplified approach
+        comment_start = 0
+        while True:
+            comment_start = text_content.find('/*', comment_start)
+            if comment_start == -1:
+                break
+            comment_end = text_content.find('*/', comment_start + 2)
+            if comment_end == -1:
+                # If no end found, highlight to the end
+                self.tag_add('comment', f"1.0+{comment_start}c", 'end')
+                break
+            else:
+                # Calculate line and column positions
+                start_line = text_content.count('\n', 0, comment_start) + 1
+                start_col = comment_start - text_content.rfind('\n', 0, comment_start) - 1
+                if start_col < 0:  # If at start of file
+                    start_col = comment_start
+                
+                end_line = text_content.count('\n', 0, comment_end + 2) + 1
+                end_col = comment_end + 2 - text_content.rfind('\n', 0, comment_end + 2) - 1
+                if end_col < 0:  # Shouldn't happen, but just in case
+                    end_col = comment_end + 2
+                
+                self.tag_add('comment', f"{start_line}.{start_col}", f"{end_line}.{end_col}")
+                comment_start = comment_end + 2
+        
+        # Highlight function declarations/calls
+        self.highlight_pattern(r'\b\w+\s*\(', 'function')
+        
+        # Highlight numbers
+        self.highlight_pattern(r'\b\d+\.?\d*\b', 'number')
+        
+        # Highlight operators
+        operators = ['+', '-', '*', '/', '%', '=', '==', '===', '!=', '!==',
+                    '>', '<', '>=', '<=', '&&', '||', '!', '&', '|', '^', '~',
+                    '<<', '>>', '>>>', '+=', '-=', '*=', '/=', '%=', '&=', '|=',
+                    '^=', '<<=', '>>=', '>>>=', '=>', '?', ':']
+        
+        for op in operators:
+            # Escape special regex characters
+            escaped_op = re.escape(op)
+            self.highlight_pattern(escaped_op, 'operator')
+    
+    def highlight_pattern(self, pattern, tag):
+        # Find and tag all occurrences of the pattern
+        for match in re.finditer(pattern, self.get('1.0', 'end-1c'), re.MULTILINE):
+            start_index = match.start()
+            end_index = match.end()
+            
+            # Calculate line and column positions
+            text_content = self.get('1.0', 'end-1c')
+            start_line = text_content.count('\n', 0, start_index) + 1
+            start_col = start_index - text_content.rfind('\n', 0, start_index) - 1
+            if start_col < 0:  # If at start of file
+                start_col = start_index
+            
+            end_line = text_content.count('\n', 0, end_index) + 1
+            end_col = end_index - text_content.rfind('\n', 0, end_index) - 1
+            if end_col < 0:  # Shouldn't happen, but just in case
+                end_col = end_index
+            
+            self.tag_add(tag, f"{start_line}.{start_col}", f"{end_line}.{end_col}")
+
+
 
 class TransactionPatternEditor:
     def __init__(self, root):
@@ -131,14 +249,26 @@ class TransactionPatternEditor:
         # Matcher function editor
         matcher_frame = ttk.LabelFrame(right_paned, text="Matcher Function")
         
-        self.matcher_text = scrolledtext.ScrolledText(matcher_frame, wrap=tk.WORD, width=80, height=15)
+        # REPLACE:
+        # self.matcher_text = scrolledtext.ScrolledText(matcher_frame, wrap=tk.WORD, width=80, height=15)
+        # self.matcher_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # WITH:
+        self.matcher_text = SimpleJSEditor(matcher_frame, wrap=tk.WORD, width=80, height=15)
         self.matcher_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
         
         # Generator function editor
         generator_frame = ttk.LabelFrame(right_paned, text="Generator Function")
         
-        self.generator_text = scrolledtext.ScrolledText(generator_frame, wrap=tk.WORD, width=80, height=15)
+        # REPLACE:
+        # self.generator_text = scrolledtext.ScrolledText(generator_frame, wrap=tk.WORD, width=80, height=15)
+        # self.generator_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # WITH:
+        self.generator_text = SimpleJSEditor(generator_frame, wrap=tk.WORD, width=80, height=15)
         self.generator_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
         
         # Add to paned window
         right_paned.add(description_frame, weight=0)
@@ -270,11 +400,16 @@ class TransactionPatternEditor:
         self.description_text.insert(0, pattern.get("description", ""))
         
         # Update text widgets
-        self.matcher_text.delete(1.0, tk.END)
-        self.matcher_text.insert(tk.END, pattern.get("matcherFunction", ""))
+        #self.matcher_text.delete(1.0, tk.END)
+        #self.matcher_text.insert(tk.END, pattern.get("matcherFunction", ""))
+        # When setting text (example from on_pattern_select):
+        self.matcher_text.delete("1.0", "end")
+        self.matcher_text.insert("1.0", pattern.get("matcherFunction", ""))
         
-        self.generator_text.delete(1.0, tk.END)
-        self.generator_text.insert(tk.END, pattern.get("generatorFunction", ""))
+        #self.generator_text.delete(1.0, tk.END)
+        #self.generator_text.insert(tk.END, pattern.get("generatorFunction", ""))
+        self.generator_text.delete("1.0", "end")
+        self.generator_text.insert("1.0", pattern.get("generatorFunction", ""))
     
     def update_pattern(self):
         if self.current_pattern_index is None:
@@ -283,8 +418,10 @@ class TransactionPatternEditor:
             
         # Get the updated function contents
         description = self.description_text.get().strip()
-        matcher_function = self.matcher_text.get(1.0, tk.END).strip()
-        generator_function = self.generator_text.get(1.0, tk.END).strip()
+        #matcher_function = self.matcher_text.get(1.0, tk.END).strip()
+        matcher_function = self.matcher_text.get("1.0", "end-1c").strip()
+        #generator_function = self.generator_text.get(1.0, tk.END).strip()
+        generator_function = self.generator_text.get("1.0", "end-1c").strip()
         
         # Update the pattern
         self.patterns[self.current_pattern_index]["description"] = description
@@ -467,9 +604,16 @@ class TransactionPatternEditor:
         code_frame = ttk.Frame(notebook)
         notebook.add(code_frame, text="JavaScript Code")
         
-        code_text = scrolledtext.ScrolledText(code_frame, wrap=tk.WORD)
-        code_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
+        
+       # REPLACE:
+        # code_text = scrolledtext.ScrolledText(code_frame, wrap=tk.WORD)
+        # code_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # WITH:
+        code_text = SimpleJSEditor(code_frame, wrap=tk.WORD)        
+        code_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
         # Bottom frame for buttons
         bottom_frame = ttk.Frame(test_frame)
         bottom_frame.pack(fill=tk.X, pady=10)
