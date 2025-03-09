@@ -364,6 +364,12 @@ function formatCurrency(value, showSymbol = true) {
         
         return dateStr;
     }
+    function logFormData(formElement) {
+        console.log('Form data being submitted:');
+        const dateValue = document.getElementById('fecha').value;
+        console.log('Raw date value:', dateValue);
+        console.log('Converted date value:', formatDateForStorage(dateValue));
+    }
 
 /**
  * Close the modal
