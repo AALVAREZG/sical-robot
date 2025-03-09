@@ -1,4 +1,463 @@
 /**
+ * PartidasManager - Component to reliably manage partida items in ArqueoEditor
+ */
+class PartidasManager {
+    /**
+     * Constructor
+     * @param {HTMLElement} container - Container element to render partidas
+     * @param {Array} initialPartidas - Initial partidas data
+     * @param {Function} onUpdate - Callback when partidas are updated
+     */
+    constructor(container, initialPartidas = [], onUpdate = null) {
+        this.container = container;
+        this.partidas = Array.isArray(initialPartidas) ? [...initialPartidas] : [];
+        this.onUpdate = onUpdate;
+        
+        // Ensure we have at least one empty partida
+        if (this.partidas.length === 0) {
+            this.partidas.push({ partida: '', IMPORTE_PARTIDA: 0 });
+        }
+        
+        // Generate unique IDs for each partida
+        this.partidas = this.partidas.map(partida => ({
+            ...partida,
+            _id: this._generateUniqueId()
+        }));
+        
+        // Debug
+        console.log('PartidasManager initialized with:', this.partidas);
+        
+        // Initialize the UI
+        this.render();
+    }
+    
+    /**
+     * Generate a unique ID for partida items
+     * @returns {string} Unique ID
+     */
+    _generateUniqueId() {
+        return Date.now().toString(36) + Math.random().toString(36).substring(2);
+    }
+    
+    /**
+     * Render all partidas
+     */
+    render() {
+        // Clear the container
+        this.container.innerHTML = '';
+        
+        // Add header
+        const headerContainer = document.createElement('div');
+        headerContainer.className = 'partidas-header';
+        headerContainer.innerHTML = `
+            <div class="partidas-row header">
+                <div class="partida-col">Partida</div>
+                <div class="importe-col">Importe</div>
+                <div class="actions-col">Acciones</div>
+            </div>
+        `;
+        this.container.appendChild(headerContainer);
+        
+        // Add each partida
+        const partidasContainer = document.createElement('div');
+        partidasContainer.className = 'partidas-items-container';
+        this.partidas.forEach((partida, index) => {
+            partidasContainer.appendChild(this._renderPartidaItem(partida, index));
+        });
+        this.container.appendChild(partidasContainer);
+        
+        // Add "add new" button
+        const addButtonContainer = document.createElement('div');
+        addButtonContainer.className = 'partidas-add-button-container';
+        const addButton = document.createElement('button');
+        addButton.type = 'button';
+        addButton.className = 'add-partida-btn';
+        addButton.innerHTML = '<i class="fas fa-plus"></i> Añadir Partida';
+        addButton.addEventListener('click', () => this.addPartida());
+        addButtonContainer.appendChild(addButton);
+        this.container.appendChild(addButtonContainer);
+        
+        // Add total display
+        const totalContainer = document.createElement('div');
+        totalContainer.className = 'partidas-total-container';
+        totalContainer.innerHTML = `
+            <div class="partidas-total">
+                <span class="total-label">Total:</span>
+                <span class="total-value" id="partidas-total-value">${this._calculateTotal().toFixed(2)} €</span>
+            </div>
+        `;
+        this.container.appendChild(totalContainer);
+        
+        // Apply styles
+        this._applyStyles();
+    }
+    
+    /**
+     * Apply additional styles for the component
+     */
+    _applyStyles() {
+        // Check if styles already exist
+        if (document.getElementById('partidas-manager-styles')) {
+            return;
+        }
+        
+        // Create and add style element
+        const styleElement = document.createElement('style');
+        styleElement.id = 'partidas-manager-styles';
+        styleElement.textContent = `
+            .partidas-header {
+                margin-bottom: 10px;
+            }
+            
+            .partidas-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr auto;
+                gap: 10px;
+                margin-bottom: 10px;
+                align-items: center;
+            }
+            
+            .partidas-row.header {
+                font-weight: bold;
+                border-bottom: 1px solid #ddd;
+                padding-bottom: 5px;
+            }
+            
+            .partida-item {
+                background-color: #f9f9f9;
+                border: 1px solid #eee;
+                border-radius: 4px;
+                padding: 10px;
+            }
+            
+            .partida-col, .importe-col, .actions-col {
+                padding: 5px;
+            }
+            
+            .partida-input, .importe-input {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            }
+            
+            .importe-input {
+                text-align: right;
+            }
+            
+            .partida-actions {
+                display: flex;
+                gap: 5px;
+            }
+            
+            .add-partida-btn {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                cursor: pointer;
+                margin-top: 10px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+            
+            .delete-partida-btn {
+                background-color: #f44336;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                width: 32px;
+                height: 32px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .move-partida-btn {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                width: 32px;
+                height: 32px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .partidas-total-container {
+                margin-top: 15px;
+                text-align: right;
+                font-weight: bold;
+                padding: 10px;
+                background-color: #f0f0f0;
+                border-radius: 4px;
+            }
+            
+            .total-value {
+                margin-left: 10px;
+                font-size: 1.1em;
+            }
+            
+            .partida-item.error {
+                border-color: #f44336;
+                background-color: #ffebee;
+            }
+        `;
+        document.head.appendChild(styleElement);
+    }
+    
+    /**
+     * Render a single partida item
+     * @param {Object} partida - Partida data object
+     * @param {number} index - Index in the array
+     * @returns {HTMLElement} The rendered partida item
+     */
+    _renderPartidaItem(partida, index) {
+        const itemContainer = document.createElement('div');
+        itemContainer.className = 'partida-item';
+        itemContainer.dataset.id = partida._id;
+        itemContainer.dataset.index = index;
+        
+        const row = document.createElement('div');
+        row.className = 'partidas-row';
+        
+        // Partida input
+        const partidaCol = document.createElement('div');
+        partidaCol.className = 'partida-col';
+        const partidaInput = document.createElement('input');
+        partidaInput.type = 'text';
+        partidaInput.className = 'partida-input';
+        partidaInput.value = partida.partida || '';
+        partidaInput.placeholder = 'Código partida';
+        partidaInput.id = `partida-${partida._id}`;
+        partidaInput.addEventListener('change', (e) => {
+            this.updatePartida(partida._id, { partida: e.target.value });
+        });
+        partidaCol.appendChild(partidaInput);
+        
+        // Importe input
+        const importeCol = document.createElement('div');
+        importeCol.className = 'importe-col';
+        const importeInput = document.createElement('input');
+        importeInput.type = 'number';
+        importeInput.className = 'importe-input';
+        importeInput.value = partida.IMPORTE_PARTIDA || 0;
+        importeInput.placeholder = '0.00';
+        importeInput.id = `importe-${partida._id}`;
+        importeInput.step = '0.01';
+        importeInput.addEventListener('change', (e) => {
+            const value = parseFloat(e.target.value) || 0;
+            this.updatePartida(partida._id, { IMPORTE_PARTIDA: value });
+        });
+        importeCol.appendChild(importeInput);
+        
+        // Action buttons
+        const actionsCol = document.createElement('div');
+        actionsCol.className = 'actions-col';
+        const actionButtons = document.createElement('div');
+        actionButtons.className = 'partida-actions';
+        
+        // Move up button
+        if (index > 0) {
+            const moveUpBtn = document.createElement('button');
+            moveUpBtn.type = 'button';
+            moveUpBtn.className = 'move-partida-btn';
+            moveUpBtn.innerHTML = '<i class="fas fa-arrow-up"></i>';
+            moveUpBtn.title = 'Mover arriba';
+            moveUpBtn.addEventListener('click', () => this.movePartida(partida._id, 'up'));
+            actionButtons.appendChild(moveUpBtn);
+        }
+        
+        // Move down button
+        if (index < this.partidas.length - 1) {
+            const moveDownBtn = document.createElement('button');
+            moveDownBtn.type = 'button';
+            moveDownBtn.className = 'move-partida-btn';
+            moveDownBtn.innerHTML = '<i class="fas fa-arrow-down"></i>';
+            moveDownBtn.title = 'Mover abajo';
+            moveDownBtn.addEventListener('click', () => this.movePartida(partida._id, 'down'));
+            actionButtons.appendChild(moveDownBtn);
+        }
+        
+        // Delete button (only show if more than one partida)
+        if (this.partidas.length > 1) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'delete-partida-btn';
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteBtn.title = 'Eliminar';
+            deleteBtn.addEventListener('click', () => this.removePartida(partida._id));
+            actionButtons.appendChild(deleteBtn);
+        }
+        
+        actionsCol.appendChild(actionButtons);
+        
+        // Assemble row
+        row.appendChild(partidaCol);
+        row.appendChild(importeCol);
+        row.appendChild(actionsCol);
+        itemContainer.appendChild(row);
+        
+        return itemContainer;
+    }
+    
+    /**
+     * Add a new empty partida
+     */
+    addPartida() {
+        const newPartida = {
+            partida: '',
+            IMPORTE_PARTIDA: 0,
+            _id: this._generateUniqueId()
+        };
+        
+        this.partidas.push(newPartida);
+        this.render();
+        
+        // Focus the newly added partida field
+        setTimeout(() => {
+            const newPartidaInput = document.getElementById(`partida-${newPartida._id}`);
+            if (newPartidaInput) {
+                newPartidaInput.focus();
+            }
+        }, 0);
+        
+        if (this.onUpdate) {
+            this.onUpdate(this.getCleanPartidas());
+        }
+    }
+    
+    /**
+     * Remove a partida by ID
+     * @param {string} id - Partida ID
+     */
+    removePartida(id) {
+        if (this.partidas.length <= 1) {
+            alert('Debe mantener al menos una partida.');
+            return;
+        }
+        
+        this.partidas = this.partidas.filter(p => p._id !== id);
+        this.render();
+        
+        if (this.onUpdate) {
+            this.onUpdate(this.getCleanPartidas());
+        }
+    }
+    
+    /**
+     * Update a partida by ID
+     * @param {string} id - Partida ID
+     * @param {Object} newData - New partida data to merge
+     */
+    updatePartida(id, newData) {
+        const index = this.partidas.findIndex(p => p._id === id);
+        if (index === -1) return;
+        
+        this.partidas[index] = {
+            ...this.partidas[index],
+            ...newData
+        };
+        
+        // Update the total display without re-rendering the whole component
+        const totalElement = document.getElementById('partidas-total-value');
+        if (totalElement) {
+            totalElement.textContent = `${this._calculateTotal().toFixed(2)} €`;
+        }
+        
+        if (this.onUpdate) {
+            this.onUpdate(this.getCleanPartidas());
+        }
+    }
+    
+    /**
+     * Move a partida up or down
+     * @param {string} id - Partida ID
+     * @param {string} direction - 'up' or 'down'
+     */
+    movePartida(id, direction) {
+        const index = this.partidas.findIndex(p => p._id === id);
+        if (index === -1) return;
+        
+        if (direction === 'up' && index > 0) {
+            // Swap with previous item
+            [this.partidas[index], this.partidas[index - 1]] = 
+            [this.partidas[index - 1], this.partidas[index]];
+        } else if (direction === 'down' && index < this.partidas.length - 1) {
+            // Swap with next item
+            [this.partidas[index], this.partidas[index + 1]] = 
+            [this.partidas[index + 1], this.partidas[index]];
+        }
+        
+        this.render();
+        
+        if (this.onUpdate) {
+            this.onUpdate(this.getCleanPartidas());
+        }
+    }
+    
+    /**
+     * Calculate the total of all partidas
+     * @returns {number} Total amount
+     */
+    _calculateTotal() {
+        return this.partidas.reduce((sum, partida) => {
+            const amount = parseFloat(partida.IMPORTE_PARTIDA) || 0;
+            return sum + amount;
+        }, 0);
+    }
+    
+    /**
+     * Get partidas without internal IDs
+     * @returns {Array} Clean partidas array
+     */
+    getCleanPartidas() {
+        return this.partidas.map(({ partida, IMPORTE_PARTIDA }) => ({
+            partida,
+            IMPORTE_PARTIDA
+        }));
+    }
+    
+    /**
+     * Validate all partida entries
+     * @returns {boolean} True if all valid
+     */
+    validate() {
+        let isValid = true;
+        
+        // Remove any existing error classes
+        document.querySelectorAll('.partida-item').forEach(item => {
+            item.classList.remove('error');
+        });
+        
+        // Check each partida
+        this.partidas.forEach((partida) => {
+            const partidaItem = document.querySelector(`.partida-item[data-id="${partida._id}"]`);
+            if (!partidaItem) return;
+            
+            // Check if partida code is provided
+            if (!partida.partida) {
+                partidaItem.classList.add('error');
+                isValid = false;
+            }
+            
+            // Check if importe is valid
+            if (typeof partida.IMPORTE_PARTIDA !== 'number' || isNaN(partida.IMPORTE_PARTIDA)) {
+                partidaItem.classList.add('error');
+                isValid = false;
+            }
+        });
+        
+        return isValid;
+    }
+}
+
+/**
  * ArqueoEditor - Specialized editor for Arqueo task type
  */
 class ArqueoEditor {
@@ -70,14 +529,11 @@ class ArqueoEditor {
         return section;
     }
     
-    /**
-     * Create partidas section with dynamic add/remove
-     */
     _createPartidasSection() {
         const section = document.createElement('div');
         section.className = 'editor-section';
         
-        // Create section header with add button
+        // Create section header with heading only
         const headerContainer = document.createElement('div');
         headerContainer.className = 'section-header';
         
@@ -85,34 +541,35 @@ class ArqueoEditor {
         heading.textContent = 'Partidas';
         heading.className = 'section-heading';
         
-        const addButton = document.createElement('button');
-        addButton.type = 'button';
-        addButton.className = 'add-item-btn';
-        addButton.innerHTML = '<i class="fas fa-plus"></i> Añadir Partida';
-        addButton.addEventListener('click', () => this._addPartida());
-        
         headerContainer.appendChild(heading);
-        headerContainer.appendChild(addButton);
         section.appendChild(headerContainer);
         
-        // Container for partida items
+        // Container for the partidas manager
         const partidasContainer = document.createElement('div');
         partidasContainer.className = 'partidas-container';
         partidasContainer.id = 'partidasContainer';
         section.appendChild(partidasContainer);
         
-        // Add existing partidas or at least one empty one
+        // Initialize the partidas manager with the partidas from task data
         const partidas = this.task.detalle.final && this.task.detalle.final.length > 0 ? 
             this.task.detalle.final : [{ partida: '', IMPORTE_PARTIDA: 0 }];
-            
-        partidas.forEach((partida, index) => {
-            this._renderPartidaItem(partidasContainer, partida, index);
-        });
+        
+        // Create partidas manager instance
+        this.partidasManager = new PartidasManager(
+            partidasContainer, 
+            partidas,
+            (updatedPartidas) => {
+                console.log('Partidas updated:', updatedPartidas);
+                // If needed, update task data directly
+                // this.task.detalle.final = updatedPartidas;
+            }
+        );
         
         return section;
     }
     
-    /**
+    
+        /**
      * Render a single partida item
      */
     _renderPartidaItem(container, partida, index) {
@@ -149,14 +606,41 @@ class ArqueoEditor {
         importeInput.type = 'number';
         importeInput.id = `importe_partida_${index}`;
         importeInput.name = `importe_partida_${index}`;
-        importeInput.value = partida.IMPORTE_PARTIDA || '';
-        importeInput.setAttribute('data-original-value', partida.IMPORTE_PARTIDA || '');
+        
+        // Ensure we're getting a number value
+        let importeValue = partida.IMPORTE_PARTIDA;
+        // Convert to number if it's a string
+        if (typeof importeValue === 'string') {
+            importeValue = parseFloat(importeValue.replace(',', '.'));
+        }
+        // If it's still not a number, default to 0
+        if (isNaN(importeValue)) {
+            importeValue = 0;
+        }
+        
+        importeInput.value = importeValue;
+        
+        // Store original value for reference
+        importeInput.setAttribute('data-original-value', importeValue);
+        
+        // Log for debugging
+        console.log(`Setting importe_partida_${index} value:`, {
+            originalValue: partida.IMPORTE_PARTIDA,
+            parsedValue: importeValue,
+            inputValue: importeInput.value
+        });
+        
         importeInput.addEventListener('blur', (e) => {
             // Format the display when field loses focus
             const value = parseFloat(e.target.value) || 0;
-            e.target.value = formatCurrency(value, false); // No € symbol in input
+            e.target.value = value;
+            console.log(`importe_partida_${index} blur event:`, {
+                rawValue: e.target.value,
+                formattedValue: value
+            });
         });
-        importeInput.step = '1.00';
+        
+        importeInput.step = '0.01';
         
         importeField.appendChild(importeLabel);
         importeField.appendChild(importeInput);
@@ -405,21 +889,12 @@ class ArqueoEditor {
         return field;
     }
     
-    /**
-     * Collect form data and return task object
-     */
     getData() {
-
         // Get date from input and properly convert it
         const dateInput = document.getElementById('fecha');
-        const rawDateValue = dateInput.value; // This is in YYYY-MM-DD format from the date input
+        const rawDateValue = dateInput.value;
         const formattedDate = formatDateForStorage(rawDateValue);
         
-        console.log('Date conversion:', {
-            originalValue: rawDateValue,
-            convertedValue: formattedDate
-        });
-
         const task = {
             tipo: 'arqueo',
             detalle: {
@@ -432,65 +907,58 @@ class ArqueoEditor {
             }
         };
         
-        // Collect partidas
-        const partidaRows = document.querySelectorAll('.partida-row');
-        partidaRows.forEach((row, index) => {
-            task.detalle.final.push({
-                partida: document.getElementById(`partida_${index}`).value,
-                IMPORTE_PARTIDA: parseFloat(document.getElementById(`importe_partida_${index}`).value) || 0
-            });
-        });
+        // Get partidas from the manager
+        if (this.partidasManager) {
+            task.detalle.final = this.partidasManager.getCleanPartidas();
+        }
         
-        // Collect texto_sical
+        // Collect texto_sical (unchanged)
         const textoRows = document.querySelectorAll('.texto-row');
         textoRows.forEach((row, index) => {
-            task.detalle.texto_sical.push({
-                tcargo: document.getElementById(`tcargo_${index}`).value,
-                ado: document.getElementById(`ado_${index}`).value
-            });
+            const tcargoInput = document.getElementById(`tcargo_${index}`);
+            const adoInput = document.getElementById(`ado_${index}`);
+            
+            if (tcargoInput && adoInput) {
+                task.detalle.texto_sical.push({
+                    tcargo: tcargoInput.value,
+                    ado: adoInput.value
+                });
+            }
         });
         
         return task;
     }
     
     /**
-     * Validate the form data
-     * @returns {boolean} True if valid, false otherwise
+     * Update the validate method:
      */
     validate() {
         // Basic validation
         const requiredFields = ['fecha', 'caja'];
         for (const field of requiredFields) {
             const element = document.getElementById(field);
-            if (!element.value.trim()) {
-                alert(`El campo ${element.labels[0].textContent} es obligatorio.`);
-                element.focus();
+            if (!element || !element.value.trim()) {
+                alert(`El campo ${element?.labels[0]?.textContent || field} es obligatorio.`);
+                element?.focus();
                 return false;
             }
         }
         
-        // Validate partidas
-        const partidaRows = document.querySelectorAll('.partida-row');
-        for (let i = 0; i < partidaRows.length; i++) {
-            const partidaInput = document.getElementById(`partida_${i}`);
-            const importeInput = document.getElementById(`importe_partida_${i}`);
-            
-            if (!partidaInput.value.trim()) {
-                alert(`El campo Partida ${i+1} es obligatorio.`);
-                partidaInput.focus();
-                return false;
-            }
-            
-            if (isNaN(parseFloat(importeInput.value)) || parseFloat(importeInput.value) === 0) {
-                alert(`El importe de la Partida ${i+1} debe ser un número válido y diferente de cero.`);
-                importeInput.focus();
-                return false;
-            }
+        // Validate partidas using the manager
+        if (this.partidasManager && !this.partidasManager.validate()) {
+            alert('Por favor complete todos los campos de partidas correctamente.');
+            return false;
+        }
+        
+        // Validate texto_sical
+        const textoRows = document.querySelectorAll('.texto-row');
+        if (textoRows.length === 0) {
+            alert('Debe añadir al menos un texto SICAL.');
+            return false;
         }
         
         return true;
     }
 }
-
 // Export module
 module.exports = ArqueoEditor;

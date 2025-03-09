@@ -160,14 +160,41 @@ class AdoEditor {
         importeInput.type = 'number';
         importeInput.id = `importe_${index}`;
         importeInput.name = `importe_${index}`;
-        importeInput.value = aplicacion.importe || '';
-        importeInput.setAttribute('data-original-value', aplicacion.importe || '');
+        
+        // Ensure we're getting a number value
+        let importeValue = aplicacion.importe;
+        // Convert to number if it's a string
+        if (typeof importeValue === 'string') {
+            importeValue = parseFloat(importeValue.replace(',', '.'));
+        }
+        // If it's still not a number, default to 0
+        if (isNaN(importeValue)) {
+            importeValue = 0;
+        }
+        
+        importeInput.value = importeValue;
+        
+        // Store original value for reference
+        importeInput.setAttribute('data-original-value', importeValue);
+        
+        // Log for debugging
+        console.log(`Setting importe_${index} value:`, {
+            originalValue: aplicacion.importe,
+            parsedValue: importeValue,
+            inputValue: importeInput.value
+        });
+        
         importeInput.addEventListener('blur', (e) => {
             // Format the display when field loses focus
             const value = parseFloat(e.target.value) || 0;
-            e.target.value = formatCurrency(value, false); // No € symbol in input
+            e.target.value = value;
+            console.log(`importe_${index} blur event:`, {
+                rawValue: e.target.value,
+                formattedValue: value
+            });
         });
-        importeInput.step = '1.00';
+        
+        importeInput.step = '0.01';
         importeInput.addEventListener('change', () => this._updateTotal());
         importeInput.addEventListener('keyup', () => this._updateTotal());
         
@@ -371,20 +398,28 @@ class AdoEditor {
         };
         
         // Collect aplicaciones
-        const aplicacionRows = document.querySelectorAll('.aplicacion-row');
-        aplicacionRows.forEach((row, index) => {
-            const gfaValue = document.getElementById(`gfa_${index}`).value;
+    const aplicacionRows = document.querySelectorAll('.aplicacion-row');
+    aplicacionRows.forEach((row, index) => {
+        const funcionalInput = document.getElementById(`funcional_${index}`);
+        const economicaInput = document.getElementById(`economica_${index}`);
+        const gfaInput = document.getElementById(`gfa_${index}`);
+        const importeInput = document.getElementById(`importe_${index}`);
+        const cuentaInput = document.getElementById(`cuenta_${index}`);
+        
+        if (funcionalInput && economicaInput && importeInput && cuentaInput) {
+            const gfaValue = gfaInput ? gfaInput.value : null;
             
             task.detalle.aplicaciones.push({
-                funcional: document.getElementById(`funcional_${index}`).value,
-                economica: document.getElementById(`economica_${index}`).value,
-                gfa: gfaValue ? gfaValue : null,
-                importe: document.getElementById(`importe_${index}`).value,
-                cuenta: document.getElementById(`cuenta_${index}`).value
+                funcional: funcionalInput.value,
+                economica: economicaInput.value,
+                gfa: gfaValue && gfaValue.trim() !== '' ? gfaValue : null,
+                importe: parseFloat(importeInput.value) || 0,
+                cuenta: cuentaInput.value
             });
-        });
+        }
+    });
         
-        return task;
+    return task;
     }
     
     /**
