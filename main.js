@@ -494,8 +494,24 @@ ipcMain.handle('open-contabilizar-dialog', async (event, { operationId, operatio
     const submitListener = (event, data) => {
       console.log('Received data on channel:', responseChannel);
       if (event.sender.id === contabilizarWindow.webContents.id) {
+        // Here's where you can process the data
+        const taskDataJson = JSON.stringify(data, null, 2);
+        
+        // Write to a file using Electron's fs
+        const fs = require('fs');
+        const path = require('path');
+        const filePath = path.join(app.getPath('userData'), 'taskData.json');
+        
+        fs.writeFile(filePath, taskDataJson, (err) => {
+          if (err) {
+            console.error('Error writing JSON file:', err);
+          } else {
+            console.log('JSON file created successfully at:', filePath);
+          }
+          
         resolve(data);
         ipcMain.removeListener(responseChannel, submitListener);
+        });
       }
     };
     
