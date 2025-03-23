@@ -833,6 +833,22 @@ function debounce(func, wait) {
     };
 }
 
+/* Add a small JavaScript snippet to handle the clear button */
+/* Add this to your renderer.js file */
+document.addEventListener('DOMContentLoaded', () => {
+    const srchInput = document.getElementById('searchInput');
+    const clearSearch = document.getElementById('clearSearch');
+    
+    if (clearSearch) {
+        clearSearch.addEventListener('click', () => {
+            searchInput.value = '';
+            searchInput.focus();
+            // Trigger search event to refresh results
+            searchInput.dispatchEvent(new Event('input'));
+        });
+    }
+});
+
 // Add event handlers to window object for HTML access
 window.toggleContabilizado = toggleContabilizado;
 window.openContableTaskDialog = openContableTaskDialog;

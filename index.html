@@ -41,7 +41,7 @@
                     <button class="btn-secondary" id="columnsBtn">Columns ▾</button>
                     <button class="btn-secondary" id="bulkActionsBtn">Bulk actions ▾</button>
                     <button class="btn-secondary" id="clearFiltersBtn">Clear filters</button>
-                    <button class="btn-primary" id="selectFile">Add</button>
+                    <button class="btn-primary" id="selectFile">Importar</button>
                 </div>
             </div>
             
@@ -53,17 +53,36 @@
             </div>
             
             <!-- Search/Filter Bar and Account Info -->
-            <div class="search-bar">
-                <input type="text" id="searchInput" placeholder="Search records..." class="filter-input">
-                <select id="filterField" class="filter-input">
-                    <option value="all">All Fields</option>
-                    <option value="caja">Caja</option>
-                    <option value="fecha">Fecha</option>
-                    <option value="concepto">Concepto</option>
-                </select>
-                <div id="accountInfo" class="account-info">
-                    <div class="account-info-label">Current Account:</div>
-                    <div id="accountName" class="account-info-value">None</div>
+            <div class="search-filter-section">
+                <div id="accountInfo" class="account-badge">
+                    <svg class="account-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                        <line x1="2" y1="10" x2="22" y2="10"></line>
+                    </svg>
+                    <span class="account-info-label">Account:</span>
+                    <span id="accountName" class="account-info-value">None</span>
+                </div>
+                <div class="search-container">
+                    <div class="search-input-wrapper">
+                        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" id="searchInput" placeholder="Search records..." class="search-input">
+                        <button class="search-clear" id="clearSearch" title="Clear search">×</button>
+                    </div>
+                    <div class="search-filter-divider"></div>
+                    <div class="filter-dropdown-wrapper">
+                        <select id="filterField" class="filter-dropdown">
+                            <option value="all">All Fields</option>
+                            <option value="caja">Caja</option>
+                            <option value="fecha">Fecha</option>
+                            <option value="concepto">Concepto</option>
+                        </select>
+                        <svg class="dropdown-arrow" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </div>
                 </div>
             </div>
             
@@ -99,12 +118,15 @@
     <!-- Status Bar -->
     <div class="status-bar">
         <div class="status-item">
+            <span class="status-icon">📊</span>
             Total: <span id="statusTotal">0</span> | Filtered: <span id="statusFiltered">0</span>
         </div>
         <div class="status-item">
+            <span class="status-icon">📁</span>
             Caja: <span id="statusCaja">None</span>
         </div>
         <div class="status-item">
+            <span class="status-icon">⏱️</span>
             Updated: <span id="statusTime">--:--:--</span>
         </div>
     </div>
