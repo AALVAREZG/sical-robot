@@ -18,6 +18,7 @@ const AdoEditor = require('./js/editors/adoEditor');
 let bankData = [];
 let originalTasksData = null;
 let tasksData = {
+    id_task: 'temp',
     num_operaciones: 0,
     liquido_operaciones: 0,
     operaciones: []
@@ -77,6 +78,9 @@ async function init() {
         
         // Display bank operation details
         displayBankOperation(bankData);
+
+        // Setup pattern selector
+        setupPatternSelector();
         
         // Get AI suggestion
         console.log('Requesting AI translation...');
@@ -91,6 +95,15 @@ async function init() {
         
         // Display AI suggestion count
         updateAISuggestionInfo(aiSuggestion);
+
+        // Update the pattern display if available in the response
+        if (aiSuggestion.description) {
+            updateSelectedPattern(aiSuggestion.description);
+            // Update current pattern ID if available
+            if (aiSuggestion.patternId) {
+                currentPatternId = aiSuggestion.patternId;
+            }
+        }
         
         // Render tasks
         renderTasks();
@@ -127,7 +140,7 @@ function displayBankOperation(data) {
 function updateAISuggestionInfo(aiSuggestion) {
     // Update count
     if (aiSuggestionCount) {
-        aiSuggestionCount.textContent = `La IA ha sugerido ${tasksData.num_operaciones} operaciones contables para esta transacción bancaria.`;
+        aiSuggestionCount.textContent = `TasksId: ${tasksData.id_task} la IA ha sugerido ${tasksData.num_operaciones} operaciones contables para esta transacción bancaria.`;
     }
     
     // Update pattern if available
@@ -402,6 +415,7 @@ function rejectAllSuggestions() {
     // Ask for confirmation
     if (confirm('¿Está seguro de que desea rechazar todas las sugerencias de la IA?')) {
         // Clear all AI suggestions
+        tasksData.id_task = 'temp';
         tasksData.operaciones = [];
         tasksData.num_operaciones = 0;
         tasksData.liquido_operaciones = 0;
@@ -414,7 +428,7 @@ function rejectAllSuggestions() {
  */
 async function saveTranslation() {
     try {
-        console.log('Saving translation to file');
+        console.log('Saving translation to file. Translation: ', tasksData);
         
         // Use ipcRenderer to communicate with main process
         const result = await ipcRenderer.invoke('show-save-dialog-and-save', tasksData);
@@ -440,13 +454,15 @@ function submitAndClose() {
     if (window.responseChannel) {
         console.log('Using response channel:', window.responseChannel);
         ipcRenderer.send(window.responseChannel, tasksData);
-        window.close();
+        window.close(); 
+        
     } else {
         // Fallback to the original method if responseChannel is not set
         console.warn('Response channel not set, using fallback method');
         ipcRenderer.invoke('submit-tasks', tasksData)
             .then(() => {
-                window.close();
+                window.close(); 
+                
             })
             .catch(error => {
                 console.error('Error submitting tasks:', error);
@@ -538,6 +554,219 @@ document.addEventListener('DOMContentLoaded', () => {
         init();
     }, 100);
 });
+
+
+// Open pattern modal
+function openPatternModal() {
+    const patternModal = document.getElementById('patternModal');
+    if (patternModal) {
+        patternModal.style.display = 'block';
+    }
+}
+
+// Close pattern modal
+function closePatternModal() {
+    const patternModal = document.getElementById('patternModal');
+    if (patternModal) {
+        patternModal.style.display = 'none';
+    }
+}
+
+// Update selected pattern display
+function updateSelectedPattern(patternName) {
+    const selectedPatternElement = document.getElementById('selectedPattern');
+    if (selectedPatternElement) {
+        selectedPatternElement.textContent = patternName || 'Ninguno';
+    }
+}
+
+// Variables to store patterns data
+let availablePatterns = [];
+let currentPatternId = null;
+
+// Add these to your event listeners setup
+function setupPatternSelector() {
+    // Pattern selector button
+    const changePatternBtn = document.getElementById('changePatternBtn');
+    if (changePatternBtn) {
+        changePatternBtn.addEventListener('click', openPatternModal);
+    }
+    
+    // Pattern modal elements
+    const patternModal = document.getElementById('patternModal');
+    const closePatternBtn = patternModal.querySelector('.close');
+    const cancelPatternBtn = document.getElementById('cancelPatternBtn');
+    const refreshPatternsBtn = document.getElementById('refreshPatternsBtn');
+    
+    // Close modal events
+    if (closePatternBtn) {
+        closePatternBtn.addEventListener('click', closePatternModal);
+    }
+    
+    if (cancelPatternBtn) {
+        cancelPatternBtn.addEventListener('click', closePatternModal);
+    }
+    
+    // Refresh patterns list
+    if (refreshPatternsBtn) {
+        refreshPatternsBtn.addEventListener('click', loadAvailablePatterns);
+    }
+    
+    // When user clicks outside the modal, close it
+    window.addEventListener('click', function(event) {
+        if (event.target === patternModal) {
+            closePatternModal();
+        }
+    });
+    
+    // Load available patterns on startup
+    loadAvailablePatterns();
+}
+
+// Function to load available patterns from the main process
+async function loadAvailablePatterns() {
+    try {
+        console.log('Loading available patterns...');
+        
+        // Show loading state
+        const patternList = document.getElementById('patternList');
+        if (patternList) {
+            patternList.innerHTML = '<div class="pattern-item">Cargando patrones...</div>';
+        }
+        
+        // Request patterns from main process
+        availablePatterns = await ipcRenderer.invoke('get-available-patterns');
+        console.log('Patterns loaded:', availablePatterns);
+        
+        // Render patterns in the modal
+        renderPatternList();
+    } catch (error) {
+        console.error('Error loading patterns:', error);
+        
+        // Show error in pattern list
+        const patternList = document.getElementById('patternList');
+        if (patternList) {
+            patternList.innerHTML = '<div class="pattern-item">Error al cargar patrones: ' + error.message + '</div>';
+        }
+    }
+}
+
+// Function to render the patterns list
+function renderPatternList() {
+    const patternList = document.getElementById('patternList');
+    if (!patternList) return;
+    
+    // Clear the list
+    patternList.innerHTML = '';
+    
+    // Add each pattern
+    if (availablePatterns && availablePatterns.length > 0) {
+        availablePatterns.forEach(pattern => {
+            const patternItem = document.createElement('div');
+            patternItem.className = 'pattern-item';
+            if (pattern.id === currentPatternId) {
+                patternItem.classList.add('selected');
+            }
+            
+            const patternInfo = document.createElement('div');
+            patternInfo.className = 'pattern-info';
+            
+            const patternName = document.createElement('div');
+            patternName.className = 'pattern-name';
+            patternName.textContent = pattern.name;
+            
+            const patternDescription = document.createElement('div');
+            patternDescription.className = 'pattern-description';
+            patternDescription.textContent = pattern.description || 'Sin descripción';
+            
+            patternInfo.appendChild(patternName);
+            patternInfo.appendChild(patternDescription);
+            
+            const applyButton = document.createElement('button');
+            applyButton.className = 'pattern-apply-btn';
+            applyButton.textContent = 'Aplicar';
+            applyButton.addEventListener('click', () => applyPattern(pattern));
+            
+            patternItem.appendChild(patternInfo);
+            patternItem.appendChild(applyButton);
+            
+            // Click on item also selects
+            patternItem.addEventListener('click', (event) => {
+                // Only handle clicks on the item itself, not on buttons
+                if (event.target === patternItem || event.target === patternInfo || 
+                    event.target === patternName || event.target === patternDescription) {
+                    selectPattern(pattern);
+                }
+            });
+            
+            patternList.appendChild(patternItem);
+        });
+    } else {
+        patternList.innerHTML = '<div class="pattern-item">No hay patrones disponibles</div>';
+    }
+}
+
+// Function to select a pattern (highlight but don't apply)
+function selectPattern(pattern) {
+    // Update current pattern ID
+    currentPatternId = pattern.id;
+    
+    // Update UI highlighting
+    const patternItems = document.querySelectorAll('.pattern-item');
+    patternItems.forEach(item => {
+        item.classList.remove('selected');
+        
+        // Find the item that matches the pattern ID
+        const itemName = item.querySelector('.pattern-name');
+        if (itemName && itemName.textContent === pattern.name) {
+            item.classList.add('selected');
+        }
+    });
+}
+
+// Function to apply the selected pattern
+async function applyPattern(pattern) {
+    try {
+        console.log('Applying pattern:', pattern);
+        
+        // Update UI
+        updateSelectedPattern(pattern.name);
+        
+        // Call main process to apply pattern
+        const result = await ipcRenderer.invoke('apply-pattern', {
+            patternId: pattern.id,
+            bankData: bankData
+        });
+        
+        // Update tasks data with the result
+        if (result && result.success) {
+            console.log('Pattern applied successfully:', result);
+            
+            // Store original for comparison
+            originalTasksData = JSON.parse(JSON.stringify(result.data));
+            
+            // Update task data
+            tasksData = result.data;
+            
+            // Update task count
+            if (aiSuggestionCount) {
+                aiSuggestionCount.textContent = `La IA ha sugerido ${tasksData.num_operaciones} operaciones contables para esta transacción bancaria.`;
+            }
+            
+            // Re-render tasks
+            renderTasks();
+            
+            // Close pattern modal
+            closePatternModal();
+        } else {
+            console.error('Error applying pattern:', result ? result.error : 'Unknown error');
+            alert('Error al aplicar patrón: ' + (result ? result.error : 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error applying pattern:', error);
+        alert('Error al aplicar patrón: ' + error.message);
+    }
+}
 
 // Export any necessary functions or variables
 module.exports = {

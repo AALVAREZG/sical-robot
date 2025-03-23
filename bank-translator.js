@@ -3,11 +3,82 @@
 const { networkInterfaces } = require('os');
 const path = require('path');
 const fs = require('fs').promises;
-
+const Papa = require('papaparse');
 // Define a patterns storage file path
 const PATTERNS_STORAGE_FILE = path.join(__dirname, 'data', 'transaction-patterns.json');
 const transactionPatterns = []
 // Helper functions
+
+/**
+ * Search for a term in column 3 of CSV and return the corresponding column 1 value
+ * @param {string} searchTerm - The term to search for in column 3
+ * @returns {Promise<string|null>} - The matching column 1 value or null if not found
+ */
+async function findIdByName(searchTerm) {
+  try {
+    // Path to the CSV file
+    const csvPath = path.join(__dirname, 'data', 'records', 'terceros.csv');
+    
+    // Read the file
+    const fileContent = await fs.readFile(csvPath, 'utf8');
+    
+    // Parse the CSV
+    const results = Papa.parse(fileContent, {
+      header: false,
+      skipEmptyLines: true
+    });
+    
+    // Search for the term in column 3 (index 2)
+    const matchingRow = results.data.find(row => {
+      // Case insensitive search and trim whitespace
+      return row[3] && row[3].trim().toLowerCase() === searchTerm.trim().toLowerCase();
+    });
+    
+    // Return the column 1 value (index 0) if found, otherwise null
+    return matchingRow ? matchingRow[1] : null;
+    
+  } catch (error) {
+    console.error('Error searching in CSV:', error);
+    return null;
+  }
+}
+
+/**
+ * Search for a term in column 3 of CSV and return all matching results
+ * @param {string} searchTerm - The term to search for in column 3
+ * @returns {Promise<Array>} - Array of matching {id, name} objects
+ */
+async function findMatchingTerceros(searchTerm) {
+  try {
+    // Path to the CSV file
+    const csvPath = path.join(__dirname, 'data', 'records', 'terceros.csv');
+    
+    // Read the file
+    const fileContent = await fs.readFile(csvPath, 'utf8');
+    
+    // Parse the CSV
+    const results = Papa.parse(fileContent, {
+      header: false,
+      skipEmptyLines: true
+    });
+    
+    // Search for matches in column 3 (index 2)
+    const matchingRows = results.data.filter(row => {
+      return row[3] && row[3].trim().toLowerCase().includes(searchTerm.trim().toLowerCase());
+    });
+    
+    // Format results
+    return matchingRows.map(row => ({
+      id: row[1], // Column 1 (ID)
+      name: row[3]  // Column 3 (Name)
+    }));
+    
+  } catch (error) {
+    console.error('Error searching findMatchingTerceros in CSV:', error);
+    return [];
+  }
+}
+
 function formatearFecha(fechaISO) {
   const fecha = new Date(fechaISO);
   return `${fecha.getDate().toString().padStart(2, '0')}-${(fecha.getMonth() + 1).toString().padStart(2, '0')}-${fecha.getFullYear()}`;
@@ -54,7 +125,7 @@ function translateBankOperation(bankData) {
   for (const pattern of transactionPatterns) {
     if (pattern.matcher(rawData)) {
       console.log('Found matching pattern');
-      return {data: pattern.generator(rawData), description: pattern.description};
+      return {data: pattern.generator(rawData), description: pattern.description, patternId: pattern.patternId};
     }
   }
   
@@ -69,12 +140,15 @@ function createFallbackResult(bankData) {
 
   const importeNumerico = parseFloat(importe);
   const isPositive = importeNumerico >= 0;
-  
+  console.log("find id...", findIdByName(concepto))
+  const dateISOString = new Date().toISOString();
   // Different processing based on sign
   if (isPositive) {
     // Positive amount - generate Arqueo
     return {
       data: {
+        id_task: caja+'_'+fecha+'_'+String(importe),
+        creation_date: dateISOString,
         num_operaciones: 1,
         liquido_operaciones: importeNumerico,
         operaciones: [
@@ -104,6 +178,8 @@ function createFallbackResult(bankData) {
     const absImporte = Math.abs(importeNumerico);
     return {
       data: {
+        id_task: caja+'_'+fecha+'_'+String(importe),
+        creation_date: dateISOString,
         num_operaciones: 1,
         liquido_operaciones: importeNumerico,
         operaciones: [
@@ -282,6 +358,69 @@ async function addPattern_(newPattern) {
   return true;
 }
 
+// Add these functions to your bank-translator.js file
+
+/**
+ * Get all available patterns
+ * @returns {Array} Array of pattern objects
+ */
+async function getAvailablePatterns() {
+  console.log("Getting available patterns...");
+  
+  // Return the patterns with IDs
+  const patternsWithIds = transactionPatterns.map((pattern, index) => ({
+    id: `pattern_${index}`,
+    description: pattern.description || `Pattern ${index}`,
+    matcherFunction: pattern.matcher.toString(),
+    generator: pattern.generator
+  }));
+  
+  return patternsWithIds;
+}
+
+
+/**
+ * Apply a specific pattern by ID
+ * @param {string} patternId - The ID of the pattern to apply
+ * @param {Array} bankData - The bank data array [caja, fecha, concepto, importe]
+ * @returns {Object} Result of applying the pattern
+ */
+async function applySpecificPattern(patternId, bankData) {
+  console.log(`Applying specific pattern ${patternId} to bank data:`, bankData);
+  
+  // Extract index from pattern ID (assuming format pattern_X)
+  const patternIndex = parseInt(patternId.split('_')[1]);
+  
+  if (isNaN(patternIndex) || patternIndex < 0 || patternIndex >= transactionPatterns.length) {
+    console.error(`Invalid pattern ID: ${patternId}`);
+    throw new Error('Pattern not found');
+  }
+  
+  // Get the specific pattern
+  const pattern = transactionPatterns[patternIndex];
+  
+  // Check if the pattern matches the bank data
+  try {
+    const matches = pattern.matcher(bankData);
+    if (!matches) {
+      console.warn(`Pattern ${patternId} does not match the bank data`);
+      // Still apply it as requested
+    }
+    
+    // Apply the generator function
+    const generatedData = pattern.generator(bankData);
+    
+    return {
+      data: generatedData,
+      description: pattern.description || `Pattern ${patternIndex}`,
+      patternId: patternId
+    };
+  } catch (error) {
+    console.error(`Error applying pattern ${patternId}:`, error);
+    throw error;
+  }
+}
+
 
 // Export all the functions and variables
 module.exports = {
@@ -293,5 +432,11 @@ module.exports = {
   // New exports
   savePatterns,
   loadPatterns,
-  initializePatterns
+  initializePatterns,
+  findIdByName,
+  findMatchingTerceros,
+  
+  // Pattern selection functions
+  getAvailablePatterns,
+  applySpecificPattern
 };

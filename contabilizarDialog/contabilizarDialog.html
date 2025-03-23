@@ -57,7 +57,10 @@
                 </div>
                 <div class="ai-suggestion-info">
                     <div id="aiSuggestionCount"></div>
-                    <div id="patternDisplay">Patrón seleccionado: <span id="selectedPattern">Ninguno</span></div>
+                    <div id="patternDisplay">Patrón seleccionado: 
+                        <span id="selectedPattern">Ninguno</span>
+                        <button id="changePatternBtn" class="pattern-btn">Cambiar</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -104,6 +107,23 @@
             <div class="modal-footer">
                 <button id="cancelModalBtn" class="btn btn-secondary">Cancelar</button>
                 <button id="saveModalBtn" class="btn btn-primary">Guardar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pattern selection modal -->
+    <div id="patternModal" class="modal">
+        <div class="modal-content pattern-modal-content">
+            <span class="close">&times;</span>
+            <h2>Seleccionar Patrón</h2>
+            
+            <div class="pattern-list" id="patternList">
+                <!-- Patterns will be inserted here dynamically -->
+            </div>
+            
+            <div class="modal-footer">
+                <button id="cancelPatternBtn" class="secondary">Cancelar</button>
+                <button id="refreshPatternsBtn">Actualizar Patrones</button>
             </div>
         </div>
     </div>

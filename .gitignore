@@ -17,6 +17,9 @@ out/
 # Data Files
 extractos*/
 data/samples*/
+data/records*/
+data/output*/
+data/sender/input*/
 
 # Logs
 logs

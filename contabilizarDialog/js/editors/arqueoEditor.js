@@ -522,12 +522,48 @@ class ArqueoEditor {
         // Add basic fields
         grid.appendChild(this._createFormField('fecha', 'Fecha', this.task.detalle.fecha || '', 'date'));
         grid.appendChild(this._createFormField('caja', 'Caja', this.task.detalle.caja || '', 'text'));
-        grid.appendChild(this._createFormField('tercero', 'Tercero', this.task.detalle.tercero || '', 'text'));
+        
+        // Create tercero field with search button
+        const terceroContainer = document.createElement('div');
+        terceroContainer.className = 'form-field tercero-field';
+        
+        const terceroLabel = document.createElement('label');
+        terceroLabel.htmlFor = 'tercero';
+        terceroLabel.textContent = 'Tercero';
+        
+        const terceroInputContainer = document.createElement('div');
+        terceroInputContainer.className = 'tercero-input-container';
+        terceroInputContainer.style.display = 'flex';
+        
+        const terceroInput = document.createElement('input');
+        terceroInput.type = 'text';
+        terceroInput.id = 'tercero';
+        terceroInput.name = 'tercero';
+        terceroInput.value = this.task.detalle.tercero || '';
+        terceroInput.style.flexGrow = '1';
+        
+        const searchButton = document.createElement('button');
+        searchButton.type = 'button';
+        searchButton.className = 'search-tercero-btn';
+        searchButton.textContent = 'Buscar';
+        searchButton.style.marginLeft = '5px';
+        searchButton.style.padding = '5px 10px';
+        searchButton.addEventListener('click', () => this._showTerceroSearchDialog());
+        
+        terceroInputContainer.appendChild(terceroInput);
+        terceroInputContainer.appendChild(searchButton);
+        
+        terceroContainer.appendChild(terceroLabel);
+        terceroContainer.appendChild(terceroInputContainer);
+        
+        grid.appendChild(terceroContainer);
+        
         grid.appendChild(this._createFormField('naturaleza', 'Naturaleza', this.task.detalle.naturaleza || '', 'text'));
         
         section.appendChild(grid);
         return section;
     }
+    
     
     _createPartidasSection() {
         const section = document.createElement('div');
@@ -762,6 +798,7 @@ class ArqueoEditor {
         tcargoField.appendChild(tcargoInput);
         
         // ADO field
+        
         const adoField = document.createElement('div');
         adoField.className = 'form-field';
         
@@ -777,7 +814,7 @@ class ArqueoEditor {
         
         adoField.appendChild(adoLabel);
         adoField.appendChild(adoInput);
-        
+       
         // Delete button
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
@@ -888,6 +925,7 @@ class ArqueoEditor {
         
         return field;
     }
+
     
     getData() {
         // Get date from input and properly convert it
@@ -958,6 +996,162 @@ class ArqueoEditor {
         }
         
         return true;
+    }
+
+    _showTerceroSearchDialog() {
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'search-modal-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        overlay.style.zIndex = '2000';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        
+        // Create modal content
+        const modal = document.createElement('div');
+        modal.className = 'search-modal';
+        modal.style.backgroundColor = 'white';
+        modal.style.padding = '20px';
+        modal.style.borderRadius = '8px';
+        modal.style.width = '500px';
+        modal.style.maxWidth = '90%';
+        modal.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+        
+        // Add search heading
+        const heading = document.createElement('h3');
+        heading.textContent = 'Buscar Tercero';
+        heading.style.marginTop = '0';
+        
+        // Add search input
+        const searchContainer = document.createElement('div');
+        searchContainer.style.display = 'flex';
+        searchContainer.style.marginBottom = '15px';
+        
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Nombre del tercero...';
+        searchInput.style.flexGrow = '1';
+        searchInput.style.padding = '8px';
+        searchInput.style.border = '1px solid #ddd';
+        searchInput.style.borderRadius = '4px';
+        
+        const searchButton = document.createElement('button');
+        searchButton.textContent = 'Buscar';
+        searchButton.style.marginLeft = '10px';
+        searchButton.style.padding = '8px 15px';
+        searchButton.style.backgroundColor = '#4285F4';
+        searchButton.style.color = 'white';
+        searchButton.style.border = 'none';
+        searchButton.style.borderRadius = '4px';
+        searchButton.style.cursor = 'pointer';
+        
+        searchContainer.appendChild(searchInput);
+        searchContainer.appendChild(searchButton);
+        
+        // Add results container
+        const resultsContainer = document.createElement('div');
+        resultsContainer.className = 'search-results';
+        resultsContainer.style.maxHeight = '300px';
+        resultsContainer.style.overflowY = 'auto';
+        resultsContainer.style.border = '1px solid #eee';
+        resultsContainer.style.padding = '10px';
+        resultsContainer.style.borderRadius = '4px';
+        resultsContainer.style.marginBottom = '15px';
+        
+        // Add close button
+        const closeButton = document.createElement('button');
+        closeButton.textContent = 'Cerrar';
+        closeButton.style.padding = '8px 15px';
+        closeButton.style.backgroundColor = '#f1f1f1';
+        closeButton.style.color = '#333';
+        closeButton.style.border = 'none';
+        closeButton.style.borderRadius = '4px';
+        closeButton.style.cursor = 'pointer';
+        closeButton.style.marginRight = '10px';
+        
+        // Buttons container
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.style.textAlign = 'right';
+        buttonsContainer.appendChild(closeButton);
+        
+        // Assemble modal
+        modal.appendChild(heading);
+        modal.appendChild(searchContainer);
+        modal.appendChild(resultsContainer);
+        modal.appendChild(buttonsContainer);
+        
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        
+        // Focus the search input
+        setTimeout(() => searchInput.focus(), 100);
+        
+        // Event handlers
+        closeButton.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+        });
+        
+        const performSearch = async () => {
+            const searchTerm = searchInput.value.trim();
+            if (!searchTerm) return;
+            
+            resultsContainer.innerHTML = '<p>Buscando...</p>';
+            
+            try {
+                // Use the IPC renderer to call the main process
+                const { ipcRenderer } = require('electron');
+                const result = await ipcRenderer.invoke('search-tercero', searchTerm);
+                
+                if (result && result.length > 0) {
+                    resultsContainer.innerHTML = '';
+                    
+                    result.forEach(item => {
+                        const resultItem = document.createElement('div');
+                        resultItem.className = 'search-result-item';
+                        resultItem.style.padding = '8px';
+                        resultItem.style.cursor = 'pointer';
+                        resultItem.style.borderBottom = '1px solid #eee';
+                        
+                        resultItem.innerHTML = `
+                            <div><strong>${item.id}</strong></div>
+                            <div>${item.name}</div>
+                        `;
+                        
+                        resultItem.addEventListener('click', () => {
+                            // Set the tercero value
+                            document.getElementById('tercero').value = item.id;
+                            document.body.removeChild(overlay);
+                        });
+                        
+                        resultItem.addEventListener('mouseover', () => {
+                            resultItem.style.backgroundColor = '#f5f5f5';
+                        });
+                        
+                        resultItem.addEventListener('mouseout', () => {
+                            resultItem.style.backgroundColor = 'transparent';
+                        });
+                        
+                        resultsContainer.appendChild(resultItem);
+                    });
+                } else {
+                    resultsContainer.innerHTML = '<p>No se encontraron resultados</p>';
+                }
+            } catch (error) {
+                console.error('Error searching tercero:', error);
+                resultsContainer.innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        };
+        
+        searchButton.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') performSearch();
+        });
     }
 }
 // Export module

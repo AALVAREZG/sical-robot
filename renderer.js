@@ -123,6 +123,7 @@ function displayRecords(records) {
                     ${record.is_contabilized ? '' : 'Contabilizar'}
                 </button>
             </td>
+             <td>${record.normalized_date}</td>
         `;
         tbody.appendChild(tr);
     });

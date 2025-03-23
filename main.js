@@ -4,9 +4,11 @@ const Database = require('./database.js');
 const { dialog } = require('electron');
 const XLSX = require('xlsx');
 const fs = require('fs');
+const { spawn } = require('child_process');
 
 
-
+// Path to the executable relative to the Electron app
+const pythonServicePath = path.join(__dirname, 'data', 'sender', 'senderToRabbitMQ.exe');
 
 // Import the simplified bank translator module
 const bankTranslator = require('./bank-translator');
@@ -33,6 +35,8 @@ const CAIXABANK_FILENAME = 'CAIXABANK';
 const CAIXABANK_EXTENSION = '.XLS';
 const BBVA_FILENAME = 'BBVA';
 const BBVA_EXTENSION = '.XLSX';
+const SANTANDER_FILENAME = 'SANTANDER';
+const SANTANDER_EXTENSION = '.XLSX';
 
 let mainWindow;
 const db = new Database('./prueba05.sqlite');
@@ -149,14 +153,14 @@ ipcMain.handle('process-file', async (event, filePath) => {
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    let caja = '203_CRURAL- 0727'
+    let caja = '203_CRURAL - 0727';
     console.log('filename: ', filename)
     if (filename.endsWith('sec')) { //CUENTA SECUNDARIA
       caja = '239_CRURAL_MUR_8923';
     } 
     const rawRecords = XLSX.utils.sheet_to_json(sheet, { 
       range: 3, 
-      header: ['FECHA', 'FVALOR', 'CONCEPTO', 'CONCEPTOADIC', 'IMPORTE', 'SALDO'] 
+      header: ['FECHA', 'FVALOR', 'CONCEPTO', 'IMPORTE', 'SALDO', 'NUM_APUNTE'] 
   });
   
     // Process records and check if they exist in database
@@ -211,6 +215,30 @@ ipcMain.handle('process-file', async (event, filePath) => {
     //console.log('rawRecords: ', rawRecords[0])
     // Process records and check if they exist in database
     records = await checkExistingRecords(processBBVARecords(rawRecords, caja));
+  } else if (fileExtension === SANTANDER_EXTENSION && filename.startsWith(SANTANDER_FILENAME)) { 
+    const workbook = XLSX.readFile(filePath, {
+      cellDates: true,
+      dateNF: 'dd-mm-yyyy',
+      raw: false
+    });
+    const firstSheetName  = workbook.SheetNames[0];
+    const firstSheet  = workbook.Sheets[firstSheetName];
+    
+    
+    let caja = '201_SANTANDER - 2932'
+    
+
+    if (filename.endsWith('9994')) { //CUENTA SECUNDARIA
+      caja = '201_SANTANDER_RECAUDA_XX';
+    } 
+    const rawRecords = XLSX.utils.sheet_to_json(firstSheet, { 
+      range: 8, 
+      //header: ['COL_VOID_1', 'COL_VOID_2', 'FECHA', 'FVALOR', 'CUENTA', 'CODIGO', 'CONCEPTO', 'BENEFIARIO_ORDENANTE', 'OBSERVACIONES', 'IMPORTE', 'SALDO']  
+      header: ['FECHA', 'FVALOR', 'CONCEPTO', 'IMPORTE', 'DIVISA', 'SALDO', 'DIVISA_SALDO', 'CODIGO']  
+  });
+    //console.log('rawRecords: ', rawRecords[0])
+    // Process records and check if they exist in database
+    records = await checkExistingRecords(processSantanderRecords(rawRecords, caja));
   }
     return records;
 });
@@ -249,6 +277,51 @@ function processBBVARecords(records, caja) {
 }
 
 function normalizeBBVADate(date) { 
+  //date is a string in format dd / mm / yyyy
+  const [day, month, year] = date.split('/');
+  let _s_date = `${year}-${month}-${day}`;
+  const d = new Date(_s_date);
+  return  d.toLocaleDateString('en-CA', {
+    year: 'numeric',
+    month: '2-digit', 
+    day: '2-digit'
+  }).replace(/\//g, '-');
+}
+
+function processSantanderRecords(records, caja) {
+  // Here you would typically process the records, add hash identifiers, 
+  // save to database, etc.
+  
+  // For this example, we're just adding an id to each record
+  try {
+    const processedXlsRecords = records.map((record, index) => (
+      
+      {
+        caja: caja,
+        fecha: record.FECHA,
+        normalized_date: normalizeSantanderDate(record.FECHA),
+        concepto: record.CONCEPTO,
+        importe: record.IMPORTE,
+        saldo: record.SALDO,
+        num_apunte: 0,
+        idx: index
+   })).sort((a, b) => {
+      const [aMonth, aDay, aYear] = a.normalized_date.split('-');
+      const [bMonth, bDay, bYear] = b.normalized_date.split('-');
+      const dateA = new Date(aYear, aMonth - 1, aDay);
+      const dateB = new Date(bYear, bMonth - 1, bDay);
+      return dateB - dateA;
+    });
+  
+  return processedXlsRecords
+  } catch (error) {
+    console.error('Error storing records:', error);
+    return error
+  }
+
+}
+
+function normalizeSantanderDate(date) { 
   //date is a string in format dd / mm / yyyy
   const [day, month, year] = date.split('/');
   let _s_date = `${year}-${month}-${day}`;
@@ -312,14 +385,12 @@ function normalizeCaixaBankDate_old(date) {
 }
 
 function processCRuralRecords(records, caja) {
-  // Here you would typically process the records, add hash identifiers, 
-  // save to database, etc.
+  // Process and normalize records for CRURAL
   
-  // For this example, we're just adding an id to each record
   try {
     const processedXlsRecords = records.map((record, index) => ({
         caja: caja,
-        fecha: record.FECHA,
+        fecha: normalizeCruralRawDate(record.FECHA),
         normalized_date: normalizeCRuralDate(record.FECHA),
         concepto: record.CONCEPTO,
         importe: record.IMPORTE,
@@ -343,12 +414,24 @@ function processCRuralRecords(records, caja) {
 
 }
 
+function normalizeCruralRawDate(date){
+  const [day, month, year] = date.split('/');
+  let _s_date = `${year}-${month}-${day}`;
+  const d = new Date(_s_date);
+  return  d.toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: '2-digit', 
+    day: '2-digit'
+  });
+}
+
+
 function normalizeCRuralDate(date) { 
   //date is a string in format d|dd / m|mm / yyyy
   const [day, month, year] = date.split('/');
   let _s_date = `${year}-${month}-${day}`;
   const d = new Date(_s_date);
-  return  d.toLocaleDateString('en-US', {
+  return  d.toLocaleDateString('en-CA', {
     year: 'numeric',
     month: '2-digit', 
     day: '2-digit'
@@ -483,33 +566,34 @@ ipcMain.handle('open-contabilizar-dialog', async (event, { operationId, operatio
   });
 
   // For debugging
-  contabilizarWindow.webContents.openDevTools({ mode: 'detach' });
+  // contabilizarWindow.webContents.openDevTools({ mode: 'detach' });
 
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     // Use a unique channel name based on operationId to avoid conflicts
     const responseChannel = `submit-tasks-response-${operationId}`;
     console.log('Created response channel:', responseChannel);
     
     // Set up a one-time listener for this specific window
-    const submitListener = (event, data) => {
+    const submitListener = async (event, data) => {
       console.log('Received data on channel:', responseChannel);
       if (event.sender.id === contabilizarWindow.webContents.id) {
         // Here's where you can process the data
         const taskDataJson = JSON.stringify(data, null, 2);
+        console.log("Task Data to pass to RABBIT", data)
         
-        // Write to a file using Electron's fs
-        const fs = require('fs');
-        const path = require('path');
-        const filePath = path.join(app.getPath('userData'), 'taskData.json');
+        //const csvPath = path.join(__dirname, 'data', 'records', 'terceros.csv');
+        //const filePath = path.join(app.getPath('userData'), 'taskData.json');
+        const filePath = path.join(__dirname, 'data', 'sender', 'input', 'pending_files', `task-${data.id_task}.json`);
         
-        fs.writeFile(filePath, taskDataJson, (err) => {
+        fs.writeFile(filePath, taskDataJson, async (err) => {
           if (err) {
             console.error('Error writing JSON file:', err);
           } else {
             console.log('JSON file created successfully at:', filePath);
           }
-          
-        resolve(data);
+        const result = await runPythonService();
+        console.log("Result of contabilizar: ", result)
+        resolve(result);
         ipcMain.removeListener(responseChannel, submitListener);
         });
       }
@@ -528,8 +612,13 @@ ipcMain.handle('open-contabilizar-dialog', async (event, { operationId, operatio
       ipcMain.removeListener(responseChannel, submitListener);
       resolve(null);
     });
+
+    
   });
 });
+
+
+
 
 // Get bank operation data
 ipcMain.handle('get-bank-operation', async (event, id) => {
@@ -541,16 +630,12 @@ ipcMain.handle('get-bank-operation', async (event, id) => {
   return [recordForId.caja, recordForId.fecha, recordForId.concepto, recordForId.importe, recordForId.saldo]
 });
 
-// Expose the translateBankOperation function from bank-translator.js
-ipcMain.handle('translate-operation', async (event, data) => {
-  console.log('IPC: Translating bank operation:', data);
-  return translateBankOperation(data);
-});
+
 
 // Show save dialog and save translation
 ipcMain.handle('show-save-dialog-and-save', async (event, translation) => {
   try {
-    console.log('Showing save dialog for translation ...');
+    console.log('Showing save dialog for translation ...', translation);
     const now = new Date().getUTCMilliseconds();
     const filename = `./data/samples/traduction_${now}.json`;
     const { dialog } = require('electron');
@@ -565,6 +650,7 @@ ipcMain.handle('show-save-dialog-and-save', async (event, translation) => {
     if (!path.canceled) {
       console.log('Saving translation to:', path.filePath);
       fs.writeFileSync(path.filePath, JSON.stringify(translation, null, 2));
+      
       return { success: true };
     } else {
       console.log('Save dialog canceled');
@@ -574,6 +660,7 @@ ipcMain.handle('show-save-dialog-and-save', async (event, translation) => {
     console.error('Error saving translation:', error);
     return { success: false, error: error.message };
   }
+  
 });
 
 ipcMain.handle('train-model', async (event, trainingData) => {
@@ -599,3 +686,122 @@ ipcMain.handle('train-model', async (event, trainingData) => {
   }
 });
 
+// Now in main.js, use the bank-translator function:
+// Add this IPC handler that leverages the existing bank-translator function
+ipcMain.handle('search-tercero', async (event, searchTerm) => {
+  try {
+      console.log('Searching tercero with term:', searchTerm);
+      
+      // Use the function from bank-translator.js
+      const matchingTerceros = await bankTranslator.findMatchingTerceros(searchTerm);
+      
+      console.log(`Found ${matchingTerceros.length} matching terceros`);
+      return matchingTerceros;
+  } catch (error) {
+      console.error('Error searching tercero:', error);
+      throw error;
+  }
+});
+
+
+
+function runPythonService() {
+  return new Promise((resolve, reject) => {
+    const pythonProcess = spawn(pythonServicePath);
+    let dataString = '';
+    
+    pythonProcess.stdout.on('data', (data) => {
+      dataString += data.toString();
+    });
+    
+    pythonProcess.stderr.on('data', (data) => {
+      console.error(`Python Service Error: ${data}`);
+    });
+    
+    pythonProcess.on('close', (code) => {
+      if (code !== 0) {
+        reject(`Python service exited with code ${code}`);
+      } else {
+        resolve(dataString);
+      }
+    });
+  });
+}
+
+// Add IPC handler
+ipcMain.handle('run-sender', async (event, args) => {
+  try {
+    const result = await runPythonService(args);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+});
+
+
+// Handler to get all available patterns
+ipcMain.handle('get-available-patterns', async () => {
+  console.log('Getting available patterns');
+  try {
+    // This function should return all available patterns from your patterns storage
+    const patterns = []; // Initialize empty array
+    
+    // Load patterns from bank-translator module
+    const bankTranslator = require('./bank-translator');
+    const loadedPatterns = await bankTranslator.getAvailablePatterns();
+    
+    return loadedPatterns.map(pattern => ({
+      id: pattern.id,
+      name: pattern.description || `Pattern ${pattern.id}`,
+      description: pattern.matcherFunction.toString().slice(0, 50) + '...' // Short preview of the matcher function
+    }));
+  } catch (error) {
+    console.error('Error getting patterns:', error);
+    return [];
+  }
+});
+
+// Handler to apply a specific pattern
+ipcMain.handle('apply-pattern', async (event, { patternId, bankData }) => {
+  console.log(`Applying pattern ${patternId} to bank data:`, bankData);
+  try {
+    // Get the specified pattern
+    const bankTranslator = require('./bank-translator');
+    
+    // Apply the pattern to generate the result
+    const result = await bankTranslator.applySpecificPattern(patternId, bankData);
+    
+    if (result) {
+      return {
+        success: true,
+        data: result.data,
+        description: result.description,
+        patternId: patternId
+      };
+    } else {
+      return {
+        success: false,
+        error: 'Pattern could not be applied'
+      };
+    }
+  } catch (error) {
+    console.error('Error applying pattern:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// Update translate-operation to include pattern information
+ipcMain.handle('translate-operation', async (event, data) => {
+  console.log('IPC: Translating bank operation:', data);
+  const result = translateBankOperation(data);
+  
+  // Extract and include pattern information
+  return {
+    data: result.data,
+    description: result.description,
+    patternId: result.patternId // Make sure your translateBankOperation function returns this
+  };
+});
