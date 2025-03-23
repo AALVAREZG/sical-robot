@@ -3,7 +3,7 @@
 > ⚠️ **Development Status**: This project is currently under active development and is not yet ready for production use. Features may be incomplete or subject to change.
 
 ![Development Status](https://img.shields.io/badge/Status-Under%20Development-yellow)
-![Version](https://img.shields.io/badge/Version-0.1.0-blue)
+![Version](https://img.shields.io/badge/Version-1.0.0-blue)
 ![Electron](https://img.shields.io/badge/Electron-33.0.0-blue)
 
 An Electron application for managing bank movements and generating accounting entries.
@@ -13,7 +13,7 @@ An Electron application for managing bank movements and generating accounting en
 - [ ] Core Features
   - [x] Database Integration
   - [x] Bank Movement Import
-  - [ ] Accounting Entry Generation
+  - [x] Accounting Entry Generation
   - [ ] Error Handling
   - [ ] Language Support.
 - [ ] User Interface
