@@ -1,29 +1,35 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM Content Loaded");
     loadCajas();
-    setupTabButtons();
-    setupSelectFileButton();
-    setupFilters(); 
+    setupEventListeners();
+    initializeUI();
 });
 
-async function loadCajas_old() {
-    console.log("loadCajas function called");
-    try {
-        const result = await window.electronAPI.getCajas();
-        console.log("get-cajas result:", result);
-        const cajasDiv = document.getElementById('cajas');
-        result.data.forEach(caja => {
-            const button = document.createElement('button');
-            button.textContent = caja.caja;
-            button.onclick = () => loadRecordsForCaja(caja.caja);
-            cajasDiv.appendChild(button);
-        });
-    } catch (error) {
-        console.error("Error in loadCajas:", error);
-    }
+// Global variables
+let currentRecords = [];
+let filteredRecords = [];
+let currentPage = 1;
+let pageSize = 25;
+let currentCaja = '';
+let expandedRowId = null;
+let isActionMenuOpen = false;
+let actionMenuTarget = null;
+
+/**
+ * Initialize UI elements
+ */
+function initializeUI() {
+    setupPagination(0);
+    setupTableSorting();
+    setupSearch();
+    
+    // Update status bar with initial values
+    updateStatusBar(0, 0, 'None');
 }
 
+/**
+ * Load bank accounts (cajas) from the database
+ */
 async function loadCajas() {
     console.log("loadCajas function called");
     try {
@@ -33,485 +39,801 @@ async function loadCajas() {
         cajasDiv.innerHTML = ''; // Clear existing buttons
         
         result.data.forEach(caja => {
-            const button = document.createElement('button');
-            button.textContent = caja.caja;
-            button.onclick = () => {
-                // Remove active class from all buttons
-                document.querySelectorAll('.cajas-container button').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                // Add active class to clicked button
-                button.classList.add('active');
-                loadRecordsForCaja(caja.caja);
-            };
-            cajasDiv.appendChild(button);
+            const accountCard = createAccountCard(caja);
+            cajasDiv.appendChild(accountCard);
         });
     } catch (error) {
         console.error("Error in loadCajas:", error);
+        showToast("Error loading accounts", true);
     }
 }
 
+/**
+ * Create an account card element
+ */
+function createAccountCard(caja) {
+    const cajaName = caja.caja;
+    const card = document.createElement('div');
+    card.className = 'account-card';
+    card.innerHTML = `<div class="account-name">${cajaName}</div>`;
+    
+    card.addEventListener('click', () => {
+        // Remove active class from all cards
+        document.querySelectorAll('.account-card').forEach(card => {
+            card.classList.remove('active');
+        });
+        
+        // Add active class to clicked card
+        card.classList.add('active');
+        
+        // Load records for this account
+        loadRecordsForCaja(cajaName);
+    });
+    
+    return card;
+}
+
+/**
+ * Load records for the selected bank account
+ */
 async function loadRecordsForCaja(caja) {
     try {
-        const tableContainer = document.querySelector('.table-container');
-        showLoading(tableContainer);
+        showLoading(true);
+        currentCaja = caja;
+        
+        // Update UI to show currently selected caja
+        document.getElementById('currentCajaTitle').textContent = caja;
+        document.getElementById('accountName').textContent = caja;
+        document.getElementById('statusCaja').textContent = caja;
         
         const result = await window.electronAPI.getLast100Records(caja);
         currentRecords = result.data;
+        currentPage = 1;
         
-        applyFilters(); // This will filter and display the records
-        hideLoading(tableContainer);
+        applyFilters();
+        showLoading(false);
+        
+        // Update the status bar
+        updateStatusBar(currentRecords.length, filteredRecords.length, caja);
     } catch (error) {
         console.error("Error loading records:", error);
-        hideLoading(tableContainer);
-        showError("Error loading records");
+        showLoading(false);
+        showToast("Error loading records", true);
     }
 }
 
-
-// Replace the existing displayRecords function
-//window.displayRecords = displayGroupedRecords;
-
-function displayRecords(records) {
-    const tbody = document.querySelector('#records tbody');
-    tbody.innerHTML = '';
-    
-    records.forEach(record => {
-        const tr = document.createElement('tr');
-        
-        // Add classes for styling
-        tr.classList.add(record.importe >= 0 ? 'positive-amount' : 'negative-amount');
-        tr.classList.add(record.is_contabilized ? 'contabilized' : 'uncontabilized');
-        
-        // Format date
-        const formattedDate = formatDate(record.fecha);
-        const date = new Date(formattedDate);
-        
-        // Format currency
-        const formattedImporte = new Intl.NumberFormat('es-ES', { 
-            style: 'currency', 
-            currency: 'EUR',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(record.importe);
-        
-        const formattedSaldo = new Intl.NumberFormat('es-ES', { 
-            style: 'currency', 
-            currency: 'EUR',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(record.saldo);
-
-        
-
-        tr.innerHTML = `
-            <td>${record.caja}</td>
-            <td class="date">${record.fecha}</td>
-            <td>${record.concepto}</td>
-            <td class="currency">${formattedImporte}</td>
-            <td class="currency">${formattedSaldo}</td>
-            <td class="text-center">${record.alreadyInDatabase ? '✓' : '✗'}</td>
-            <td class="text-center">
-                <span class="status-indicator ${record.is_contabilized ? 'contabilized' : 'uncontabilized'}"></span>
-                ${record.is_contabilized ? '✓' : '✗'}
-            </td>
-            <td>
-                <button onclick="toggleContabilizado('${record.id}', '${record.caja}', ${!record.is_contabilized})">
-                    ${record.is_contabilized ? 'Desmarcar' : 'Marcar'} Contabilizado
-                </button>
-                <button onclick="openContableTaskDialog('${record.id}', '${record.caja}', ${!record.is_contabilized})">   
-                    ${record.is_contabilized ? '' : 'Contabilizar'}
-                </button>
-            </td>
-             <td>${record.normalized_date}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function formatDate(date) {
-    if (!date) return '';
-    if (typeof date === 'string') {
-        date = parseEnglishDate(date);
-        if (!date) return '';
-    }
-    
-    return date.toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'long',
-        day: '2-digit'
-    });
-}
-
-function parseEnglishDate(dateStr) {
-    console.log("parseEnglishDate function called: ", dateStr);
-    if (!dateStr) return null;
-    
-    // Handle different separators
-    const cleanDate = dateStr.replace(/[.-]/g, '/');
-    
-    // Split the date parts
-    const parts = cleanDate.split('/');
-    if (parts.length !== 3) return null;
-    
-    // Parse parts (handle single and double digit days/months)
-    const day = parseInt(parts[1], 10);
-    const month = parseInt(parts[0], 10) - 1; // JS months are 0-based
-    const year = parseInt(parts[2], 10);
-    
-    // Validate values
-    if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
-    if (day < 1 || day > 31) return null;
-    if (month < 0 || month > 11) return null;
-    if (year < 1900 || year > 2100) return null;
-    
-    const date = new Date(year, month, day);
-    
-    // Verify valid date (handles months with less than 31 days)
-    if (date.getDate() !== day || date.getMonth() !== month || date.getFullYear() !== year) {
-        return null;
-    }
-    
-    return date;
-}
-
-function parseSpanishDate(dateStr) {
-    if (!dateStr) return null;
-    
-    // Handle different separators
-    const cleanDate = dateStr.replace(/[.-]/g, '/');
-    
-    // Split the date parts
-    const parts = cleanDate.split('/');
-    if (parts.length !== 3) return null;
-    
-    // Parse parts (handle single and double digit days/months)
-    const day = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1; // JS months are 0-based
-    const year = parseInt(parts[2], 10);
-    
-    // Validate values
-    if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
-    if (day < 1 || day > 31) return null;
-    if (month < 0 || month > 11) return null;
-    if (year < 1900 || year > 2100) return null;
-    
-    const date = new Date(year, month, day);
-    
-    // Verify valid date (handles months with less than 31 days)
-    if (date.getDate() !== day || date.getMonth() !== month || date.getFullYear() !== year) {
-        return null;
-    }
-    
-    return date;
-}
-
-
-
-
-async function editarOpciones(id, caja) {
-    // Implement the logic for "Editar Opciones" here
-    console.log(`Editing options for record ${id} in caja ${caja}`);
-    // You might want to open a modal or a new window for editing options
-}
-
-
-function setupTabButtons() {
-    const tabButtons = document.querySelectorAll('.tab-button');
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const tabName = button.getAttribute('data-tab');
-            activateTab(tabName);
-        });
-    });
-}
-
-function activateTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
-    document.getElementById(tabName).classList.add('active');
-    document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
-}
-
-function setupSelectFileButton() {
-    const selectFileButton = document.getElementById('selectFile');
-    selectFileButton.addEventListener('click', () => {
-        // Implement file selection logic here
-        // You may need to use Electron's dialog API for this
-    });
-}
-
-async function toggleContabilizado(id, caja, newState) {
-    const confirmMessage = newState ? 'Are you sure?' : 'Are you sure you want to unmark this record as contabilized?';
-    if (confirm(confirmMessage)) {
-        try {
-            const result = await window.electronAPI.toggleContabilizado({operationId: id, operationCaja: caja, newState: newState });
-            displayRecords(result.data);
-        } catch (error) {
-            console.error("Error toggling contabilizado:", error);
-        }
-    }
-}
-
-async function openContableTaskDialog(id, caja, new_state) {
-    console.log(`Contabilizar for record ${id} in caja ${caja}`);
-    try {
-        await window.electronAPI.openContableTaskDialog({operationId: id, operationCaja: caja, newState: new_state});
-        
-    } catch (error) {
-        console.error("Error opening contable task dialog:", error);
-    }
-}
-
-window.electronAPI.onTaskSaved((result) => {
-    if (result.success) {
-        console.log('Task saved successfully');
-        // Refresh the records or update UI as needed
-        loadRecordsForCaja(caja);  // Assuming this function exists to reload data
-    }
-});
-
-const information = document.getElementById('info')
-information.innerText = `👋 This app is using Chrome (v${versions.chrome()}), Node.js (v${versions.node()}), and Electron (v${versions.electron()})`
-
-
-let currentPage = 1;
-const pageSize = 25;
-let sortColumn = null;
-let sortDirection = 'asc';
-let searchTerm = '';
-
-function showLoading(element) {
-  element.classList.add('loading');
-}
-
-function hideLoading(element) {
-  element.classList.remove('loading');
-}
-
-function updateStatusBar(totalRecords) {
-  const statusBar = document.querySelector('.status-bar');
-  statusBar.textContent = `Total records: ${totalRecords} | Page ${currentPage}`;
-}
-
-function setupSearch() {
-  const searchInput = document.createElement('input');
-  searchInput.type = 'text';
-  searchInput.placeholder = 'Search records...';
-  searchInput.addEventListener('input', debounce((e) => {
-    searchTerm = e.target.value;
-    loadRecordsForCaja(currentCaja);
-  }, 300));
-  
-  document.querySelector('.search-bar').appendChild(searchInput);
-}
-
-function setupPagination(totalRecords) {
-  const totalPages = Math.ceil(totalRecords / pageSize);
-  const pagination = document.querySelector('.pagination');
-  pagination.innerHTML = `
-    <button ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">Previous</button>
-    <span>Page ${currentPage} of ${totalPages}</span>
-    <button ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">Next</button>
-  `;
-}
-
-function setupTableSorting() {
-  document.querySelectorAll('th').forEach(th => {
-    th.style.cursor = 'pointer';
-    th.addEventListener('click', () => {
-      const column = th.textContent.toLowerCase();
-      if (sortColumn === column) {
-        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-      } else {
-        sortColumn = column;
-        sortDirection = 'asc';
-      }
-      loadRecordsForCaja(currentCaja);
-    });
-  });
-}
-
-// Add keyboard shortcuts
-document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && e.key === 'r') {
-    e.preventDefault();
-    loadRecordsForCaja(currentCaja);
-  }
-});
-
-let currentRecords = [];
-let filteredRecords = [];
-
-function setupFilters() {
-    const searchInput = document.getElementById('searchInput');
-    const filterField = document.getElementById('filterField');
-
-    searchInput.addEventListener('input', applyFilters);
-    filterField.addEventListener('change', applyFilters);
-}
-
-// Update applyFilters function
+/**
+ * Apply search filters to the current records
+ */
 function applyFilters() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const filterField = document.getElementById('filterField').value;
     
     filteredRecords = currentRecords.filter(record => {
+        if (!searchTerm) return true; // No search term, show all
+        
         if (filterField === 'all') {
-            return Object.values(record).some(value => 
-                String(value).toLowerCase().includes(searchTerm)
-            );
-        }
-        return String(record[filterField]).toLowerCase().includes(searchTerm);
-    });
-
-    displayRecords(filteredRecords);
-    statusBar.updateStatus({ filteredRecords: filteredRecords.length });
-}
-
-class StatusBar {
-    constructor() {
-        this.totalRecords = 0;
-        this.filteredRecords = 0;
-        this.currentCaja = '';
-        this.lastUpdate = new Date();
-        this.isLoading = false;
-    }
-
-    updateStatus({ totalRecords, filteredRecords, currentCaja }) {
-        if (totalRecords !== undefined) this.totalRecords = totalRecords;
-        if (filteredRecords !== undefined) this.filteredRecords = filteredRecords;
-        if (currentCaja !== undefined) this.currentCaja = currentCaja;
-        this.lastUpdate = new Date();
-        this.render();
-    }
-
-    setLoading(isLoading) {
-        this.isLoading = isLoading;
-        this.render();
-    }
-
-    render() {
-        const statusBar = document.querySelector('.status-bar');
-        statusBar.innerHTML = `
-            <div class="status-item">
-                <span class="status-icon">📊</span>
-                Total: ${this.totalRecords} | Filtered: ${this.filteredRecords}
-            </div>
-            <div class="status-item">
-                <span class="status-icon">📁</span>
-                Caja: ${this.currentCaja || 'None'}
-            </div>
-            <div class="status-item">
-                <span class="status-icon">⏱️</span>
-                Updated: ${this.lastUpdate.toLocaleTimeString()}
-            </div>
-            ${this.isLoading ? '<div class="status-item">⌛ Loading...</div>' : ''}
-        `;
-    }
-}
-
-// Initialize status bar
-const statusBar = new StatusBar();
-
-// Update loadRecordsForCaja function
-async function loadRecordsForCaja(caja) {
-    try {
-        statusBar.setLoading(true);
-        statusBar.updateStatus({ currentCaja: caja });
-        
-        const result = await window.electronAPI.getLast100Records(caja);
-        currentRecords = result.data;
-        
-        applyFilters();
-        statusBar.setLoading(false);
-        statusBar.updateStatus({
-            totalRecords: currentRecords.length,
-            filteredRecords: filteredRecords.length
-        });
-    } catch (error) {
-        console.error("Error loading records:", error);
-        statusBar.setLoading(false);
-        showError("Error loading records");
-    }
-}
-
-
-
-
-async function setupSelectFileButton() {
-    const selectFileButton = document.getElementById('selectFile');
-    selectFileButton.addEventListener('click', async () => {
-        try {
-            const filePath = await window.electronAPI.selectFile();
-            if (filePath) {
-                const records = await window.electronAPI.processFile(filePath);
-                await window.electronAPI.showPreviewDialog(records);
-                loadCajas();
+            // Search in all text fields
+            return Object.entries(record).some(([key, value]) => {
+                // Only search in string fields and exclude id fields
+                if (typeof value === 'string' && !key.includes('id')) {
+                    return value.toLowerCase().includes(searchTerm);
+                }
+                // Also search in numeric fields converted to string
+                if (typeof value === 'number') {
+                    return value.toString().includes(searchTerm);
+                }
+                return false;
+            });
+        } else {
+            // Search in specific field
+            const value = record[filterField];
+            if (typeof value === 'string') {
+                return value.toLowerCase().includes(searchTerm);
+            } else if (typeof value === 'number') {
+                return value.toString().includes(searchTerm);
             }
-        } catch (error) {
-            console.error('Error processing file:', error);
-            showError('Error processing file');
+            return false;
+        }
+    });
+    
+    // Update pagination
+    setupPagination(filteredRecords.length);
+    
+    // Display the current page
+    displayCurrentPage();
+    
+    // Update status bar
+    updateStatusBar(currentRecords.length, filteredRecords.length, currentCaja);
+}
+
+/**
+ * Display the current page of records
+ */
+function displayCurrentPage() {
+    const start = (currentPage - 1) * pageSize;
+    const end = Math.min(start + pageSize, filteredRecords.length);
+    const recordsToDisplay = filteredRecords.slice(start, end);
+    
+    displayRecords(recordsToDisplay);
+    
+    // Update pagination info
+    document.getElementById('pageStart').textContent = start + 1;
+    document.getElementById('pageEnd').textContent = end;
+    document.getElementById('totalRecords').textContent = filteredRecords.length;
+}
+
+/**
+ * Display records in the table
+ */
+function displayRecords(records) {
+    const tbody = document.querySelector('#records tbody');
+    tbody.innerHTML = '';
+    
+    records.forEach(record => {
+        const row = createRecordRow(record);
+        tbody.appendChild(row);
+        
+        // If this record is expanded, add the expanded details row
+        if (expandedRowId === record.id) {
+            const detailsRow = createExpandedDetailsRow(record);
+            tbody.appendChild(detailsRow);
         }
     });
 }
 
-window.electronAPI.onRecordsImported((caja) => {
-    loadRecordsForCaja(caja);
-    statusBar.updateStatus({ currentCaja: caja });
-});
-
-
-window.electronAPI.onPreviewData(async (data) => {
-    //console.log('Preview data:', data);
-    processedRecords = await processGroupedRecords(data);
-    //console.log('Processed records:', processedRecords);
-    // Sort all records by date
-    processedRecords.sort((a, b) => b.normalized_date.localeCompare(a.normalized_date));
-    displayRecords(processedRecords);
-});
-
-function showError(message) {
-    const errorToast = document.getElementById('errorToast');
-    errorToast.textContent = message;
-    errorToast.style.display = 'block';
-    setTimeout(() => {
-        errorToast.style.display = 'none';
-    }, 3000);
+/**
+ * Create a table row for a record
+ */
+function createRecordRow(record) {
+    const tr = document.createElement('tr');
+    tr.dataset.id = record.id;
+    
+    // Format date
+    const formattedDate = formatDate(record.fecha);
+    
+    // Format currency
+    const formattedImporte = formatCurrency(record.importe);
+    const formattedSaldo = formatCurrency(record.saldo);
+    
+    // Set classes based on amount (positive/negative)
+    const amountClass = record.importe >= 0 ? 'positive-amount' : 'negative-amount';
+    
+    // Check if this row is expanded
+    const isExpanded = expandedRowId === record.id;
+    
+    tr.innerHTML = `
+        <td class="date-value">${record.fecha}</td>
+        <td class="concept-value">${record.concepto}</td>
+        <td class="amount-value ${amountClass}">${formattedImporte}</td>
+        <td class="balance-value">${formattedSaldo}</td>
+        <td>
+            <div class="status-indicator ${record.is_contabilized ? 'contabilized' : 'not-contabilized'}"></div>
+        </td>
+        <td>
+            <button class="action-btn expand-btn" data-id="${record.id}">
+                ${isExpanded ? '▲' : '▼'}
+            </button>
+            <button class="action-btn more-btn" data-id="${record.id}">⋮</button>
+        </td>
+    `;
+    
+    // Add click event for expand button
+    tr.querySelector('.expand-btn').addEventListener('click', (e) => {
+        toggleExpandRow(record.id);
+        e.stopPropagation();
+    });
+    
+    // Add click event for action menu button
+    tr.querySelector('.more-btn').addEventListener('click', (e) => {
+        toggleActionMenu(record, e.target);
+        e.stopPropagation();
+    });
+    
+    // Make entire row clickable for expansion
+    tr.addEventListener('click', () => {
+        toggleExpandRow(record.id);
+    });
+    
+    return tr;
 }
 
+/**
+ * Create an expanded details row
+ */
+function createExpandedDetailsRow(record) {
+    const tr = document.createElement('tr');
+    tr.className = 'expanded-row-container';
+    tr.dataset.parentId = record.id;
+    
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.className = 'expanded-row';
+    
+    // Action buttons
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'expanded-actions';
+    actionsDiv.innerHTML = `
+        <button class="btn-primary" onclick="openContableTaskDialog('${record.id}', '${record.caja}', ${!record.is_contabilized})">Contabilizar</button>
+        <button class="btn-secondary" onclick="toggleContabilizado('${record.id}', '${record.caja}', ${!record.is_contabilized})">
+            ${record.is_contabilized ? 'Desmarcar Cont.' : 'Marcar Cont.'}
+        </button>
+        <button class="btn-secondary">Editar</button>
+        <button class="btn-danger">Eliminar</button>
+    `;
+    
+    // Details grid
+    const detailsDiv = document.createElement('div');
+    detailsDiv.className = 'expanded-details';
+    
+    // Left column
+    const leftCol = document.createElement('div');
+    leftCol.innerHTML = `
+        <div>
+            <div class="detail-label">Fecha Normalizada:</div>
+            <div class="detail-value code-value">${record.normalized_date || 'N/A'}</div>
+        </div>
+        <div>
+            <div class="detail-label">Fecha Inserción:</div>
+            <div class="detail-value code-value">${record.insertion_date || 'N/A'}</div>
+        </div>
+        <div>
+            <div class="detail-label">ID Apunte:</div>
+            <div class="detail-value code-value">${record.id_apunte_banco || 'N/A'}</div>
+        </div>
+    `;
+    
+    // Right column
+    const rightCol = document.createElement('div');
+    rightCol.innerHTML = `
+        <div>
+            <div class="detail-label">Entidad:</div>
+            <div class="detail-value">${extractEntity(record.concepto) || 'N/A'}</div>
+        </div>
+        <div>
+            <div class="detail-label">Referencia:</div>
+            <div class="detail-value code-value">${extractReference(record.concepto) || 'N/A'}</div>
+        </div>
+        <div>
+            <div class="detail-label">Estado:</div>
+            <div class="detail-value">
+                <span class="status-badge ${record.is_contabilized ? 'status-badge-success' : 'status-badge-danger'}">
+                    ${record.is_contabilized ? 'Contabilizado' : 'No Cont.'}
+                </span>
+            </div>
+        </div>
+    `;
+    
+    detailsDiv.appendChild(leftCol);
+    detailsDiv.appendChild(rightCol);
+    
+    td.appendChild(actionsDiv);
+    td.appendChild(detailsDiv);
+    tr.appendChild(td);
+    
+    return tr;
+}
 
-// Show toast message
+/**
+ * Toggle expanded state of a row
+ */
+function toggleExpandRow(recordId) {
+    if (expandedRowId === recordId) {
+        // Collapse the row
+        expandedRowId = null;
+    } else {
+        // Expand this row
+        expandedRowId = recordId;
+    }
+    
+    // Refresh the display
+    displayCurrentPage();
+}
+
+/**
+ * Toggle action menu for a record
+ */
+function toggleActionMenu(record, buttonElement) {
+    // Close any open menu
+    closeActionMenu();
+    
+    // Don't open another menu if we just closed this one
+    if (actionMenuTarget === buttonElement) {
+        actionMenuTarget = null;
+        return;
+    }
+    
+    // Create and position the menu
+    const menu = document.createElement('div');
+    menu.className = 'action-menu';
+    menu.id = 'actionMenu';
+    
+    menu.innerHTML = `
+        <div class="action-menu-item" onclick="openContableTaskDialog('${record.id}', '${record.caja}', ${!record.is_contabilized})">Contabilizar</div>
+        <div class="action-menu-item" onclick="toggleContabilizado('${record.id}', '${record.caja}', ${!record.is_contabilized})">
+            ${record.is_contabilized ? 'Desmarcar Cont.' : 'Marcar Cont.'}
+        </div>
+        <div class="action-menu-item">Editar</div>
+        <div class="action-menu-divider"></div>
+        <div class="action-menu-item" style="color: var(--danger)">Eliminar</div>
+    `;
+    
+    document.body.appendChild(menu);
+    
+    // Position the menu near the button
+    const buttonRect = buttonElement.getBoundingClientRect();
+    menu.style.top = `${buttonRect.bottom + 5}px`;
+    menu.style.right = `${window.innerWidth - buttonRect.right}px`;
+    
+    isActionMenuOpen = true;
+    actionMenuTarget = buttonElement;
+    
+    // Add a click handler to close the menu when clicking outside
+    setTimeout(() => {
+        document.addEventListener('click', closeActionMenuOnOutsideClick);
+    }, 0);
+}
+
+/**
+ * Close the action menu
+ */
+function closeActionMenu() {
+    const menu = document.getElementById('actionMenu');
+    if (menu) {
+        menu.remove();
+    }
+    
+    isActionMenuOpen = false;
+    document.removeEventListener('click', closeActionMenuOnOutsideClick);
+}
+
+/**
+ * Close action menu when clicking outside
+ */
+function closeActionMenuOnOutsideClick(event) {
+    const menu = document.getElementById('actionMenu');
+    if (menu && !menu.contains(event.target) && event.target !== actionMenuTarget) {
+        closeActionMenu();
+    }
+}
+
+/**
+ * Extract entity name from concept text
+ */
+function extractEntity(concept) {
+    // This is a simplified example - customize based on your data pattern
+    const parts = concept.split('|');
+    if (parts.length > 1) {
+        return parts[1].trim();
+    }
+    
+    return '';
+}
+
+/**
+ * Extract reference number from concept text
+ */
+function extractReference(concept) {
+    // This is a simplified example - customize based on your data pattern
+    // Look for patterns like "REF: 123456" or similar
+    const refMatch = concept.match(/REF[:\s]+([A-Z0-9]+)/i);
+    if (refMatch && refMatch[1]) {
+        return refMatch[1];
+    }
+    
+    // Fallback to a generated reference based on date if available
+    if (concept.includes('TRF') || concept.includes('TRANSF')) {
+        const dateMatch = concept.match(/\d{2}\/\d{2}\/\d{4}/);
+        if (dateMatch) {
+            return `TRF/${dateMatch[0].replace(/\//g, '')}`;
+        }
+    }
+    
+    return '';
+}
+
+/**
+ * Set up pagination controls
+ */
+function setupPagination(totalRecords) {
+    const totalPages = Math.ceil(totalRecords / pageSize) || 1;
+    const paginationControls = document.getElementById('paginationControls');
+    paginationControls.innerHTML = '';
+    
+    // Previous button
+    const prevButton = document.createElement('button');
+    prevButton.textContent = '←';
+    prevButton.className = 'page-btn';
+    prevButton.disabled = currentPage === 1;
+    prevButton.addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            displayCurrentPage();
+            setupPagination(totalRecords);
+        }
+    });
+    paginationControls.appendChild(prevButton);
+    
+    // Page number buttons (show max 5 pages)
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(startPage + 4, totalPages);
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const pageButton = document.createElement('button');
+        pageButton.textContent = i;
+        pageButton.className = 'page-btn';
+        if (i === currentPage) {
+            pageButton.classList.add('active');
+        }
+        
+        pageButton.addEventListener('click', () => {
+            currentPage = i;
+            displayCurrentPage();
+            setupPagination(totalRecords);
+        });
+        
+        paginationControls.appendChild(pageButton);
+    }
+    
+    // Next button
+    const nextButton = document.createElement('button');
+    nextButton.textContent = '→';
+    nextButton.className = 'page-btn';
+    nextButton.disabled = currentPage === totalPages;
+    nextButton.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+            currentPage++;
+            displayCurrentPage();
+            setupPagination(totalRecords);
+        }
+    });
+    paginationControls.appendChild(nextButton);
+}
+
+/**
+ * Set up event listeners
+ */
+function setupEventListeners() {
+    // Setup search input
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', debounce(() => {
+        applyFilters();
+    }, 300));
+    
+    // Setup filter field selection
+    const filterField = document.getElementById('filterField');
+    filterField.addEventListener('change', () => {
+        applyFilters();
+    });
+    
+    // Handle file selection
+    const selectFileButton = document.getElementById('selectFile');
+    selectFileButton.addEventListener('click', selectFile);
+    
+    // Setup clear filters
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', () => {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterField').value = 'all';
+            applyFilters();
+        });
+    }
+    
+    // Close action menu when clicking elsewhere
+    document.addEventListener('click', (e) => {
+        if (isActionMenuOpen && e.target !== actionMenuTarget) {
+            closeActionMenu();
+        }
+    });
+    
+    // Add keyboard shortcut for search (Ctrl+F)
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    });
+    
+    // Register for import events
+    window.electronAPI.onRecordsImported((caja) => {
+        loadRecordsForCaja(caja);
+    });
+}
+
+/**
+ * Setup table sorting
+ */
+function setupTableSorting() {
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+        th.style.cursor = 'pointer';
+        th.addEventListener('click', () => {
+            const column = th.getAttribute('data-sort');
+            sortRecords(column);
+        });
+    });
+}
+
+/**
+ * Sort records by column
+ */
+function sortRecords(column) {
+    // Get current sort direction
+    const currentDir = th.getAttribute('data-direction') || 'asc';
+    const newDir = currentDir === 'asc' ? 'desc' : 'asc';
+    
+    // Reset all columns
+    document.querySelectorAll('th[data-sort]').forEach(header => {
+        header.removeAttribute('data-direction');
+        header.textContent = header.textContent.replace(' ↑', '').replace(' ↓', '');
+    });
+    
+    // Set the new direction
+    th.setAttribute('data-direction', newDir);
+    th.textContent += newDir === 'asc' ? ' ↑' : ' ↓';
+    
+    // Sort the records
+    filteredRecords.sort((a, b) => {
+        let valA = a[column];
+        let valB = b[column];
+        
+        // Handle different data types
+        if (typeof valA === 'string') {
+            valA = valA.toLowerCase();
+            valB = valB.toLowerCase();
+        }
+        
+        if (valA < valB) return newDir === 'asc' ? -1 : 1;
+        if (valA > valB) return newDir === 'asc' ? 1 : -1;
+        return 0;
+    });
+    
+    // Refresh the display
+    displayCurrentPage();
+}
+
+/**
+ * Setup search functionality
+ */
+function setupSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const filterField = document.getElementById('filterField');
+    
+    // Add keyboard shortcut (Ctrl+F)
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    });
+}
+
+/**
+ * Select file to import
+ */
+async function selectFile() {
+    try {
+        const filePath = await window.electronAPI.selectFile();
+        if (filePath) {
+            showLoading(true);
+            const records = await window.electronAPI.processFile(filePath);
+            showLoading(false);
+            
+            if (records && records.length > 0) {
+                await window.electronAPI.showPreviewDialog(records);
+            } else {
+                showToast('No records found in file', true);
+            }
+        }
+    } catch (error) {
+        console.error('Error processing file:', error);
+        showLoading(false);
+        showToast('Error processing file', true);
+    }
+}
+
+/**
+ * Format currency value
+ */
+function formatCurrency(value) {
+    return new Intl.NumberFormat('es-ES', { 
+        style: 'currency', 
+        currency: 'EUR',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(value);
+}
+
+/**
+ * Format date
+ */
+function formatDate(date) {
+    if (!date) return '';
+    
+    // Handle different date formats
+    try {
+        if (typeof date === 'string') {
+            // Try to parse the date
+            const parsedDate = parseDate(date);
+            if (parsedDate) {
+                return parsedDate.toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+            }
+        }
+        
+        // Return original if parsing fails
+        return date;
+    } catch (e) {
+        console.error('Error formatting date:', e);
+        return date;
+    }
+}
+
+/**
+ * Parse date from various formats
+ */
+function parseDate(dateStr) {
+    if (!dateStr) return null;
+    
+    // Try different date formats
+    const formats = [
+        // DD/MM/YYYY
+        str => {
+            const parts = str.split('/');
+            if (parts.length === 3) {
+                return new Date(parts[2], parts[1] - 1, parts[0]);
+            }
+            return null;
+        },
+        // YYYY-MM-DD
+        str => {
+            const parts = str.split('-');
+            if (parts.length === 3) {
+                return new Date(parts[0], parts[1] - 1, parts[2]);
+            }
+            return null;
+        },
+        // MM/DD/YYYY (US format)
+        str => {
+            const parts = str.split('/');
+            if (parts.length === 3) {
+                return new Date(parts[2], parts[0] - 1, parts[1]);
+            }
+            return null;
+        }
+    ];
+    
+    // Try each format
+    for (const format of formats) {
+        const date = format(dateStr);
+        if (date && !isNaN(date.getTime())) {
+            return date;
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Toggle contabilizado status
+ */
+async function toggleContabilizado(id, caja, newState) {
+    const confirmMessage = newState 
+        ? 'Are you sure you want to mark this record as contabilized?' 
+        : 'Are you sure you want to unmark this record as contabilized?';
+    
+    if (confirm(confirmMessage)) {
+        try {
+            showLoading(true);
+            const result = await window.electronAPI.toggleContabilizado({
+                operationId: id, 
+                operationCaja: caja, 
+                newState: newState 
+            });
+            
+            showLoading(false);
+            
+            // Refresh the data
+            currentRecords = result.data;
+            applyFilters();
+            
+            showToast(`Record ${newState ? 'marked' : 'unmarked'} as contabilized`);
+        } catch (error) {
+            console.error("Error toggling contabilizado:", error);
+            showLoading(false);
+            showToast("Error updating record status", true);
+        }
+    }
+}
+
+/**
+ * Open contabilizar dialog
+ */
+async function openContableTaskDialog(id, caja, newState) {
+    try {
+        showLoading(true);
+        await window.electronAPI.openContableTaskDialog({
+            operationId: id, 
+            operationCaja: caja, 
+            newState: newState
+        });
+        
+        showLoading(false);
+        
+        // Refresh data after dialog closes
+        loadRecordsForCaja(caja);
+    } catch (error) {
+        console.error("Error opening contable task dialog:", error);
+        showLoading(false);
+        showToast("Error opening contabilizar dialog", true);
+    }
+}
+
+/**
+ * Show/hide loading indicator
+ */
+function showLoading(isLoading) {
+    // Update status bar loading indicator
+    const statusBar = document.querySelector('.status-bar');
+    
+    if (isLoading) {
+        statusBar.innerHTML += '<div class="status-item loading-indicator">⌛ Loading...</div>';
+        document.body.classList.add('loading');
+    } else {
+        const loadingIndicator = document.querySelector('.loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.remove();
+        }
+        document.body.classList.remove('loading');
+    }
+}
+
+/**
+ * Update status bar information
+ */
+function updateStatusBar(total, filtered, cajaName, timestamp = null) {
+    document.getElementById('statusTotal').textContent = total;
+    document.getElementById('statusFiltered').textContent = filtered;
+    document.getElementById('statusCaja').textContent = cajaName || 'None';
+    document.getElementById('statusTime').textContent = timestamp || new Date().toLocaleTimeString('es-ES');
+}
+
+/**
+ * Show toast message
+ */
 function showToast(message, isError = false) {
     const toast = document.getElementById('errorToast');
     if (!toast) return;
     
     toast.textContent = message;
-    toast.style.backgroundColor = isError ? 'var(--danger)' : 'var(--accent)';
+    toast.style.backgroundColor = isError ? 'var(--danger)' : 'var(--primary)';
     toast.style.display = 'block';
     
+    // Auto-hide after 3 seconds
     setTimeout(() => {
         toast.style.display = 'none';
     }, 3000);
 }
 
-// Update status bar
-function updateStatusBar(total, filtered, cajaName, timestamp = null) {
-    const statusTotal = document.getElementById('statusTotal');
-    const statusCaja = document.getElementById('statusCaja');
-    const statusTime = document.getElementById('statusTime');
-    
-    if (statusTotal) {
-        statusTotal.textContent = `Total: ${total} | Filtered: ${filtered}`;
-    }
-    
-    if (statusCaja) {
-        statusCaja.textContent = `Caja: ${cajaName || 'None'}`;
-    }
-    
-    if (statusTime) {
-        const time = timestamp || new Date().toLocaleTimeString();
-        statusTime.textContent = `Updated: ${time}`;
-    }
+/**
+ * Debounce function (for search input)
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function() {
+        const context = this;
+        const args = arguments;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            func.apply(context, args);
+        }, wait);
+    };
 }
 
+// Add event handlers to window object for HTML access
+window.toggleContabilizado = toggleContabilizado;
+window.openContableTaskDialog = openContableTaskDialog;
+window.toggleExpandRow = toggleExpandRow;

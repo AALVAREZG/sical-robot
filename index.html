@@ -4,91 +4,147 @@
     <title>Bank Movement Manager</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto+Condensed:wght@700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <h1>Bank Movement Manager</h1>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="app-title">Bank Movement Manager</div>
+        <div class="search-box">
+            <input type="text" id="globalSearch" placeholder="Search for anything">
+        </div>
+        <div class="user-section">
+            <span class="user-name">John Doe</span>
+            <div class="user-avatar">JD</div>
+        </div>
+    </header>
+
+    <!-- Left Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-logo">FINANCE<span>KEY</span></div>
         
-        <h5 id="info"></h5>
-        <div id="tabs">
-            <button class="tab-button active" data-tab="cuentas">Cuentas</button>
-            <button class="tab-button" data-tab="otros">Otros</button>
+        <div class="sidebar-menu">
+            <a href="#" class="sidebar-menu-item">
+                <span class="sidebar-menu-item-icon">◯</span>
+                Dashboard
+            </a>
+            <a href="#" class="sidebar-menu-item">
+                <span class="sidebar-menu-item-icon">◯</span>
+                Partners
+            </a>
+            <a href="#" class="sidebar-menu-item">
+                <span class="sidebar-menu-item-icon">◯</span>
+                Accounts
+            </a>
+            <a href="#" class="sidebar-menu-item active">
+                <span class="sidebar-menu-item-icon">◯</span>
+                Transactions
+            </a>
+            <a href="#" class="sidebar-menu-item">
+                <span class="sidebar-menu-item-icon">◯</span>
+                Market Data
+            </a>
+            <a href="#" class="sidebar-menu-item">
+                <span class="sidebar-menu-item-icon">◯</span>
+                Contacts
+            </a>
         </div>
         
-        <div id="content">
-            <div id="cuentas" class="tab-content active">
-                <div class="actions-bar">
-                    <button id="selectFile">SELECT FILE</button>
-                    <button id="refreshData">
-                        <span class="icon">🔄</span> Refresh
-                    </button>
+        <div class="sidebar-section-title">
+            <span class="sidebar-menu-item-icon">◯</span>
+            Bank Accounts
+        </div>
+        
+        <div id="cajas" class="accounts-section">
+            <!-- Account cards will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="app-layout">
+        <div class="main-content">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1 class="page-title">Bank Movements - <span id="currentCajaTitle">All Accounts</span></h1>
+                
+                <div class="page-actions">
+                    <button class="btn-secondary" id="exportBtn">Export ▾</button>
+                    <button class="btn-secondary" id="columnsBtn">Columns ▾</button>
+                    <button class="btn-secondary" id="bulkActionsBtn">Bulk actions ▾</button>
+                    <button class="btn-secondary" id="clearFiltersBtn">Clear filters</button>
+                    <button class="btn-primary" id="selectFile">Add</button>
                 </div>
-                
-                <div id="resultado"></div>
-                <div class="app-layout">
-                    <div class="sidebar">
-                        <div id="cajas" class="cajas-container"></div>
-                    </div>
-                    
-                    <div class="main-content">
-                
-                        <div class="search-bar">
-                            <input type="text" id="searchInput" placeholder="Search records...">
-                            <select id="filterField">
-                                <option value="all">All Fields</option>
-                                <option value="caja">Caja</option>
-                                <option value="fecha">Fecha</option>
-                                <option value="concepto">Concepto</option>
-                            </select>
-                        </div>
-
-                        <div class="table-container">
-                            <table id="records">
-                                <thead>
-                                    <tr>
-                                        <th data-sort="caja">CAJA</th>
-                                        <th data-sort="fecha">FECHA</th>
-                                        <th data-sort="concepto">CONCEPTO</th>
-                                        <th data-sort="importe">IMPORTE</th>
-                                        <th data-sort="saldo" class="hide-on-mobile">SALDO</th>
-                                        <th data-sort="insertion_date" class="hide-on-mobile">FECHA INSERCIÓN</th>
-                                        <th data-sort="is_contabilized">CONT</th>
-                                        <th data-sort="fecha_normalizada" class="hide-on-mobile">FECHA NORMALIZADA</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-
-                        <div class="pagination"></div>
-                    </div>
-                </div>    
+            </div>
             
-            <div id="otros" class="tab-content">
-                <!-- Content for "Otros" tab -->
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+                <div class="tab-item active">All</div>
+                <div class="tab-item">Contabilized</div>
+                <div class="tab-item">Not Contabilized</div>
             </div>
-        </div>
-
-        <div class="status-bar">
-            <div class="status-item">
-                <span class="status-icon">📊</span>
-                Total: 0 | Filtered: 0
+            
+            <!-- Search/Filter Bar and Account Info -->
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search records..." class="filter-input">
+                <select id="filterField" class="filter-input">
+                    <option value="all">All Fields</option>
+                    <option value="caja">Caja</option>
+                    <option value="fecha">Fecha</option>
+                    <option value="concepto">Concepto</option>
+                </select>
+                <div id="accountInfo" class="account-info">
+                    <div class="account-info-label">Current Account:</div>
+                    <div id="accountName" class="account-info-value">None</div>
+                </div>
             </div>
-            <div class="status-item">
-                <span class="status-icon">📁</span>
-                Caja: None
+            
+            <!-- Table View -->
+            <div class="table-container">
+                <table id="records">
+                    <thead>
+                        <tr>
+                            <th data-sort="fecha">FECHA</th>
+                            <th data-sort="concepto">CONCEPTO</th>
+                            <th data-sort="importe">IMPORTE</th>
+                            <th data-sort="saldo">SALDO</th>
+                            <th data-sort="is_contabilized">CONT</th>
+                            <th>ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Record rows will be dynamically inserted here -->
+                    </tbody>
+                </table>
             </div>
-            <div class="status-item">
-                <span class="status-icon">⏱️</span>
-                Updated: --:--:--
+            
+            <!-- Pagination -->
+            <div class="pagination">
+                <div class="pagination-info">Showing <span id="pageStart">1</span> to <span id="pageEnd">25</span> of <span id="totalRecords">0</span> rows</div>
+                <div class="pagination-controls" id="paginationControls">
+                    <!-- Pagination buttons will be dynamically inserted here -->
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-item">
+            Total: <span id="statusTotal">0</span> | Filtered: <span id="statusFiltered">0</span>
+        </div>
+        <div class="status-item">
+            Caja: <span id="statusCaja">None</span>
+        </div>
+        <div class="status-item">
+            Updated: <span id="statusTime">--:--:--</span>
+        </div>
+    </div>
+
+    <!-- Error Toast -->
     <div id="errorToast" class="error-toast"></div>
-     <!-- Load Lodash before renderer.js -->
-     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    
+    <!-- JS Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
     <script src="renderer.js"></script>
 </body>
 </html>
