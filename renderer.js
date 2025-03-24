@@ -254,7 +254,18 @@ function createExpandedDetailsRow(record) {
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'expanded-actions';
     actionsDiv.innerHTML = `
-        <button class="btn-primary" onclick="openContableTaskDialog('${record.id}', '${record.caja}', ${!record.is_contabilized})">Contabilizar</button>
+        <div class="action-menu-item">
+        ${record.is_contabilized 
+            ? `<span class="status-badge status-badge-success">Contabilizado</span>`
+            : `<span class="status-badge status-badge-danger">No Cont.</span>`
+        }
+        </div>
+        ${!record.is_contabilized 
+            ? `<div class="action-menu-item" onclick="openContableTaskDialog('${record.id}', '${record.caja}', true)">
+                Contabilizar
+            </div>`
+            : ''
+        }
         <button class="btn-secondary" onclick="toggleContabilizado('${record.id}', '${record.caja}', ${!record.is_contabilized})">
             ${record.is_contabilized ? 'Desmarcar Cont.' : 'Marcar Cont.'}
         </button>
@@ -349,14 +360,25 @@ function toggleActionMenu(record, buttonElement) {
     menu.id = 'actionMenu';
     
     menu.innerHTML = `
-        <div class="action-menu-item" onclick="openContableTaskDialog('${record.id}', '${record.caja}', ${!record.is_contabilized})">Contabilizar</div>
-        <div class="action-menu-item" onclick="toggleContabilizado('${record.id}', '${record.caja}', ${!record.is_contabilized})">
-            ${record.is_contabilized ? 'Desmarcar Cont.' : 'Marcar Cont.'}
-        </div>
-        <div class="action-menu-item">Editar</div>
-        <div class="action-menu-divider"></div>
-        <div class="action-menu-item" style="color: var(--danger)">Eliminar</div>
-    `;
+    <div class="action-menu-item">
+        ${record.is_contabilized 
+            ? `<span class="status-badge status-badge-success">Contabilizado</span>`
+            : `<span class="status-badge status-badge-danger">No Cont.</span>`
+        }
+    </div>
+    ${!record.is_contabilized 
+        ? `<div class="action-menu-item" onclick="openContableTaskDialog('${record.id}', '${record.caja}', true)">
+             Contabilizar
+           </div>`
+        : ''
+    }
+    <div class="action-menu-item" onclick="toggleContabilizado('${record.id}', '${record.caja}', ${!record.is_contabilized})">
+        ${record.is_contabilized ? 'Desmarcar Cont.' : 'Marcar Cont.'}
+    </div>
+    <div class="action-menu-item">Editar</div>
+    <div class="action-menu-divider"></div>
+    <div class="action-menu-item" style="color: var(--danger)">Eliminar</div>
+`;
     
     document.body.appendChild(menu);
     
