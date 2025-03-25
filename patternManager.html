@@ -1,0 +1,156 @@
+<!-- patternManager.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transaction Pattern Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="patternManager.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto+Condensed:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="app-title">Transaction Pattern Manager</div>
+        <div class="header-actions">
+            <button id="saveAllBtn" class="btn-primary">Save All Changes</button>
+            <button id="backBtn" class="btn-secondary">Back to Main</button>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="pattern-manager-layout">
+        <!-- Pattern List -->
+        <div class="pattern-sidebar">
+            <div class="sidebar-header">
+                <h3>Patterns</h3>
+                <button id="addPatternBtn" class="btn-icon" title="Add New Pattern">+</button>
+            </div>
+            <!-- Update the pattern search input field -->
+            <div class="pattern-search">
+                <input type="text" id="patternSearch" placeholder="Search patterns..." autocomplete="off">
+            </div>
+            <div id="patternList" class="pattern-list">
+                <!-- Patterns will be listed here -->
+            </div>
+        </div>
+
+        <!-- Pattern Editor -->
+        <div class="pattern-editor">
+            <div id="editorPlaceholder" class="editor-placeholder">
+                <div class="placeholder-content">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                    </svg>
+                    <p>Select a pattern to edit or create a new one</p>
+                </div>
+            </div>
+            <div id="patternEditorContainer" class="editor-container" style="display: none;">
+                <div class="editor-header">
+                    <!-- Update the pattern title input field -->
+
+                    <input type="text" id="patternDescription" placeholder="Pattern description" class="pattern-title-input" autocomplete="off">
+                    <div class="editor-actions">
+                        <button id="testPatternBtn" class="btn-secondary">Test</button>
+                        <button id="duplicatePatternBtn" class="btn-secondary">Duplicate</button>
+                        <button id="deletePatternBtn" class="btn-danger">Delete</button>
+                    </div>
+                </div>
+                
+                <div class="editor-tabs">
+                    <button class="tab-button active" data-tab="matcher">Matcher Function</button>
+                    <button class="tab-button" data-tab="generator">Generator Function</button>
+                    <button class="tab-button" data-tab="test">Test Results</button>
+                </div>
+                
+                <div class="editor-panels">
+                    <div id="matcherPanel" class="editor-panel active">
+                        <div class="panel-header">
+                            <h3>Matcher Function</h3>
+                            <span class="panel-hint">This function determines if a transaction matches this pattern</span>
+                        </div>
+                        <div id="matcherEditor" class="code-editor"></div>
+                    </div>
+                    
+                    <div id="generatorPanel" class="editor-panel">
+                        <div class="panel-header">
+                            <h3>Generator Function</h3>
+                            <span class="panel-hint">This function generates operations for matched transactions</span>
+                        </div>
+                        <div id="generatorEditor" class="code-editor"></div>
+                    </div>
+                    
+                    <div id="testPanel" class="editor-panel">
+                        <div class="panel-header">
+                            <h3>Test Pattern</h3>
+                            <span class="panel-hint">Test your pattern with sample data</span>
+                        </div>
+                        <div class="test-container">
+                            <div class="test-input">
+                                <h4>Input Data</h4>
+                                <div class="test-input-fields">
+                                    <div class="input-group">
+                                        <label for="testCaja">Caja</label>
+                                        <input type="text" id="testCaja" placeholder="207_BBVA - 0342">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="testFecha">Fecha</label>
+                                        <input type="text" id="testFecha" placeholder="25052024">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="testConcepto">Concepto</label>
+                                        <textarea id="testConcepto" placeholder="TRANSFERENCIAS 41016796-E.I. CASARICHE"></textarea>
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="testImporte">Importe</label>
+                                        <input type="number" step="0.01" id="testImporte" placeholder="1250.00">
+                                    </div>
+                                </div>
+                                <button id="runTestBtn" class="btn-primary">Run Test</button>
+                            </div>
+                            <div class="test-results">
+                                <h4>Test Results</h4>
+                                <div class="test-result-container">
+                                    <div class="test-match-result">
+                                        <div class="result-header">Matcher Result:</div>
+                                        <div id="matcherResult" class="result-content">Not tested yet</div>
+                                    </div>
+                                    <div class="test-generator-output">
+                                        <div class="result-header">Generator Output:</div>
+                                        <pre id="generatorOutput" class="result-content">Not tested yet</pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Modal -->
+    <div id="testModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Test Pattern</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="test-input-container">
+                    <!-- Test inputs go here -->
+                </div>
+                <div class="test-output-container">
+                    <!-- Test outputs go here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Messages -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Monaco Editor (for code editing) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs/loader.js"></script>
+    <script src="patternManager.js"></script>
+</body>
+</html>

@@ -18,7 +18,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     importRecords: (records) => ipcRenderer.invoke('import-records', records),
     onRecordsImported: (callback) => ipcRenderer.on('records-imported', (_, caja) => callback(caja)),
     generateHash: (record) => ipcRenderer.invoke('generate-hash', record),
-    
+    // Add these lines to your existing contextBridge.exposeInMainWorld() in preload.js
+    getPatterns: () => ipcRenderer.invoke('get-patterns'),
+    savePatterns: (patterns) => ipcRenderer.invoke('save-patterns', patterns),
+    testPattern: (data) => ipcRenderer.invoke('test-pattern', data),
 });
 
 contextBridge.exposeInMainWorld('versions', {

@@ -261,9 +261,9 @@ function createExpandedDetailsRow(record) {
         }
         </div>
         ${!record.is_contabilized 
-            ? `<div class="action-menu-item" onclick="openContableTaskDialog('${record.id}', '${record.caja}', true)">
+            ? `<button class="btn-secondary" onclick="openContableTaskDialog('${record.id}', '${record.caja}', true)">
                 Contabilizar
-            </div>`
+            </button>`
             : ''
         }
         <button class="btn-secondary" onclick="toggleContabilizado('${record.id}', '${record.caja}', ${!record.is_contabilized})">
@@ -628,6 +628,16 @@ function setupSearch() {
             searchInput.focus();
         }
     });
+}
+// Add this to your setupEventListeners function in renderer.js
+const patternManagerBtn = document.getElementById('patternManagerBtn');
+if (patternManagerBtn) {
+    patternManagerBtn.addEventListener('click', openPatternManager);
+}
+
+// Add this function to renderer.js
+function openPatternManager() {
+    window.location.href = 'patternManager.html';
 }
 
 /**

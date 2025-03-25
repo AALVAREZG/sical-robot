@@ -150,7 +150,7 @@ function createFallbackResult(bankData) {
         id_task: caja+'_'+fecha+'_'+String(importe),
         creation_date: dateISOString,
         num_operaciones: 1,
-        liquido_operaciones: importeNumerico,
+        liquido_operaciones: importe,
         operaciones: [
           {
             tipo: "arqueo",
@@ -160,7 +160,7 @@ function createFallbackResult(bankData) {
               tercero: "43000000M",
               naturaleza: "4",
               final: [
-                { partida: "399", IMPORTE_PARTIDA: importeNumerico },
+                { partida: "399", IMPORTE_PARTIDA: importe },
                 { partida: "Total", IMPORTE_PARTIDA: 0.0 }
               ],
               texto_sical: [{ 
@@ -181,7 +181,7 @@ function createFallbackResult(bankData) {
         id_task: caja+'_'+fecha+'_'+String(importe),
         creation_date: dateISOString,
         num_operaciones: 1,
-        liquido_operaciones: importeNumerico,
+        liquido_operaciones: importe,
         operaciones: [
           {
             tipo: "ado220",
@@ -210,6 +210,54 @@ function createFallbackResult(bankData) {
 }
 
 
+/**
+ * Apply a specific pattern by ID
+ * @param {string} patternId - The ID of the pattern to apply
+ * @param {Array} bankData - The bank data array [caja, fecha, concepto, importe]
+ * @returns {Object} Result of applying the pattern
+ */
+async function applySpecificPattern(patternId, bankData) {
+  console.log(`Applying specific pattern ${patternId} to bank data:`, bankData);
+  const [caja, fecha, concepto, importe] = bankData;
+  rawDate = limpiarFecha(fecha);
+  rawCaja = caja.split('_')[0];
+  let rawBankData = [rawCaja, rawDate, concepto, importe];
+  console.log('Translating bank operation, raw data:', rawBankData);
+  
+  
+  // Extract index from pattern ID (assuming format pattern_X)
+  const patternIndex = parseInt(patternId.split('_')[1]);
+  
+  if (isNaN(patternIndex) || patternIndex < 0 || patternIndex >= transactionPatterns.length) {
+    console.error(`Invalid pattern ID: ${patternId}`);
+    throw new Error('Pattern not found');
+  }
+  
+  // Get the specific pattern
+  const pattern = transactionPatterns[patternIndex];
+  
+  // Check if the pattern matches the bank data
+  try {
+    const matches = pattern.matcher(bankData);
+    if (!matches) {
+      console.warn(`Pattern ${patternId} does not match the bank data`);
+      // Still apply it as requested
+    }
+    
+    // Apply the generator function
+    
+    const generatedData = pattern.generator(rawBankData);
+    
+    return {
+      data: generatedData,
+      description: pattern.description || `Pattern ${patternIndex}`,
+      patternId: patternId
+    };
+  } catch (error) {
+    console.error(`Error applying pattern ${patternId}:`, error);
+    throw error;
+  }
+}
 
 
 // Enhanced function to create a new pattern from example data
@@ -379,47 +427,6 @@ async function getAvailablePatterns() {
 }
 
 
-/**
- * Apply a specific pattern by ID
- * @param {string} patternId - The ID of the pattern to apply
- * @param {Array} bankData - The bank data array [caja, fecha, concepto, importe]
- * @returns {Object} Result of applying the pattern
- */
-async function applySpecificPattern(patternId, bankData) {
-  console.log(`Applying specific pattern ${patternId} to bank data:`, bankData);
-  
-  // Extract index from pattern ID (assuming format pattern_X)
-  const patternIndex = parseInt(patternId.split('_')[1]);
-  
-  if (isNaN(patternIndex) || patternIndex < 0 || patternIndex >= transactionPatterns.length) {
-    console.error(`Invalid pattern ID: ${patternId}`);
-    throw new Error('Pattern not found');
-  }
-  
-  // Get the specific pattern
-  const pattern = transactionPatterns[patternIndex];
-  
-  // Check if the pattern matches the bank data
-  try {
-    const matches = pattern.matcher(bankData);
-    if (!matches) {
-      console.warn(`Pattern ${patternId} does not match the bank data`);
-      // Still apply it as requested
-    }
-    
-    // Apply the generator function
-    const generatedData = pattern.generator(bankData);
-    
-    return {
-      data: generatedData,
-      description: pattern.description || `Pattern ${patternIndex}`,
-      patternId: patternId
-    };
-  } catch (error) {
-    console.error(`Error applying pattern ${patternId}:`, error);
-    throw error;
-  }
-}
 
 
 // Export all the functions and variables

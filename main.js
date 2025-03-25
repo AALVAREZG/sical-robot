@@ -3,12 +3,15 @@ const path = require('path');
 const Database = require('./database.js');
 const { dialog } = require('electron');
 const XLSX = require('xlsx');
-const fs = require('fs');
+//const fs = require('fs');
+const fs = require('fs').promises; //added in moment to  create pattern manager
 const { spawn } = require('child_process');
 
 
 // Path to the executable relative to the Electron app
 const pythonServicePath = path.join(__dirname, 'data', 'sender', 'senderToRabbitMQ.exe');
+// Pattern file path
+const PATTERNS_FILE_PATH = path.join(__dirname, 'data', 'transaction-patterns.json');
 
 // Import the simplified bank translator module
 const bankTranslator = require('./bank-translator');
@@ -85,11 +88,10 @@ app.whenReady().then(async () => {
   // Your existing code...
   console.log("async loads and initializations .....")
   // Load the simplified model (no TensorFlow)
-  
   await initializePatterns();
-  
   // Continue with your app initialization...
 });
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
@@ -591,7 +593,11 @@ ipcMain.handle('open-contabilizar-dialog', async (event, { operationId, operatio
           } else {
             console.log('JSON file created successfully at:', filePath);
           }
-        const result = await runPythonService();
+        try {
+          const result = await runPythonService();
+        } catch (error) {
+          console.error('Error running Python service:', error);
+        }
         console.log("Result of contabilizar: ", result)
         resolve(result);
         ipcMain.removeListener(responseChannel, submitListener);
@@ -739,7 +745,7 @@ ipcMain.handle('run-sender', async (event, args) => {
 });
 
 
-// Handler to get all available patterns
+// Handler to get all available patterns from the bank-translator module
 ipcMain.handle('get-available-patterns', async () => {
   console.log('Getting available patterns');
   try {
@@ -804,4 +810,71 @@ ipcMain.handle('translate-operation', async (event, data) => {
     description: result.description,
     patternId: result.patternId // Make sure your translateBankOperation function returns this
   };
+});
+
+// Get all patterns //FUNCTIONS USED IN PATTERNS MANAGER 
+ipcMain.handle('get-patterns', async () => {
+  try {
+      // Check if file exists
+      try {
+          await fs.access(PATTERNS_FILE_PATH);
+      } catch (error) {
+          console.log(`Error: ${error} - ${PATTERNS_FILE_PATH}`);		
+          return [];
+      }
+      
+      // Read and parse the file
+      const data = await fs.readFile(PATTERNS_FILE_PATH, 'utf-8');
+      return JSON.parse(data);
+  } catch (error) {
+      console.error('Error loading patterns:', error);
+      throw error;
+  }
+});
+
+// Save patterns
+ipcMain.handle('save-patterns', async (event, patterns) => {
+  try {
+      // Ensure the directory exists
+      const dir = path.dirname(PATTERNS_FILE_PATH);
+      await fs.mkdir(dir, { recursive: true });
+      
+      // Write to file
+      await fs.writeFile(
+          PATTERNS_FILE_PATH, 
+          JSON.stringify(patterns, null, 2)
+      );
+      
+      console.log('Patterns saved successfully');
+      return true;
+  } catch (error) {
+      console.error('Error saving patterns:', error);
+      throw error;
+  }
+});
+
+// Test a pattern
+ipcMain.handle('test-pattern', async (event, { matcherFunction, generatorFunction, testData }) => {
+  try {
+      // Create new function objects from the stored strings
+      const matcherFn = new Function('return ' + matcherFunction)();
+      const generatorFn = new Function('return ' + generatorFunction)();
+      
+      // Execute the matcher function
+      const matchResult = matcherFn(testData);
+      
+      // If matched, execute the generator function
+      let generatorResult = null;
+      if (matchResult === true) {
+          generatorResult = generatorFn(testData);
+      }
+      
+      return {
+          matchResult,
+          generatorResult
+      };
+  } catch (error) {
+      console.error('Error testing pattern:', error);
+      throw error;
+  }
 });
