@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getPatterns: () => ipcRenderer.invoke('get-patterns'),
     savePatterns: (patterns) => ipcRenderer.invoke('save-patterns', patterns),
     testPattern: (data) => ipcRenderer.invoke('test-pattern', data),
+    reloadPatterns: () => ipcRenderer.invoke('reload-patterns'),
 });
 
 contextBridge.exposeInMainWorld('versions', {

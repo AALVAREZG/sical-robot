@@ -3,6 +3,13 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCajas();
     setupEventListeners();
     initializeUI();
+
+    // Reload patterns when the page loads
+    window.electronAPI.reloadPatterns().then(() => {
+        console.log("Patterns reloaded for transaction matching");
+    }).catch(error => {
+        console.error("Error reloading patterns:", error);
+    });
 });
 
 // Global variables

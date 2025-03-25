@@ -119,7 +119,7 @@ function translateBankOperation(bankData) {
   rawDate = limpiarFecha(fecha);
   rawCaja = caja.split('_')[0];
   console.log('Translating bank operation:', bankData);
-  console.log('Existing patterns:', transactionPatterns.length);
+  console.log('translateBankOperation. Existing patterns:', transactionPatterns.length);
   let rawData = [rawCaja, rawDate, concepto, importe];
   // Try to match with enhanced pattern matching
   for (const pattern of transactionPatterns) {
@@ -358,8 +358,54 @@ async function loadPatterns() {
   }
 }
 
-// Initialize patterns on startup
+// In bank-translator.js
+
+// Initialize patterns from file directly in the main process
 async function initializePatterns() {
+  try {
+    console.log("Loading patterns from file...");
+    // Read the patterns file directly using fs
+    // This works in the main process without needing window.electronAPI
+    const PATTERNS_FILE_PATH = path.join(__dirname, 'data', 'transaction-patterns.json');
+    
+    // Check if file exists
+    try {
+      await fs.access(PATTERNS_FILE_PATH);
+    } catch (error) {
+      console.log('No saved patterns file found. Using default patterns.');
+      return false;
+    }
+    
+    // Read and parse the file
+    const data = await fs.readFile(PATTERNS_FILE_PATH, 'utf-8');
+    const serializedPatterns = JSON.parse(data);
+    
+    // Clear existing patterns
+    transactionPatterns.length = 0;
+    
+    // Convert the serialized functions back to actual functions
+    serializedPatterns.forEach(pattern => {
+      // Create new function objects from the stored strings
+      const matcherFn = new Function('return ' + pattern.matcherFunction)();
+      const generatorFn = new Function('return ' + pattern.generatorFunction)();
+      
+      transactionPatterns.push({
+        description: pattern.description,
+        matcher: matcherFn,
+        generator: generatorFn
+      });
+    });
+    
+    console.log(`Loaded ${transactionPatterns.length} patterns from storage`);
+    return true;
+  } catch (error) {
+    console.error('Error loading patterns:', error);
+    return false;
+  }
+}
+
+// Initialize patterns on startup
+async function initializePatterns_OLD() {
   // Try to load saved patterns, if any
   console.log("try to load saved patterns...")
   const loaded = await loadPatterns();

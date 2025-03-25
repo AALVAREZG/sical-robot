@@ -515,7 +515,8 @@ async function navigateBack() {
         }
     }
     
-    // In a real implementation, you would navigate back to the main window
+    // Use localStorage to indicate we're returning from pattern manager
+    localStorage.setItem('returnFromPatternManager', 'true');
    
     window.location.href = 'index.html';
 }

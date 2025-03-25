@@ -40,9 +40,22 @@ const BBVA_FILENAME = 'BBVA';
 const BBVA_EXTENSION = '.XLSX';
 const SANTANDER_FILENAME = 'SANTANDER';
 const SANTANDER_EXTENSION = '.XLSX';
-
+let transactionPatterns = [];
 let mainWindow;
 const db = new Database('./prueba05.sqlite');
+
+// Function to load patterns
+async function loadPatternsFromFile() {
+  try {
+    const data = await fs.readFile(PATTERNS_FILE_PATH, 'utf-8');
+    transactionPatterns = JSON.parse(data);
+    console.log(`Loaded ${transactionPatterns.length} patterns from file`);
+    return transactionPatterns;
+  } catch (error) {
+    console.error('Error loading patterns:', error);
+    return [];
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -88,6 +101,8 @@ app.whenReady().then(async () => {
   // Your existing code...
   console.log("async loads and initializations .....")
   // Load the simplified model (no TensorFlow)
+  // Load patterns on startup
+  await loadPatternsFromFile();
   await initializePatterns();
   // Continue with your app initialization...
 });
@@ -119,6 +134,10 @@ ipcMain.handle('editar-opciones', async (event, { id, caja }) => {
   return await db.getRecordOptions(id);
 });
 
+// In main.js, add this with your other IPC handlers
+ipcMain.handle('reload-patterns', async () => {
+  return await loadPatternsFromFile();
+});
 
 ipcMain.handle('export-operaciones-api', async (event, operaciones) => {
   console.log('Exporting operations to API:', operaciones);
