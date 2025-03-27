@@ -42,6 +42,15 @@ async function findIdByName(searchTerm) {
     return null;
   }
 }
+/**
+ * Remove all non-alphanumeric characters from a string
+ * @param {string} str - The input string
+ * @returns {string} - The string with non-alphanumeric characters removed
+ */
+ 
+function removeNonAlphanumeric(str) {
+  return str.replace(/[^a-zA-Z0-9]/g, '');
+}
 
 /**
  * Search for a term in column 3 of CSV and return all matching results
@@ -141,13 +150,19 @@ function createFallbackResult(bankData) {
   const importeNumerico = parseFloat(importe);
   const isPositive = importeNumerico >= 0;
   console.log("find id...", findIdByName(concepto))
-  const dateISOString = new Date().toISOString();
+  const dateISOString = new Date().toISOString(); function removeNonAlphanumeric(str) {
+    return str.replace(/[^a-zA-Z0-9]/g, '');
+  };
+  const startIndex = Math.floor((concepto.length - 5) / 2);
+  const middle6 = removeNonAlphanumeric(concepto).slice(startIndex, startIndex + 6);
+  const normalizedImporte = String(importe).replace(/,/g, '');
+  
   // Different processing based on sign
   if (isPositive) {
     // Positive amount - generate Arqueo
     return {
       data: {
-        id_task: caja+'_'+fecha+'_'+String(importe),
+        id_task: caja+'_'+fecha+'_'+normalizedImporte+'_'+ middle6,
         creation_date: dateISOString,
         num_operaciones: 1,
         liquido_operaciones: importe,
@@ -178,7 +193,7 @@ function createFallbackResult(bankData) {
     const absImporte = Math.abs(importeNumerico);
     return {
       data: {
-        id_task: caja+'_'+fecha+'_'+String(importe),
+        id_task: caja+'_'+fecha+'_'+normalizedImporte+'_'+ middle6,
         creation_date: dateISOString,
         num_operaciones: 1,
         liquido_operaciones: importe,
