@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
             caja: group.records[0].caja,
             fecha: group.records[0].fecha,
             normalized_date: date,
-            concepto: `TRANSFERENCIAS 41016796-E.I. CASARICHE ${monthName.toUpperCase()} ${year} (totalizado: ${group.records.length} beneficiarios)`,
+            concepto: `TRANSFERENCIAS 41016796-E.I. CASARICHE ${monthName.toUpperCase()} ${year} (Agrupado. Total: ${group.records.length} beneficiarios)`,
             importe: group.total,
             saldo: group.records[group.records.length - 1].saldo,
             is_grouped: true
@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${record.caja}</td>
                 <td class="date">${record.fecha}</td>
                 <td class="date">${record.normalized_date}</td>
-                <td>${record.concepto}${record.is_grouped ? ' (Grouped)' : ''}</td>
+                <td>${record.concepto}</td>
                 <td class="currency">${formattedImporte}</td>
                 <td class="currency">${formattedSaldo}</td>
                 <td class="text-center import-status">

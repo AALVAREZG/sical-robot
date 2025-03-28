@@ -34,7 +34,7 @@ init() {
   }
 
   generateHash(record) {
-    const dataToHash = `${record.caja}${record.fecha}${record.concepto}${record.importe}${record.saldo}`;
+    const dataToHash = `${record.caja}${record.fecha}${record.concepto.slice(0,100)}${record.importe}${record.saldo}`;
     return crypto.createHash('sha256').update(dataToHash).digest('hex');
   }
 

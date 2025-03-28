@@ -605,24 +605,25 @@ ipcMain.handle('open-contabilizar-dialog', async (event, { operationId, operatio
         //const csvPath = path.join(__dirname, 'data', 'records', 'terceros.csv');
         //const filePath = path.join(app.getPath('userData'), 'taskData.json');
         const filePath = path.join(__dirname, 'data', 'sender', 'input', 'pending_files', `task-${data.id_task}.json`);
-        
-        fs.writeFile(filePath, taskDataJson, async (err) => {
-          if (err) {
-            console.error('Error writing JSON file:', err);
-          } else {
+        try {
+          fs.writeFile(filePath, taskDataJson)
             console.log('JSON file created successfully at:', filePath);
-          }
+          } catch (error) {
+            console.error('Error writing JSON file:', err);
+        }
+       
         try {
           const result = await runPythonService();
+          console.log("Result of contabilizar: ", result)
         } catch (error) {
           console.error('Error running Python service:', error);
         }
-        console.log("Result of contabilizar: ", result)
+       
         resolve(result);
         ipcMain.removeListener(responseChannel, submitListener);
-        });
+        };
       }
-    };
+    
     
     ipcMain.on(responseChannel, submitListener);
     
