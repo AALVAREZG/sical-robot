@@ -15,6 +15,7 @@ const PATTERNS_FILE_PATH = path.join(__dirname, 'data', 'transaction-patterns.js
 
 // Import the simplified bank translator module
 const bankTranslator = require('./bank-translator');
+const { json } = require('stream/consumers');
 
 // Extract functions and variables from bank-translator.js
 const { 
@@ -40,6 +41,8 @@ const BBVA_FILENAME = 'BBVA';
 const BBVA_EXTENSION = '.XLSX';
 const SANTANDER_FILENAME = 'SANTANDER';
 const SANTANDER_EXTENSION = '.XLSX';
+const UNICAJA_FILENAME = 'UNICAJA';
+const UNICAJA_EXTENSION = '.XLS'
 let transactionPatterns = [];
 let mainWindow;
 const db = new Database('./prueba05.sqlite');
@@ -212,6 +215,78 @@ ipcMain.handle('process-file', async (event, filePath) => {
     records = await checkExistingRecords(processCaixaBnkRecords(rawRecords, caja));
     
 
+  } else if (fileExtension === UNICAJA_EXTENSION && filename.startsWith(UNICAJA_FILENAME)) {
+    
+    // Read the workbook with full options
+    const workbook = XLSX.readFile(filePath, {
+      cellDates: true,
+      cellNF: true,
+      cellStyles: true
+    });
+    // Get the first sheet
+    const firstSheetName = workbook.SheetNames[0];
+    const firstSheet = workbook.Sheets[firstSheetName];
+  
+    // Log basic info about the sheet
+    console.log('Sheet name:', firstSheetName);
+    
+    // Determine which account we're working with
+    let accountInfo = {};
+    
+    // Extract account number (in cell C6)
+    if (firstSheet['C6'] && firstSheet['C6'].v) {
+      accountInfo.accountNumber = firstSheet['C6'].v;
+    }
+    
+    // Extract account description (in cell C7)
+    if (firstSheet['C7'] && firstSheet['C7'].v) {
+      accountInfo.description = firstSheet['C7'].v;
+    }
+    
+    // Extract balance date and amount (in cells A8 and C8)
+    if (firstSheet['A8'] && firstSheet['A8'].v && firstSheet['C8'] && firstSheet['C8'].v) {
+      accountInfo.balanceDate = firstSheet['A8'].v.replace('Saldo a fecha ', '');
+      accountInfo.balance = firstSheet['C8'].v;
+    }
+  
+    // Set the account type based on the filename (as in your original code)
+    let caja = '238 - UNICAJA (PP2022) - 8476';
+    if (filename.endsWith('8822')) {
+      caja = '240 - UNICAJA (PP2023) - 8822';
+    }
+    accountInfo.accountType = caja;
+  
+    // Extract transactions starting from row 10 (which is range 9)
+    // The header row is at row 10 (range 9)
+    let rawRecords = [];
+    try {
+      // First pass with default headers - this gets the headers properly
+      const headerRow = XLSX.utils.sheet_to_json(firstSheet, {
+        range: 9,
+        header: 1
+      })[0];
+    
+    // The actual transactions start at row 11 (range 10)
+    // We use the header option to specify the column names
+    rawRecords = XLSX.utils.sheet_to_json(firstSheet, {
+      range: 10,
+      header: ['FECHA', 'FVALOR', 'CONCEPTO', 'IMPORTE', 'DIVISA', 
+        'SALDO', 'DIVISASALDO', 'NUM_MOV', 'OFICINA', 'CATEGORyY', 
+        'RETURN_CODE', 'RETURN_CONCEPT'
+      ],
+      // Convert dates to JS Date objects
+      raw: false,
+      dateNF: 'yyyy-mm-dd'
+      });
+    } catch (error) {
+      console.error('Error extracting transactions:', error);
+    }
+   
+    // Process records and check if they exist in database
+    console.log('records: ', rawRecords[0])
+    records = await checkExistingRecords(processUnicajaRecords(rawRecords, caja));
+    
+
   } else if (fileExtension === BBVA_EXTENSION && filename.startsWith(BBVA_FILENAME)) { 
     const workbook = XLSX.readFile(filePath, {
       cellDates: true,
@@ -221,10 +296,8 @@ ipcMain.handle('process-file', async (event, filePath) => {
     const firstSheetName  = workbook.SheetNames[0];
     const firstSheet  = workbook.Sheets[firstSheetName];
     
-    
     let caja = '207_BBVA - 0342'
     
-
     if (filename.endsWith('9994')) { //CUENTA SECUNDARIA
       caja = '207_BBVA_PCONTIGO_9994';
     } 
@@ -232,8 +305,9 @@ ipcMain.handle('process-file', async (event, filePath) => {
       range: 16, 
       //header: ['COL_VOID_1', 'COL_VOID_2', 'FECHA', 'FVALOR', 'CUENTA', 'CODIGO', 'CONCEPTO', 'BENEFIARIO_ORDENANTE', 'OBSERVACIONES', 'IMPORTE', 'SALDO']  
       header: ['COL_VOID_1', 'COL_VOID_2', 'FECHA', 'FVALOR', 'CODIGO', 'CONCEPTO', 'BENEFIARIO_ORDENANTE', 'OBSERVACIONES', 'IMPORTE', 'SALDO']  
-  });
-    //console.log('rawRecords: ', rawRecords[0])
+    });
+    
+    // console.log('rawRecords: ', rawRecords[0]);
     // Process records and check if they exist in database
     records = await checkExistingRecords(processBBVARecords(rawRecords, caja));
   } else if (fileExtension === SANTANDER_EXTENSION && filename.startsWith(SANTANDER_FILENAME)) { 
@@ -263,6 +337,69 @@ ipcMain.handle('process-file', async (event, filePath) => {
   }
     return records;
 });
+
+function processUnicajaRecords(records, caja) {
+  // Here you would typically process the records, add hash identifiers, 
+  // save to database, etc.
+  
+  // For this example, we're just adding an id to each record
+  try {
+    const processedXlsRecords = records.map((record, index) => (
+      
+      {
+        caja: caja,
+        fecha: record.FECHA,
+        normalized_date: normalizeUnicajaDate(record.FECHA),
+        concepto: record.CONCEPTO + ' | ',
+        importe: parseSpanishNumber(record.IMPORTE),
+        saldo: parseSpanishNumber(record.SALDO),
+        num_apunte: record.NUM_MOV,
+        idx: index
+   })).sort((a, b) => {
+      const [aMonth, aDay, aYear] = a.normalized_date.split('-');
+      const [bMonth, bDay, bYear] = b.normalized_date.split('-');
+      const dateA = new Date(aYear, aMonth - 1, aDay);
+      const dateB = new Date(bYear, bMonth - 1, bDay);
+      return dateB - dateA;
+    });
+  console.log("processed records", processedXlsRecords)
+  return processedXlsRecords
+  } catch (error) {
+    console.error('Error storing records:', error);
+    return error
+  }
+
+}
+
+function parseSpanishNumber(str) {
+  if (!str || typeof str !== 'string') return null;
+  //console.log('str', str)
+  // Remove all dots (thousand separators)
+  const withoutThousands = str.replace(/\,/g, '');
+  //console.log('withoutThousands', withoutThousands)
+  
+  // Replace comma with dot for decimal separator
+  const withDot = withoutThousands.replace(',', '.');
+  //console.log('withDot', withDot)
+  
+  // Parse as float
+  const num = parseFloat(withDot);
+  
+  return isNaN(num) ? null : num;
+}
+
+
+function normalizeUnicajaDate(date) { 
+  //date is a string in format dd / mm / yyyy
+  const [day, month, year] = date.split('/');
+  let _s_date = `${year}-${month}-${day}`;
+  const d = new Date(_s_date);
+  return  d.toLocaleDateString('en-CA', {
+    year: 'numeric',
+    month: '2-digit', 
+    day: '2-digit'
+  }).replace(/\//g, '-');
+}
 
 function processBBVARecords(records, caja) {
   // Here you would typically process the records, add hash identifiers, 
