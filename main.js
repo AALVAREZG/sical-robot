@@ -6,7 +6,7 @@ const XLSX = require('xlsx');
 //const fs = require('fs');
 const fs = require('fs').promises; //added in moment to  create pattern manager
 const { spawn } = require('child_process');
-
+const BalanceConsistencyValidator = require('./BalanceConsistencyValidator');
 
 // Path to the executable relative to the Electron app
 const pythonServicePath = path.join(__dirname, 'data', 'sender', 'senderToRabbitMQ.exe');
@@ -211,7 +211,7 @@ ipcMain.handle('process-file', async (event, filePath) => {
   });
    
     // Process records and check if they exist in database
-    console.log('records: ', rawRecords[1,2])
+    console.log('records: ', rawRecords[0])
     records = await checkExistingRecords(processCaixaBnkRecords(rawRecords, caja));
     
 
@@ -250,9 +250,9 @@ ipcMain.handle('process-file', async (event, filePath) => {
     }
   
     // Set the account type based on the filename (as in your original code)
-    let caja = '238 - UNICAJA (PP2022) - 8476';
+    let caja = '238_UNICAJA_(PP2022)-8476';
     if (filename.endsWith('8822')) {
-      caja = '240 - UNICAJA (PP2023) - 8822';
+      caja = '240_UNICAJA_(PP2023)-8822';
     }
     accountInfo.accountType = caja;
   
@@ -319,10 +319,8 @@ ipcMain.handle('process-file', async (event, filePath) => {
     const firstSheetName  = workbook.SheetNames[0];
     const firstSheet  = workbook.Sheets[firstSheetName];
     
-    
     let caja = '201_SANTANDER - 2932'
     
-
     if (filename.endsWith('9994')) { //CUENTA SECUNDARIA
       caja = '201_SANTANDER_RECAUDA_XX';
     } 
@@ -338,7 +336,173 @@ ipcMain.handle('process-file', async (event, filePath) => {
     return records;
 });
 
+function processBBVARecords(records, caja) {
+  try {
+    const importTimestamp = new Date().toISOString();
+    
+    const processedRecords = records.map((record, index) => {
+      // Calculate a "natural key" that includes:
+      // 1. The transaction date
+      // 2. The bank's transaction ID or reference (if available)
+      // 3. The balance (as a tiebreaker)
+      // 4. Import timestamp + index (as a final tiebreaker)
+      
+      const transactionDate = normalizeBBVADate(record.FECHA);
+      const amount = parseFloat(record.IMPORTE);
+      const balance = parseFloat(record.SALDO);
+      const importIndex = String(index).padStart(6, '0');
+      
+      // Store all components separately for flexible sorting
+      return {
+        caja: caja,
+        fecha: record.FECHA,
+        normalized_date: transactionDate,
+        concepto: record.CONCEPTO + ' | ' + record.OBSERVACIONES + ' | ' + (record.BENEFIARIO_ORDENANTE || 'N/D'),
+        importe: record.IMPORTE,
+        saldo: record.SALDO,
+        num_apunte: 0,
+        idx: index,
+        // Optional composite key for quick sorting
+        sort_key: `${transactionDate}_${importTimestamp}_${importIndex}`
+      };
+    });
+    
+    return processedRecords;
+  } catch (error) {
+    console.error('Error processing BBVA records:', error);
+    return error;
+  }
+}
+
+function processCRuralRecords(records, caja) {
+  try {
+    const importTimestamp = new Date().toISOString();
+    
+    const processedRecords = records.map((record, index) => {
+      const transactionDate = normalizeCRuralDate(record.FECHA);
+      const amount = parseFloat(record.IMPORTE);
+      const balance = parseFloat(record.SALDO);
+      const importIndex = String(index).padStart(6, '0');
+      
+      return {
+        caja: caja,
+        fecha: normalizeCruralRawDate(record.FECHA),
+        normalized_date: transactionDate,
+        concepto: record.CONCEPTO,
+        importe: record.IMPORTE,
+        saldo: record.SALDO,
+        num_apunte: record.NUM_APUNTE || 0,
+        idx: index,
+        // Composite key for sorting
+        sort_key: `${transactionDate}_${importTimestamp}_${importIndex}`
+      };
+    });
+    
+    return processedRecords;
+  } catch (error) {
+    console.error('Error processing CRURAL records:', error);
+    return error;
+  }
+}
+
+function processCaixaBnkRecords(records, caja) {
+  try {
+    const importTimestamp = new Date().toISOString();
+    
+    const processedRecords = records.map((record, index) => {
+      const transactionDate = normalizeCaixaBankDate(record.FECHA);
+      const amount = parseFloat(record.IMPORTE);
+      const balance = parseFloat(record.SALDO);
+      const importIndex = String(index).padStart(6, '0');
+      
+      return {
+        caja: caja,
+        fecha: record.FECHA.toLocaleDateString('es-ES', {
+          year: 'numeric',
+          month: '2-digit', 
+          day: '2-digit',
+        }),
+        normalized_date: transactionDate,
+        concepto: record.CONCEPTO + ' | ' + (record.CONCEPTOADIC || ''),
+        importe: record.IMPORTE,
+        saldo: record.SALDO,
+        num_apunte: 0,
+        idx: index,
+        // Composite key for sorting
+        sort_key: `${transactionDate}_${importTimestamp}_${importIndex}`
+      };
+    });
+    
+    return processedRecords;
+  } catch (error) {
+    console.error('Error processing CAIXABANK records:', error);
+    return error;
+  }
+}
+
+function processSantanderRecords(records, caja) {
+  try {
+    const importTimestamp = new Date().toISOString();
+    
+    const processedRecords = records.map((record, index) => {
+    const transactionDate = normalizeSantanderDate(record.FECHA);
+    const amount = parseFloat(record.IMPORTE);
+    const balance = parseFloat(record.SALDO);
+    const importIndex = String(index).padStart(6, '0');
+      
+    return {
+        caja: caja,
+        fecha: record.FECHA,
+        normalized_date: transactionDate,
+        concepto: record.CONCEPTO,
+        importe: record.IMPORTE,
+        saldo: record.SALDO,
+        num_apunte: 0,
+        idx: index,
+        // Composite key for sorting
+        sort_key: `${transactionDate}_${importTimestamp}_${importIndex}`
+      };
+    });
+    
+    return processedRecords;
+  } catch (error) {
+    console.error('Error processing SANTANDER records:', error);
+    return error;
+  }
+}
+
 function processUnicajaRecords(records, caja) {
+  try {
+    const importTimestamp = new Date().toISOString();
+    
+    const processedRecords = records.map((record, index) => {
+      const transactionDate = normalizeUnicajaDate(record.FECHA);
+      const amount = parseFloat(record.IMPORTE);
+      const balance = parseFloat(record.SALDO);
+      const importIndex = String(index).padStart(6, '0');
+      
+      return {
+        caja: caja,
+        fecha: record.FECHA,
+        normalized_date: transactionDate,
+        concepto: record.CONCEPTO + ' | ',
+        importe: parseSpanishNumber(record.IMPORTE),
+        saldo: parseSpanishNumber(record.SALDO),
+        num_apunte: record.NUM_MOV || 0,
+        idx: index,
+        // Composite key for sorting
+        sort_key: `${transactionDate}_${importTimestamp}_${importIndex}`
+      };
+    });
+    
+    return processedRecords;
+  } catch (error) {
+    console.error('Error processing UNICAJA records:', error);
+    return error;
+  }
+}
+
+function processUnicajaRecords_OLD(records, caja) {
   // Here you would typically process the records, add hash identifiers, 
   // save to database, etc.
   
@@ -401,7 +565,8 @@ function normalizeUnicajaDate(date) {
   }).replace(/\//g, '-');
 }
 
-function processBBVARecords(records, caja) {
+
+function processBBVARecords_OLD(records, caja) {
   // Here you would typically process the records, add hash identifiers, 
   // save to database, etc.
   
@@ -446,7 +611,7 @@ function normalizeBBVADate(date) {
   }).replace(/\//g, '-');
 }
 
-function processSantanderRecords(records, caja) {
+function processSantanderRecords_old(records, caja) {
   // Here you would typically process the records, add hash identifiers, 
   // save to database, etc.
   
@@ -491,7 +656,38 @@ function normalizeSantanderDate(date) {
   }).replace(/\//g, '-');
 }
 
-function processCaixaBnkRecords(records, caja) {
+function processCaixaBnkRecords_old(records, caja) {
+  // Here you would typically process the records, add hash identifiers, 
+  // save to database, etc.
+  
+  // For this example, we're just adding an id to each record
+  try {
+    const processedXlsRecords = records.map((record, index) => ({
+        caja: caja,
+        fecha: record.FECHA.toLocaleDateString('es-ES', {
+          year: 'numeric',
+          month: '2-digit', 
+          day: '2-digit',}),
+        normalized_date: normalizeCaixaBankDate(record.FECHA),
+        concepto: record.CONCEPTO + ' | ' + record.CONCEPTOADIC,
+        importe: record.IMPORTE,
+        saldo: record.SALDO,
+        num_apunte: 0,
+        idx: index
+      })).sort((a, b) => {
+        // Sort by idx property (ascending order)
+        return a.idx - b.idx;
+      });
+  
+  return processedXlsRecords
+  } catch (error) {
+    console.error('Error storing records:', error);
+    return error
+  }
+
+}
+
+function processCaixaBnkRecords_BAK(records, caja) {
   // Here you would typically process the records, add hash identifiers, 
   // save to database, etc.
   
@@ -542,7 +738,7 @@ function normalizeCaixaBankDate_old(date) {
   }).replace(/\//g, '-');
 }
 
-function processCRuralRecords(records, caja) {
+function processCRuralRecords_OLD(records, caja) {
   // Process and normalize records for CRURAL
   
   try {
@@ -1033,5 +1229,34 @@ ipcMain.handle('test-pattern', async (event, { matcherFunction, generatorFunctio
   } catch (error) {
       console.error('Error testing pattern:', error);
       throw error;
+  }
+});
+
+
+// Add new handler for balance validation
+ipcMain.handle('validateBalances', async (event, records) => {
+  try {
+    console.log('Validating balance consistency of', records.length, 'records');
+    const result = BalanceConsistencyValidator.validate(records);
+    
+    // Log issues for debugging
+    if (!result.isValid) {
+      console.warn('Balance consistency issues found:', result.issues);
+    } else {
+      console.log('Balance check passed. Transactions are in', 
+                 result.isAscending ? 'ascending' : 'descending', 'date order');
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error validating balances:', error);
+    // Return a safe result if validation fails
+    return { 
+      isValid: false, 
+      issues: [{ 
+        description: `Error during validation: ${error.message}` 
+      }],
+      message: `Error during validation: ${error.message}`
+    };
   }
 });

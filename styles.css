@@ -760,3 +760,44 @@ font-size: 14px;
         justify-content: center;
     }
 }
+
+/* Additional styles for balance status */
+.status-container {
+    margin: 15px 0;
+    padding: 12px 15px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-ok {
+    background-color: #E3FCEF;
+    color: #00875A;
+    border: 1px solid #00875A;
+}
+
+.status-error {
+    background-color: #FFEBE6;
+    color: #DE350B;
+    border: 1px solid #DE350B;
+}
+
+.status-icon {
+    font-size: 18px;
+}
+
+details {
+    margin-top: 8px;
+}
+
+details summary {
+    cursor: pointer;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+details ul {
+    margin-top: 5px;
+    padding-left: 20px;
+}

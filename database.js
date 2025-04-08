@@ -17,21 +17,26 @@ class Database {
     console.log('CALLING init database.......');
     this.init();
   }
+// Update the database init function
 init() {
-    this.db.run(`CREATE TABLE IF NOT EXISTS movimientos_bancarios (
-      id TEXT PRIMARY KEY,
-      caja TEXT,
-      fecha TEXT,
-      normalized_date TEXT,
-      concepto TEXT,
-      importe REAL,
-      saldo REAL,
-      id_apunte_banco TEXT,
-      insertion_date TEXT,
-      is_contabilized INTEGER,
-      id_apunte_contable TEXT
-    )`);
-  }
+  this.db.run(`CREATE TABLE IF NOT EXISTS movimientos_bancarios (
+    id TEXT PRIMARY KEY,
+    caja TEXT,
+    fecha TEXT,
+    normalized_date TEXT,
+    concepto TEXT,
+    importe REAL,
+    saldo REAL,
+    id_apunte_banco TEXT,
+    insertion_date TEXT,
+    is_contabilized INTEGER,
+    id_apunte_contable TEXT,
+    sort_key TEXT
+  )`);
+  
+  // Create index for the sort_key if it doesn't exist
+  this.db.run(`CREATE INDEX IF NOT EXISTS idx_sort_key ON movimientos_bancarios(sort_key)`);
+}
 
   generateHash(record) {
     const dataToHash = `${record.caja}${record.fecha}${record.concepto.slice(0,100)}${record.importe}${record.saldo}`;
@@ -43,111 +48,143 @@ init() {
   }
 
 
-  async storeProcessedRecords2(processedRecords) {
-    /* Processed records may be passed in argument in a list of records with next fields:
-      record.caja, record.fecha, record.normalized_date, record.concepto,
-      record.importe, record.saldo, record.num_apunte
-    */
-    console.log('Starting storeProcessedRecords2 with first processedRecords:', processedRecords[0,1]);
-    const insertSql = `
-      INSERT OR IGNORE INTO movimientos_bancarios 
-      (id, caja, fecha, normalized_date, concepto, importe, saldo, id_apunte_banco, insertion_date, is_contabilized, id_apunte_contable)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    const selectSql = `SELECT * FROM movimientos_bancarios WHERE id = ? ORDER BY insertion_date`;
-
-    const currentDate = new Date().toISOString();
-    
-    let newRecordsCount = 0;
-    const results = [];
-
-    const runAsync = (sql, params = []) => {
-      return new Promise((resolve, reject) => {
-        this.db.run(sql, params, function (err) {
-          if (err) reject(err);
-          else resolve(this);
-        });
-      });
-    };
-
-    const getAsync = (sql, params = []) => {
-      return new Promise((resolve, reject) => {
-        this.db.get(sql, params, (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        });
-      });
-    };
-
-    try {
-      await runAsync('BEGIN TRANSACTION');
-
-      for (const record of processedRecords) {
-        
-        const id = this.generateHash(record);
-        const idx = currentDate + this.formatNumber(record.idx)
-        let is_contabilized_var = 0
-        let id_apunte_contable_var = null
-        const params = [
-          id, record.caja, record.fecha, record.normalized_date, record.concepto,
-          record.importe, record.saldo, record.num_apunte, idx, //idx = hash of current date and index of this row in processed file
-          is_contabilized_var, //1 for true, 0 for false
-          id_apunte_contable_var // initialized with null value
-        ];
-
-        const runResult = await runAsync(insertSql, params);
-        const row = await getAsync(selectSql, [id]);
-
-        if (runResult.changes > 0) newRecordsCount++;
-        results.push({
-          ...row,
-          alreadyInDatabase: runResult.changes === 0
-        });
-      }
-
-      await runAsync('COMMIT');
-      console.log(`Inserted ${newRecordsCount} new records`);
-      return results;
-    } catch (err) {
-      console.error('Error in transaction:', err);
-      await runAsync('ROLLBACK');
-      throw err;
-    }
-  }
-
-  async getLast100RecordsByCaja(caja, page = 1, pageSize = 100) {
-    console.log(`Starting getLast100RecordsByCaja with caja: ${caja}, page: ${page}, pageSize: ${pageSize}`);
-    const offset = (page - 1) * pageSize;
-    const selectSql = `
-      SELECT * FROM movimientos_bancarios 
-      WHERE caja = ? 
-      ORDER BY normalized_date DESC 
-      LIMIT ? OFFSET ?
-    `;
+ // Update the database init function
+init() {
+  this.db.run(`CREATE TABLE IF NOT EXISTS movimientos_bancarios (
+    id TEXT PRIMARY KEY,
+    caja TEXT,
+    fecha TEXT,
+    normalized_date TEXT,
+    concepto TEXT,
+    importe REAL,
+    saldo REAL,
+    id_apunte_banco TEXT,
+    insertion_date TEXT,
+    is_contabilized INTEGER,
+    id_apunte_contable TEXT,
+    sort_key TEXT
+  )`);
   
+  // Create index for the sort_key if it doesn't exist
+  this.db.run(`CREATE INDEX IF NOT EXISTS idx_sort_key ON movimientos_bancarios(sort_key)`);
+}
+
+// Update the storeProcessedRecords2 function
+async storeProcessedRecords2(processedRecords) {
+  console.log('Starting storeProcessedRecords2 with first processedRecords:', processedRecords[0,1]);
+  const insertSql = `
+    INSERT OR IGNORE INTO movimientos_bancarios 
+    (id, caja, fecha, normalized_date, concepto, importe, saldo, id_apunte_banco, 
+     insertion_date, is_contabilized, id_apunte_contable, sort_key)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  const selectSql = `SELECT * FROM movimientos_bancarios WHERE id = ? ORDER BY insertion_date`;
+
+  const currentDate = new Date().toISOString();
+  
+  let newRecordsCount = 0;
+  const results = [];
+
+  const runAsync = (sql, params = []) => {
     return new Promise((resolve, reject) => {
-      this.db.all(selectSql, [caja, pageSize, offset], (err, rows) => {
-        if (err) {
-          console.error('Database error:', err);
-          reject(err);
-        } else {
-          const flagAddedRows = rows ? rows.map(row => ({
-            ...row,
-            alreadyInDatabase: true
-          })) : [];
-            resolve({
-            status: 'success',
-            message: `Retrieved ${rows ? rows.length : 0} records for caja ${caja}`,
-            total_records: rows ? rows.length : 0,
-            page: page,
-            pageSize: pageSize,
-            data: flagAddedRows || []
-          });
-        }
+      this.db.run(sql, params, function (err) {
+        if (err) reject(err);
+        else resolve(this);
       });
     });
-  }
+  };
 
+  const getAsync = (sql, params = []) => {
+    return new Promise((resolve, reject) => {
+      this.db.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+  };
+
+  try {
+    await runAsync('BEGIN TRANSACTION');
+
+    for (const record of processedRecords) {
+      const id = this.generateHash(record);
+      const idx = currentDate + this.formatNumber(record.idx);
+      let is_contabilized_var = 0;
+      let id_apunte_contable_var = null;
+      const params = [
+        id, record.caja, record.fecha, record.normalized_date, record.concepto,
+        record.importe, record.saldo, record.num_apunte, idx, 
+        is_contabilized_var,
+        id_apunte_contable_var,
+        record.sort_key // Add the sort_key to the params
+      ];
+
+      const runResult = await runAsync(insertSql, params);
+      const row = await getAsync(selectSql, [id]);
+
+      if (runResult.changes > 0) newRecordsCount++;
+      results.push({
+        ...row,
+        alreadyInDatabase: runResult.changes === 0
+      });
+    }
+
+    await runAsync('COMMIT');
+    console.log(`Inserted ${newRecordsCount} new records`);
+    return results;
+  } catch (err) {
+    console.error('Error in transaction:', err);
+    await runAsync('ROLLBACK');
+    throw err;
+  }
+}
+
+async getLast100RecordsByCaja(caja, page = 1, pageSize = 100) {
+  console.log(`Starting getLast100RecordsByCaja with caja: ${caja}, page: ${page}, pageSize: ${pageSize}`);
+  const offset = (page - 1) * pageSize;
+  
+  // Use CASE expression in ORDER BY to handle NULL sort_key values
+  const selectSql = `
+    SELECT * FROM movimientos_bancarios 
+    WHERE caja = ? 
+    ORDER BY 
+      CASE 
+        WHEN sort_key IS NULL THEN 0 
+        ELSE 1 
+      END DESC,
+      CASE 
+        WHEN sort_key IS NULL THEN normalized_date 
+        ELSE sort_key 
+      END DESC,
+      CASE
+        WHEN sort_key IS NULL THEN insertion_date
+        ELSE NULL
+      END DESC
+    LIMIT ? OFFSET ?
+  `;
+
+  return new Promise((resolve, reject) => {
+    this.db.all(selectSql, [caja, pageSize, offset], (err, rows) => {
+      if (err) {
+        console.error('Database error:', err);
+        reject(err);
+      } else {
+        const flagAddedRows = rows ? rows.map(row => ({
+          ...row,
+          alreadyInDatabase: true
+        })) : [];
+        resolve({
+          status: 'success',
+          message: `Retrieved ${rows ? rows.length : 0} records for caja ${caja}`,
+          total_records: rows ? rows.length : 0,
+          page: page,
+          pageSize: pageSize,
+          data: flagAddedRows || []
+        });
+      }
+    });
+  });
+}
   async getExistingCajas() {
     console.log('Starting in database getExistingCajas:');
     const selectSql = `SELECT DISTINCT caja FROM movimientos_bancarios ORDER BY caja;`;

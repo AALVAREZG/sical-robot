@@ -2,17 +2,63 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewTable = document.querySelector('#previewTable tbody');
     const importButton = document.getElementById('importRecords');
     const cancelButton = document.getElementById('cancelImport');
+    const balanceStatusElement = document.getElementById('balanceStatus');
 
     let processedRecords = []; /// Array of records to be displayed in the preview table. Contains both grouped and non-grouped records.
+    let balanceValidationResult = { isValid: true, issues: [] };
 
     window.electronAPI.onPreviewData(async (data) => {
         //console.log('Preview data:', data);
         processedRecords = await processGroupedRecords(data);
         //console.log('Processed records:', processedRecords);
+        // Validate balance consistency
+        balanceValidationResult = await window.electronAPI.validateBalances(processedRecords);
+        
+        // Update UI to show balance consistency status
+        updateBalanceStatus(balanceValidationResult);
+
+
         // Sort all records by date
         processedRecords.sort((a, b) => b.normalized_date.localeCompare(a.normalized_date));
         displayRecords(processedRecords);
     });
+
+    function updateBalanceStatus(result) {
+        if (!balanceStatusElement) return;
+        
+        if (result.isValid) {
+            balanceStatusElement.className = 'status-ok';
+            balanceStatusElement.innerHTML = `
+                <span class="status-icon">✓</span>
+                <span>Balance consistency check passed. Records are in 
+                ${result.isAscending ? 'ascending' : 'descending'} date order.</span>
+            `;
+            importButton.disabled = false;
+        } else {
+            balanceStatusElement.className = 'status-error';
+            
+            // Create detailed message about issues
+            const issuesList = result.issues.map(issue => 
+                `<li>Record on ${issue.date}: Expected balance ${issue.expectedBalance.toFixed(2)}, 
+                 but found ${issue.actualBalance.toFixed(2)} (diff: ${issue.difference.toFixed(2)})</li>`
+            ).join('');
+            
+            balanceStatusElement.innerHTML = `
+                <span class="status-icon">⚠️</span>
+                <span>
+                    <strong>Balance consistency issues detected!</strong>
+                    <p>There may be missing transactions or incorrect balances.</p>
+                    <details>
+                        <summary>View ${result.issues.length} issues</summary>
+                        <ul>${issuesList}</ul>
+                    </details>
+                </span>
+            `;
+            
+            // Disable import button if there are consistency issues
+            importButton.disabled = true;
+        }
+    }
 
     async function processGroupedRecords(records) {
         const groups = {};
@@ -72,6 +118,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     importButton.addEventListener('click', async () => {
+        
+        // Only proceed if balance check passed or if user confirmed
+        if (!balanceValidationResult.isValid) {
+            const confirmImport = confirm(
+                "WARNING: Balance inconsistencies were detected in these transactions.\n\n" +
+                "Importing may result in incorrect balances or missing transactions.\n\n" +
+                "Do you want to proceed anyway?"
+            );
+            
+            if (!confirmImport) {
+                return;
+            }
+        }
+        
         const selectedRows = Array.from(previewTable.querySelectorAll('tr'))
             .filter(row => {
                 const checkbox = row.querySelector('input[type="checkbox"]');
@@ -123,6 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${record.alreadyInDatabase ? '&check;' : '<span class="new-badge">NEW</span>'}
                     </span>
                 </td>
+                <td>${record.sort_key}</td>
             `;
             
             previewTable.appendChild(tr);
