@@ -26,12 +26,27 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateBalanceStatus(result) {
         if (!balanceStatusElement) return;
         
+        // First check if the records are in descending date order
+        if (!result.isDescendingOrder) {
+            balanceStatusElement.className = 'status-error';
+            balanceStatusElement.innerHTML = `
+                <span class="status-icon">⚠️</span>
+                <span>
+                    <strong>Incorrect date order!</strong>
+                    <p>Transactions must be in descending date order (newest to oldest).</p>
+                    <p>Please download a properly ordered file from your bank portal or use sorting software to arrange the records before importing.</p>
+                </span>
+            `;
+            importButton.disabled = true;
+            return;
+        }
+        
+        // Then check balance consistency
         if (result.isValid) {
             balanceStatusElement.className = 'status-ok';
             balanceStatusElement.innerHTML = `
                 <span class="status-icon">✓</span>
-                <span>Balance consistency check passed. Records are in 
-                ${result.isAscending ? 'ascending' : 'descending'} date order.</span>
+                <span>Balance consistency check passed. Records are in the correct descending date order.</span>
             `;
             importButton.disabled = false;
         } else {
@@ -87,7 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const [date, group] of Object.entries(groups)) {
         const [year, month] = date.split('-');
         const monthName = new Date(year, month - 1).toLocaleString('es-ES', { month: 'long' });
-        
+        const importTimestamp = new Date().toISOString();
+
         const groupedRecord = {
             idx: group.records[0].idx,
             caja: group.records[0].caja,
@@ -95,7 +111,11 @@ document.addEventListener('DOMContentLoaded', () => {
             normalized_date: date,
             concepto: `TRANSFERENCIAS 41016796-E.I. CASARICHE ${monthName.toUpperCase()} ${year} (Agrupado. Total: ${group.records.length} beneficiarios)`,
             importe: group.total,
-            saldo: group.records[group.records.length - 1].saldo,
+            //saldo: group.records[group.records.length - 1].saldo,
+            saldo: group.records[0].saldo,
+            
+            // Optional composite key for quick sorting
+            sort_key: group.records[0].sort_key,
             is_grouped: true
         };
 
@@ -119,7 +139,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     importButton.addEventListener('click', async () => {
         
-        // Only proceed if balance check passed or if user confirmed
+        // Strictly reject if records are not in descending date order
+        if (!balanceValidationResult.isDescendingOrder) {
+            alert(
+                "ERROR: Records must be in descending date order (newest to oldest).\n\n" +
+                "Please export your transactions in the correct order from your bank portal."
+            );
+            return;
+        }
+        
+        // Check balance consistency issues
         if (!balanceValidationResult.isValid) {
             const confirmImport = confirm(
                 "WARNING: Balance inconsistencies were detected in these transactions.\n\n" +
@@ -131,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
         }
-        
+
         const selectedRows = Array.from(previewTable.querySelectorAll('tr'))
             .filter(row => {
                 const checkbox = row.querySelector('input[type="checkbox"]');

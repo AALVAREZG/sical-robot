@@ -147,19 +147,7 @@ async getLast100RecordsByCaja(caja, page = 1, pageSize = 100) {
   const selectSql = `
     SELECT * FROM movimientos_bancarios 
     WHERE caja = ? 
-    ORDER BY 
-      CASE 
-        WHEN sort_key IS NULL THEN 0 
-        ELSE 1 
-      END DESC,
-      CASE 
-        WHEN sort_key IS NULL THEN normalized_date 
-        ELSE sort_key 
-      END DESC,
-      CASE
-        WHEN sort_key IS NULL THEN insertion_date
-        ELSE NULL
-      END DESC
+    ORDER BY sort_key DESC
     LIMIT ? OFFSET ?
   `;
 

@@ -24,7 +24,21 @@ class BalanceConsistencyValidator {
         isValid: true, 
         issues: [],
         isAscending: null,
+        isDescendingOrder: true,
         message: "Not enough transactions to validate balance consistency"
+      };
+    }
+
+    // First check if records are in descending date order
+    const isDescendingOrder = this._checkDescendingOrder(transactions);
+    
+    if (!isDescendingOrder) {
+      return {
+        isValid: false,
+        issues: [],
+        isAscending: null,
+        isDescendingOrder: false,
+        message: "Transactions must be in descending date order (newest to oldest)"
       };
     }
 
@@ -72,6 +86,7 @@ class BalanceConsistencyValidator {
       isValid: issues.length === 0,
       issues,
       isAscending,
+      isDescendingOrder: true,
       message: issues.length === 0 
         ? "All balances are consistent" 
         : `Found ${issues.length} inconsistencies in the transaction balances`
@@ -124,6 +139,25 @@ class BalanceConsistencyValidator {
    */
   static _roundTo2Decimals(num) {
     return Math.round(num * 100) / 100;
+  }
+  
+  /**
+   * Check if records are in descending date order (newest to oldest)
+   * @private
+   */
+  static _checkDescendingOrder(transactions) {
+    if (transactions.length < 2) return true;
+    
+    for (let i = 0; i < transactions.length - 1; i++) {
+      const currentDate = this._parseDate(transactions[i].fecha);
+      const nextDate = this._parseDate(transactions[i + 1].fecha);
+      
+      if (currentDate < nextDate) {
+        return false;
+      }
+    }
+    
+    return true;
   }
 }
 

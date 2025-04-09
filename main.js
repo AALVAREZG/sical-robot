@@ -299,7 +299,7 @@ ipcMain.handle('process-file', async (event, filePath) => {
     let caja = '207_BBVA - 0342'
     
     if (filename.endsWith('9994')) { //CUENTA SECUNDARIA
-      caja = '207_BBVA_PCONTIGO_9994';
+      caja = '233_BBVA_PCONTIGO_9994';
     } 
     const rawRecords = XLSX.utils.sheet_to_json(firstSheet, { 
       range: 16, 
@@ -322,7 +322,7 @@ ipcMain.handle('process-file', async (event, filePath) => {
     let caja = '201_SANTANDER - 2932'
     
     if (filename.endsWith('9994')) { //CUENTA SECUNDARIA
-      caja = '201_SANTANDER_RECAUDA_XX';
+      caja = '20X_SANTANDER_RECAUDA_XX';
     } 
     const rawRecords = XLSX.utils.sheet_to_json(firstSheet, { 
       range: 8, 
@@ -363,7 +363,7 @@ function processBBVARecords(records, caja) {
         num_apunte: 0,
         idx: index,
         // Optional composite key for quick sorting
-        sort_key: `${transactionDate}_${importTimestamp}_${importIndex}`
+        sort_key: `${transactionDate}_${importTimestamp}_${String(999999 - index).padStart(6, '0')}`
       };
     });
     
@@ -394,7 +394,7 @@ function processCRuralRecords(records, caja) {
         num_apunte: record.NUM_APUNTE || 0,
         idx: index,
         // Composite key for sorting
-        sort_key: `${transactionDate}_${importTimestamp}_${importIndex}`
+        sort_key: `${transactionDate}_${importTimestamp}_${String(999999 - index).padStart(6, '0')}`
       };
     });
     
@@ -429,7 +429,7 @@ function processCaixaBnkRecords(records, caja) {
         num_apunte: 0,
         idx: index,
         // Composite key for sorting
-        sort_key: `${transactionDate}_${importTimestamp}_${importIndex}`
+        sort_key: `${transactionDate}_${importTimestamp}_${String(999999 - index).padStart(6, '0')}`
       };
     });
     
@@ -460,7 +460,7 @@ function processSantanderRecords(records, caja) {
         num_apunte: 0,
         idx: index,
         // Composite key for sorting
-        sort_key: `${transactionDate}_${importTimestamp}_${importIndex}`
+        sort_key: `${transactionDate}_${importTimestamp}_${String(999999 - index).padStart(6, '0')}`
       };
     });
     
@@ -491,7 +491,7 @@ function processUnicajaRecords(records, caja) {
         num_apunte: record.NUM_MOV || 0,
         idx: index,
         // Composite key for sorting
-        sort_key: `${transactionDate}_${importTimestamp}_${importIndex}`
+        sort_key: `${transactionDate}_${importTimestamp}_${String(999999 - index).padStart(6, '0')}`
       };
     });
     
@@ -502,38 +502,7 @@ function processUnicajaRecords(records, caja) {
   }
 }
 
-function processUnicajaRecords_OLD(records, caja) {
-  // Here you would typically process the records, add hash identifiers, 
-  // save to database, etc.
-  
-  // For this example, we're just adding an id to each record
-  try {
-    const processedXlsRecords = records.map((record, index) => (
-      
-      {
-        caja: caja,
-        fecha: record.FECHA,
-        normalized_date: normalizeUnicajaDate(record.FECHA),
-        concepto: record.CONCEPTO + ' | ',
-        importe: parseSpanishNumber(record.IMPORTE),
-        saldo: parseSpanishNumber(record.SALDO),
-        num_apunte: record.NUM_MOV,
-        idx: index
-   })).sort((a, b) => {
-      const [aMonth, aDay, aYear] = a.normalized_date.split('-');
-      const [bMonth, bDay, bYear] = b.normalized_date.split('-');
-      const dateA = new Date(aYear, aMonth - 1, aDay);
-      const dateB = new Date(bYear, bMonth - 1, bDay);
-      return dateB - dateA;
-    });
-  console.log("processed records", processedXlsRecords)
-  return processedXlsRecords
-  } catch (error) {
-    console.error('Error storing records:', error);
-    return error
-  }
 
-}
 
 function parseSpanishNumber(str) {
   if (!str || typeof str !== 'string') return null;
@@ -566,38 +535,7 @@ function normalizeUnicajaDate(date) {
 }
 
 
-function processBBVARecords_OLD(records, caja) {
-  // Here you would typically process the records, add hash identifiers, 
-  // save to database, etc.
-  
-  // For this example, we're just adding an id to each record
-  try {
-    const processedXlsRecords = records.map((record, index) => (
-      beneficiario = record.BENEFIARIO_ORDENANTE ? record.BENEFIARIO_ORDENANTE : 'N/D',
-      {
-        caja: caja,
-        fecha: record.FECHA,
-        normalized_date: normalizeBBVADate(record.FECHA),
-        concepto: record.CONCEPTO + ' | ' + record.OBSERVACIONES + ' | ' + beneficiario,
-        importe: record.IMPORTE,
-        saldo: record.SALDO,
-        num_apunte: 0,
-        idx: index
-   })).sort((a, b) => {
-      const [aMonth, aDay, aYear] = a.normalized_date.split('-');
-      const [bMonth, bDay, bYear] = b.normalized_date.split('-');
-      const dateA = new Date(aYear, aMonth - 1, aDay);
-      const dateB = new Date(bYear, bMonth - 1, bDay);
-      return dateB - dateA;
-    });
-  
-  return processedXlsRecords
-  } catch (error) {
-    console.error('Error storing records:', error);
-    return error
-  }
 
-}
 
 function normalizeBBVADate(date) { 
   //date is a string in format dd / mm / yyyy
@@ -611,38 +549,6 @@ function normalizeBBVADate(date) {
   }).replace(/\//g, '-');
 }
 
-function processSantanderRecords_old(records, caja) {
-  // Here you would typically process the records, add hash identifiers, 
-  // save to database, etc.
-  
-  // For this example, we're just adding an id to each record
-  try {
-    const processedXlsRecords = records.map((record, index) => (
-      
-      {
-        caja: caja,
-        fecha: record.FECHA,
-        normalized_date: normalizeSantanderDate(record.FECHA),
-        concepto: record.CONCEPTO,
-        importe: record.IMPORTE,
-        saldo: record.SALDO,
-        num_apunte: 0,
-        idx: index
-   })).sort((a, b) => {
-      const [aMonth, aDay, aYear] = a.normalized_date.split('-');
-      const [bMonth, bDay, bYear] = b.normalized_date.split('-');
-      const dateA = new Date(aYear, aMonth - 1, aDay);
-      const dateB = new Date(bYear, bMonth - 1, bDay);
-      return dateB - dateA;
-    });
-  
-  return processedXlsRecords
-  } catch (error) {
-    console.error('Error storing records:', error);
-    return error
-  }
-
-}
 
 function normalizeSantanderDate(date) { 
   //date is a string in format dd / mm / yyyy
@@ -656,117 +562,16 @@ function normalizeSantanderDate(date) {
   }).replace(/\//g, '-');
 }
 
-function processCaixaBnkRecords_old(records, caja) {
-  // Here you would typically process the records, add hash identifiers, 
-  // save to database, etc.
-  
-  // For this example, we're just adding an id to each record
-  try {
-    const processedXlsRecords = records.map((record, index) => ({
-        caja: caja,
-        fecha: record.FECHA.toLocaleDateString('es-ES', {
-          year: 'numeric',
-          month: '2-digit', 
-          day: '2-digit',}),
-        normalized_date: normalizeCaixaBankDate(record.FECHA),
-        concepto: record.CONCEPTO + ' | ' + record.CONCEPTOADIC,
-        importe: record.IMPORTE,
-        saldo: record.SALDO,
-        num_apunte: 0,
-        idx: index
-      })).sort((a, b) => {
-        // Sort by idx property (ascending order)
-        return a.idx - b.idx;
-      });
-  
-  return processedXlsRecords
-  } catch (error) {
-    console.error('Error storing records:', error);
-    return error
-  }
 
-}
 
-function processCaixaBnkRecords_BAK(records, caja) {
-  // Here you would typically process the records, add hash identifiers, 
-  // save to database, etc.
-  
-  // For this example, we're just adding an id to each record
-  try {
-    const processedXlsRecords = records.map((record, index) => ({
-        caja: caja,
-        fecha: record.FECHA.toLocaleDateString('es-ES', {
-          year: 'numeric',
-          month: '2-digit', 
-          day: '2-digit',}),
-        normalized_date: normalizeCaixaBankDate(record.FECHA),
-        concepto: record.CONCEPTO + ' | ' + record.CONCEPTOADIC,
-        importe: record.IMPORTE,
-        saldo: record.SALDO,
-        num_apunte: 0,
-        idx: index
-   })).sort((a, b) => {
-      const [aMonth, aDay, aYear] = a.normalized_date.split('-');
-      const [bMonth, bDay, bYear] = b.normalized_date.split('-');
-      const dateA = new Date(aYear, aMonth - 1, aDay);
-      const dateB = new Date(bYear, bMonth - 1, bDay);
-      return dateB - dateA;
-    });
-  
-  return processedXlsRecords
-  } catch (error) {
-    console.error('Error storing records:', error);
-    return error
-  }
 
-}
 
 function normalizeCaixaBankDate(date) {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function normalizeCaixaBankDate_old(date) { 
-  //date is a string in format d|dd / m|mm / yyyy
-  //const [year, month, day] = date.split('-');
-  //let _s_date = `${year}-${month}-${day}`;
-  const d = new Date(date);
-  return  d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: '2-digit', 
-    day: '2-digit'
-  }).replace(/\//g, '-');
-}
 
-function processCRuralRecords_OLD(records, caja) {
-  // Process and normalize records for CRURAL
-  
-  try {
-    const processedXlsRecords = records.map((record, index) => ({
-        caja: caja,
-        fecha: normalizeCruralRawDate(record.FECHA),
-        normalized_date: normalizeCRuralDate(record.FECHA),
-        concepto: record.CONCEPTO,
-        importe: record.IMPORTE,
-        saldo: record.SALDO,
-        num_apunte: record.NUM_APUNTE,
-        idx: index
-        
-    })).sort((a, b) => {
-      const [aMonth, aDay, aYear] = a.normalized_date.split('-');
-      const [bMonth, bDay, bYear] = b.normalized_date.split('-');
-      const dateA = new Date(aYear, aMonth - 1, aDay);
-      const dateB = new Date(bYear, bMonth - 1, bDay);
-      return dateB - dateA;
-    });
-  
-  return processedXlsRecords
-  } catch (error) {
-    console.error('Error storing records:', error);
-    return error
-  }
-
-}
 
 function normalizeCruralRawDate(date){
   const [day, month, year] = date.split('/');
@@ -813,39 +618,7 @@ async function checkExistingRecords(records) {
 }
 
 
-function normalizeDate_OLD(date) { //date is a string in format dd/mm/yyyy
-  const [day, month, year] = date.split('/');
-  return `${year}-${month}-${day}`;
-}
 
-async function contabilizeCruralRecords(records) {
-  // Here you would typically process the records, add hash identifiers, 
-  // save to database, etc.
-  
-  // For this example, we're just adding an id to each record
-  
-  const processedXlsRecords = records.map((record, index) => ({
-      caja: caja,
-      fecha: record.FECHA,
-      concepto: record.CONCEPTO,
-      importe: record.IMPORTE,
-      saldo: record.SALDO,
-      num_apunte: record.NUM_APUNTE,
-      idx: index
-      
-  }));
-  try {
-    const processedDDBBRecords = await db.storeProcessedRecords2(processedXlsRecords);
-    console.log("Records from Caja Rural processed sucessfully")
-    return processedDDBBRecords
-  } catch (error) {
-    console.error('Error storing records:', error);
-    return error
-  }
-
-  // Don't forget to delete the uploaded file after processing
-  // fs.unlinkSync(filePath);
-}
 
 ipcMain.handle('show-preview-dialog', (event, records) => {
   createPreviewDialog(records);
@@ -1062,9 +835,49 @@ ipcMain.handle('search-tercero', async (event, searchTerm) => {
   }
 });
 
-
-
 function runPythonService() {
+  return new Promise((resolve, reject) => {
+    // Make sure pythonServicePath is defined and accessible
+    try {
+      const pythonProcess = spawn(pythonServicePath);
+      let dataString = '';
+      let errorString = '';
+      
+      // Set a timeout to prevent hanging
+      const timeout = setTimeout(() => {
+        pythonProcess.kill();
+        reject(new Error('Python service execution timed out'));
+      }, 30000); // 30 seconds timeout
+      
+      pythonProcess.stdout.on('data', (data) => {
+        dataString += data.toString();
+      });
+      
+      pythonProcess.stderr.on('data', (data) => {
+        errorString += data.toString();
+        console.error(`Python Service Error: ${data}`);
+      });
+      
+      pythonProcess.on('error', (error) => {
+        clearTimeout(timeout);
+        reject(new Error(`Failed to start Python process: ${error.message}`));
+      });
+      
+      pythonProcess.on('close', (code) => {
+        clearTimeout(timeout);
+        if (code !== 0) {
+          reject(new Error(`Python service exited with code ${code}: ${errorString}`));
+        } else {
+          resolve(dataString);
+        }
+      });
+    } catch (error) {
+      reject(new Error(`Exception while starting Python process: ${error.message}`));
+    }
+  });
+}
+
+function runPythonService_OLD() {
   return new Promise((resolve, reject) => {
     const pythonProcess = spawn(pythonServicePath);
     let dataString = '';
@@ -1236,23 +1049,29 @@ ipcMain.handle('test-pattern', async (event, { matcherFunction, generatorFunctio
 // Add new handler for balance validation
 ipcMain.handle('validateBalances', async (event, records) => {
   try {
-    console.log('Validating balance consistency of', records.length, 'records');
+    console.log('Validating transaction order and balance consistency of', records.length, 'records');
     const result = BalanceConsistencyValidator.validate(records);
     
-    // Log issues for debugging
+    // First check date order
+    if (!result.isDescendingOrder) {
+      console.warn('Transaction records are not in descending date order!');
+      return result;
+    }
+    
+    // Then check balance consistency
     if (!result.isValid) {
       console.warn('Balance consistency issues found:', result.issues);
     } else {
-      console.log('Balance check passed. Transactions are in', 
-                 result.isAscending ? 'ascending' : 'descending', 'date order');
+      console.log('Balance check passed. Transactions are in descending date order.');
     }
     
     return result;
   } catch (error) {
-    console.error('Error validating balances:', error);
+    console.error('Error validating transactions:', error);
     // Return a safe result if validation fails
     return { 
       isValid: false, 
+      isDescendingOrder: false,
       issues: [{ 
         description: `Error during validation: ${error.message}` 
       }],
