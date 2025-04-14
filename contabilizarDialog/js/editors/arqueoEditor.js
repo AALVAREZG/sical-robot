@@ -729,15 +729,15 @@ class ArqueoEditor {
         // Renumber remaining partidas for correct collection
         this._renumberItems(container, 'partida-row');
     }
-    
+   
     /**
-     * Create texto SICAL section with dynamic add/remove
+     * Create texto SICAL section with a single text field
      */
     _createTextoSicalSection() {
         const section = document.createElement('div');
         section.className = 'editor-section';
         
-        // Create section header with add button
+        // Create section header
         const headerContainer = document.createElement('div');
         headerContainer.className = 'section-header';
         
@@ -745,32 +745,42 @@ class ArqueoEditor {
         heading.textContent = 'Texto SICAL';
         heading.className = 'section-heading';
         
-        const addButton = document.createElement('button');
-        addButton.type = 'button';
-        addButton.className = 'add-item-btn';
-        addButton.innerHTML = '<i class="fas fa-plus"></i> Añadir Texto';
-        addButton.addEventListener('click', () => this._addTextoSical());
-        
         headerContainer.appendChild(heading);
-        headerContainer.appendChild(addButton);
         section.appendChild(headerContainer);
         
-        // Container for texto items
+        // Create a single texto input field
         const textoContainer = document.createElement('div');
         textoContainer.className = 'texto-container';
         textoContainer.id = 'textoContainer';
-        section.appendChild(textoContainer);
         
-        // Add existing textos or at least one empty one
-        const textos = this.task.detalle.texto_sical && this.task.detalle.texto_sical.length > 0 ? 
-            this.task.detalle.texto_sical : [{ tcargo: '', ado: '' }];
-            
-        textos.forEach((texto, index) => {
-            this._renderTextoSicalItem(textoContainer, texto, index);
-        });
+        // Get the first texto item or create an empty one
+        const textoSical = this.task.detalle.texto_sical && this.task.detalle.texto_sical.length > 0 ? 
+            this.task.detalle.texto_sical[0] : { tcargo: '', ado: '' };
+        
+        // Create a single form field for tcargo
+        const tcargoField = document.createElement('div');
+        tcargoField.className = 'form-field';
+        
+        const tcargoLabel = document.createElement('label');
+        tcargoLabel.htmlFor = 'tcargo';
+        tcargoLabel.textContent = 'Texto SICAL';
+        
+        const tcargoInput = document.createElement('textarea');
+        tcargoInput.id = 'tcargo';
+        tcargoInput.name = 'tcargo';
+        tcargoInput.value = textoSical.tcargo || '';
+        tcargoInput.rows = 3;
+        tcargoInput.placeholder = 'Introduzca el texto SICAL';
+        
+        tcargoField.appendChild(tcargoLabel);
+        tcargoField.appendChild(tcargoInput);
+        
+        textoContainer.appendChild(tcargoField);
+        section.appendChild(textoContainer);
         
         return section;
     }
+  
     
     /**
      * Render a single texto SICAL item
@@ -941,7 +951,12 @@ class ArqueoEditor {
                 tercero: document.getElementById('tercero').value,
                 naturaleza: document.getElementById('naturaleza').value,
                 final: [],
-                texto_sical: []
+                texto_sical: [
+                    {
+                      tcargo: document.getElementById('tcargo').value,
+                      ado: "" // We keep this field but don't let users modify it
+                    }
+                ]
             }
         };
         
@@ -949,20 +964,6 @@ class ArqueoEditor {
         if (this.partidasManager) {
             task.detalle.final = this.partidasManager.getCleanPartidas();
         }
-        
-        // Collect texto_sical (unchanged)
-        const textoRows = document.querySelectorAll('.texto-row');
-        textoRows.forEach((row, index) => {
-            const tcargoInput = document.getElementById(`tcargo_${index}`);
-            const adoInput = document.getElementById(`ado_${index}`);
-            
-            if (tcargoInput && adoInput) {
-                task.detalle.texto_sical.push({
-                    tcargo: tcargoInput.value,
-                    ado: adoInput.value
-                });
-            }
-        });
         
         return task;
     }
@@ -972,7 +973,7 @@ class ArqueoEditor {
      */
     validate() {
         // Basic validation
-        const requiredFields = ['fecha', 'caja'];
+        const requiredFields = ['fecha', 'caja', 'tcargo', 'naturaleza', 'tercero'];
         for (const field of requiredFields) {
             const element = document.getElementById(field);
             if (!element || !element.value.trim()) {
@@ -988,12 +989,7 @@ class ArqueoEditor {
             return false;
         }
         
-        // Validate texto_sical
-        const textoRows = document.querySelectorAll('.texto-row');
-        if (textoRows.length === 0) {
-            alert('Debe añadir al menos un texto SICAL.');
-            return false;
-        }
+        
         
         return true;
     }
