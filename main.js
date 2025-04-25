@@ -179,7 +179,7 @@ ipcMain.handle('process-file', async (event, filePath) => {
     const sheet = workbook.Sheets[sheetName];
     let caja = '203_CRURAL - 0727';
     console.log('filename: ', filename)
-    if (filename.endsWith('sec')) { //CUENTA SECUNDARIA
+    if (filename.endsWith('8923')) { //CUENTA SECUNDARIA
       caja = '239_CRURAL_MUR_8923';
     } 
     const rawRecords = XLSX.utils.sheet_to_json(sheet, { 
