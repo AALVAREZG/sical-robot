@@ -10,17 +10,28 @@ document.addEventListener('DOMContentLoaded', () => {
     window.electronAPI.onPreviewData(async (data) => {
         //console.log('Preview data:', data);
         processedRecords = await processGroupedRecords(data);
-        //console.log('Processed records:', processedRecords);
+        console.log('Processed records:', [...processedRecords]);
         // Validate balance consistency
-        balanceValidationResult = await window.electronAPI.validateBalances(processedRecords);
+        // Frist, ewe need to sort the records, because if exist a grouped record it will be in the last position 
+        // and the balance validation will fail.
+        // Sort records by date (descending) and by idx (ascending) to maintain stable order
+        const sortedRecords = [...processedRecords].sort((a, b) => {
+            // First compare by date (descending)
+            const dateComparison = b.normalized_date.localeCompare(a.normalized_date);
+            if (dateComparison !== 0) return dateComparison;
+            
+            // If dates are the same, use idx to maintain stable order
+            return a.idx - b.idx; // Assuming smaller idx values should come first
+          });
+        balanceValidationResult = await window.electronAPI.validateBalances(sortedRecords);
         
         // Update UI to show balance consistency status
         updateBalanceStatus(balanceValidationResult);
 
 
         // Sort all records by date
-        processedRecords.sort((a, b) => b.normalized_date.localeCompare(a.normalized_date));
-        displayRecords(processedRecords);
+        //processedRecords.sort((a, b) => b.normalized_date.localeCompare(a.normalized_date));
+        displayRecords(sortedRecords);
     });
 
     function updateBalanceStatus(result) {
@@ -93,7 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 groups[dateKey].records.push(record);
                 groups[dateKey].total += record.importe;
             } else {
-                nonGroupedRecords.push(record);
+                nonGroupedRecords.push({
+                    ...record,
+                    is_grouped: false});
             }
         });
 

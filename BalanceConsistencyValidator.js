@@ -18,6 +18,8 @@ class BalanceConsistencyValidator {
    *                   - isAscending: Boolean indicating detected date order
    */
   static validate(transactions) {
+    console.error('Records at start of validation:', JSON.stringify(transactions.map(t => 
+      ({date: t.normalized_date, concepto: t.concepto.substring(0, 30), is_grouped: t.is_grouped}))));
     // Cannot validate with less than 2 transactions
     if (!transactions || transactions.length < 2) {
       return { 
@@ -28,9 +30,10 @@ class BalanceConsistencyValidator {
         message: "Not enough transactions to validate balance consistency"
       };
     }
+    
 
     // First check if records are in descending date order
-    const isDescendingOrder = this._checkDescendingOrder(transactions);
+    const isDescendingOrder = this._checkDescendingOrder([...transactions]);
     
     if (!isDescendingOrder) {
       return {
@@ -41,7 +44,8 @@ class BalanceConsistencyValidator {
         message: "Transactions must be in descending date order (newest to oldest)"
       };
     }
-
+    // Inside BalanceConsistencyValidator.js at the start of validate()
+    
     // Clone and sort transactions by date to detect the direction
     const sortedByDate = [...transactions].sort((a, b) => {
       const dateA = this._parseDate(a.fecha);
@@ -146,6 +150,7 @@ class BalanceConsistencyValidator {
    * @private
    */
   static _checkDescendingOrder(transactions) {
+    
     if (transactions.length < 2) return true;
     
     for (let i = 0; i < transactions.length - 1; i++) {
@@ -153,6 +158,7 @@ class BalanceConsistencyValidator {
       const nextDate = this._parseDate(transactions[i + 1].fecha);
       
       if (currentDate < nextDate) {
+        console.error(`Transaction dates are not in descending order: ${i} ${transactions[i].concepto} ${currentDate} < ${i+1} ${transactions[i + 1].concepto} ${nextDate}`);
         return false;
       }
     }

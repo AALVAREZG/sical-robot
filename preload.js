@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     savePatterns: (patterns) => ipcRenderer.invoke('save-patterns', patterns),
     testPattern: (data) => ipcRenderer.invoke('test-pattern', data),
     reloadPatterns: () => ipcRenderer.invoke('reload-patterns'),
+
+
+    
     validateBalances: (records) => ipcRenderer.invoke('validateBalances', records),
 });
 

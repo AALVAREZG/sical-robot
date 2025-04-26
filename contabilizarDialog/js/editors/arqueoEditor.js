@@ -1,34 +1,67 @@
 /**
- * PartidasManager - Component to reliably manage partida items in ArqueoEditor
+ * Modified PartidasManager to support contraido field for naturaleza type 5
  */
 class PartidasManager {
     /**
-     * Constructor
-     * @param {HTMLElement} container - Container element to render partidas
-     * @param {Array} initialPartidas - Initial partidas data
-     * @param {Function} onUpdate - Callback when partidas are updated
-     */
-    constructor(container, initialPartidas = [], onUpdate = null) {
-        this.container = container;
-        this.partidas = Array.isArray(initialPartidas) ? [...initialPartidas] : [];
-        this.onUpdate = onUpdate;
-        
-        // Ensure we have at least one empty partida
-        if (this.partidas.length === 0) {
-            this.partidas.push({ partida: '', IMPORTE_PARTIDA: 0 });
-        }
-        
-        // Generate unique IDs for each partida
-        this.partidas = this.partidas.map(partida => ({
-            ...partida,
-            _id: this._generateUniqueId()
-        }));
+ * Constructor with improved handling of contraido field
+ * @param {HTMLElement} container - Container element to render partidas
+ * @param {Array} initialPartidas - Initial partidas data
+ * @param {Function} onUpdate - Callback when partidas are updated
+ * @param {String} naturaleza - The naturaleza value from the parent form
+ */
+constructor(container, initialPartidas = [], onUpdate = null, naturaleza = "") {
+    this.container = container;
+    this.partidas = Array.isArray(initialPartidas) ? [...initialPartidas] : [];
+    this.onUpdate = onUpdate;
+    this.naturaleza = naturaleza;
+    
+    // Ensure we have at least one empty partida
+    if (this.partidas.length === 0) {
+        this.partidas.push({ partida: '', IMPORTE_PARTIDA: 0 });
+    }
+    
+        // Process partidas to handle contraido field correctly
+        this.partidas = this.partidas.map(partida => {
+            const newPartida = {
+                ...partida,
+                _id: this._generateUniqueId()
+            };
+            
+            // Handle contraido field based on naturaleza
+            if (this.naturaleza === "5") {
+                // Ensure contraido exists with correct format if naturaleza is 5
+                if (newPartida.contraido === undefined) {
+                    newPartida.contraido = false;
+                } else if (newPartida.contraido === "True" || newPartida.contraido === "true") {
+                    // Convert string boolean to actual boolean
+                    newPartida.contraido = true;
+                }
+                // Other cases (false, string values, etc.) are left as-is
+            } else {
+                // If naturaleza is not 5, we can remove contraido if it exists
+                // but we'll keep it in the data model for now in case naturaleza changes
+            }
+            
+            return newPartida;
+        });
         
         // Debug
-        console.log('PartidasManager initialized with:', this.partidas);
+        console.log('PartidasManager initialized with naturaleza:', this.naturaleza);
+        console.log('Processed partidas:', this.partidas);
         
         // Initialize the UI
         this.render();
+    }
+    
+    /**
+     * Set the naturaleza value and update the UI if needed
+     * @param {String} naturaleza - The new naturaleza value
+     */
+    setNaturaleza(naturaleza) {
+        if (this.naturaleza !== naturaleza) {
+            this.naturaleza = naturaleza;
+            this.render(); // Re-render to reflect changes
+        }
     }
     
     /**
@@ -39,23 +72,28 @@ class PartidasManager {
         return Date.now().toString(36) + Math.random().toString(36).substring(2);
     }
     
-    /**
-     * Render all partidas
-     */
     render() {
         // Clear the container
         this.container.innerHTML = '';
         
-        // Add header
+        // Add header with appropriate columns based on naturaleza
         const headerContainer = document.createElement('div');
         headerContainer.className = 'partidas-header';
-        headerContainer.innerHTML = `
-            <div class="partidas-row header">
+        
+        const headerContent = this._isContraidoRequired() ? 
+            `<div class="partidas-row header">
+                <div class="partida-col">Partida</div>
+                <div class="importe-col">Importe</div>
+                <div class="contraido-col">Contraído</div>
+                <div class="actions-col">Acciones</div>
+            </div>` : 
+            `<div class="partidas-row header">
                 <div class="partida-col">Partida</div>
                 <div class="importe-col">Importe</div>
                 <div class="actions-col">Acciones</div>
-            </div>
-        `;
+            </div>`;
+        
+        headerContainer.innerHTML = headerContent;
         this.container.appendChild(headerContainer);
         
         // Add each partida
@@ -93,8 +131,16 @@ class PartidasManager {
     }
     
     /**
-     * Apply additional styles for the component
+     * Check if contraido field is required based on naturaleza
+     * @returns {boolean} True if contraido is required
      */
+    _isContraidoRequired() {
+        return this.naturaleza === "5";
+    }
+    
+    /**
+    * Apply additional styles for the component
+    */
     _applyStyles() {
         // Check if styles already exist
         if (document.getElementById('partidas-manager-styles')) {
@@ -117,6 +163,10 @@ class PartidasManager {
                 align-items: center;
             }
             
+            .partidas-row.with-contraido {
+                grid-template-columns: 1fr 1fr 1fr auto;
+            }
+            
             .partidas-row.header {
                 font-weight: bold;
                 border-bottom: 1px solid #ddd;
@@ -130,11 +180,11 @@ class PartidasManager {
                 padding: 10px;
             }
             
-            .partida-col, .importe-col, .actions-col {
+            .partida-col, .importe-col, .contraido-col, .actions-col {
                 padding: 5px;
             }
             
-            .partida-input, .importe-input {
+            .partida-input, .importe-input, .contraido-input, .contraido-select {
                 width: 100%;
                 padding: 8px;
                 border: 1px solid #ddd;
@@ -207,10 +257,78 @@ class PartidasManager {
                 border-color: #f44336;
                 background-color: #ffebee;
             }
+            
+            .contraido-toggle-container {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .contraido-toggle {
+                position: relative;
+                display: inline-block;
+                width: 40px;
+                height: 20px;
+            }
+            
+            .contraido-toggle input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+            
+            .slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: #ccc;
+                -webkit-transition: .4s;
+                transition: .4s;
+                border-radius: 20px;
+            }
+            
+            .slider:before {
+                position: absolute;
+                content: "";
+                height: 16px;
+                width: 16px;
+                left: 2px;
+                bottom: 2px;
+                background-color: white;
+                -webkit-transition: .4s;
+                transition: .4s;
+                border-radius: 50%;
+            }
+            
+            input:checked + .slider {
+                background-color: #2196F3;
+            }
+            
+            input:focus + .slider {
+                box-shadow: 0 0 1px #2196F3;
+            }
+            
+            input:checked + .slider:before {
+                -webkit-transform: translateX(20px);
+                -ms-transform: translateX(20px);
+                transform: translateX(20px);
+            }
+            
+            .contraido-mode-container {
+                margin-top: 5px;
+                display: none;
+            }
+            
+            .contraido-mode-container.visible {
+                display: block;
+            }
         `;
         document.head.appendChild(styleElement);
     }
-    
+
     /**
      * Render a single partida item
      * @param {Object} partida - Partida data object
@@ -224,7 +342,7 @@ class PartidasManager {
         itemContainer.dataset.index = index;
         
         const row = document.createElement('div');
-        row.className = 'partidas-row';
+        row.className = this._isContraidoRequired() ? 'partidas-row with-contraido' : 'partidas-row';
         
         // Partida input
         const partidaCol = document.createElement('div');
@@ -255,6 +373,107 @@ class PartidasManager {
             this.updatePartida(partida._id, { IMPORTE_PARTIDA: value });
         });
         importeCol.appendChild(importeInput);
+        
+        // Contraido field (only if naturaleza is 5)
+        if (this._isContraidoRequired()) {
+            const contraidoCol = document.createElement('div');
+            contraidoCol.className = 'contraido-col';
+            
+            // Create toggle container
+            const contraidoToggleContainer = document.createElement('div');
+            contraidoToggleContainer.className = 'contraido-toggle-container';
+            
+            // Create the toggle switch
+            const contraidoToggle = document.createElement('label');
+            contraidoToggle.className = 'contraido-toggle';
+            
+            const contraidoCheckbox = document.createElement('input');
+            contraidoCheckbox.type = 'checkbox';
+            contraidoCheckbox.id = `contraido-toggle-${partida._id}`;
+            
+            // Determine if contraido has a value
+            let contraidoValue = partida.contraido;
+            let isBoolean = typeof contraidoValue === 'boolean';
+            let isTrue = contraidoValue === true || contraidoValue === "True" || contraidoValue === "true";
+            
+            // Handle the case where contraido wasn't explicitly set but should be included
+            if (contraidoValue === undefined && this._isContraidoRequired()) {
+                contraidoValue = false;
+                partida.contraido = false;
+                isBoolean = true;
+            }
+            
+            // Set initial state
+            contraidoCheckbox.checked = isTrue;
+            
+            // Create the slider
+            const slider = document.createElement('span');
+            slider.className = 'slider';
+            
+            contraidoToggle.appendChild(contraidoCheckbox);
+            contraidoToggle.appendChild(slider);
+            
+            // Create the label
+            const contraidoLabel = document.createElement('span');
+            contraidoLabel.textContent = 'Contraído';
+            
+            contraidoToggleContainer.appendChild(contraidoToggle);
+            contraidoToggleContainer.appendChild(contraidoLabel);
+            
+            // Create the input field for contraido number (visible when custom)
+            const contraidoModeContainer = document.createElement('div');
+            contraidoModeContainer.className = 'contraido-mode-container';
+            contraidoModeContainer.id = `contraido-mode-container-${partida._id}`;
+            
+            // If it's a non-boolean value, show the text field
+            if (contraidoValue && !isBoolean) {
+                contraidoModeContainer.classList.add('visible');
+                contraidoCheckbox.checked = true;
+            }
+            
+            const contraidoInput = document.createElement('input');
+            contraidoInput.type = 'text';
+            contraidoInput.className = 'contraido-input';
+            contraidoInput.id = `contraido-value-${partida._id}`;
+            contraidoInput.placeholder = 'Valor específico (ej: 2500046)';
+            
+            // Set the value if it's non-boolean
+            if (contraidoValue && !isBoolean) {
+                contraidoInput.value = contraidoValue;
+            }
+            
+            contraidoModeContainer.appendChild(contraidoInput);
+            
+            // Event listener for the checkbox
+            contraidoCheckbox.addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                contraidoModeContainer.classList.toggle('visible', isChecked);
+                
+                // Update the partida
+                if (isChecked) {
+                    // If there's a value in the input field, use it; otherwise, use boolean
+                    const inputValue = contraidoInput.value.trim();
+                    this.updatePartida(partida._id, { 
+                        contraido: inputValue ? inputValue : true 
+                    });
+                } else {
+                    this.updatePartida(partida._id, { contraido: false });
+                }
+            });
+            
+            // Event listener for the input field
+            contraidoInput.addEventListener('change', (e) => {
+                const value = e.target.value.trim();
+                this.updatePartida(partida._id, { 
+                    contraido: value || true 
+                });
+            });
+            
+            contraidoCol.appendChild(contraidoToggleContainer);
+            contraidoCol.appendChild(contraidoModeContainer);
+            
+            row.appendChild(contraidoCol);
+        }
         
         // Action buttons
         const actionsCol = document.createElement('div');
@@ -316,6 +535,11 @@ class PartidasManager {
             _id: this._generateUniqueId()
         };
         
+        // Add contraido property if needed
+        if (this._isContraidoRequired()) {
+            newPartida.contraido = false;
+        }
+        
         this.partidas.push(newPartida);
         this.render();
         
@@ -370,6 +594,27 @@ class PartidasManager {
             totalElement.textContent = `${this._calculateTotal().toFixed(2)} €`;
         }
         
+        // If this is a contraido update, update the UI
+        if ('contraido' in newData) {
+            const contraidoValue = newData.contraido;
+            const contraidoCheckbox = document.getElementById(`contraido-toggle-${id}`);
+            const contraidoInput = document.getElementById(`contraido-value-${id}`);
+            const contraidoContainer = document.getElementById(`contraido-mode-container-${id}`);
+            
+            if (contraidoCheckbox && contraidoValue !== undefined) {
+                const isTrue = contraidoValue === true || contraidoValue === "True" || contraidoValue === "true";
+                contraidoCheckbox.checked = isTrue || (contraidoValue && typeof contraidoValue !== 'boolean');
+                
+                if (contraidoContainer) {
+                    contraidoContainer.classList.toggle('visible', contraidoCheckbox.checked);
+                }
+                
+                if (contraidoInput && typeof contraidoValue !== 'boolean' && contraidoValue !== true) {
+                    contraidoInput.value = contraidoValue;
+                }
+            }
+        }
+        
         if (this.onUpdate) {
             this.onUpdate(this.getCleanPartidas());
         }
@@ -417,10 +662,27 @@ class PartidasManager {
      * @returns {Array} Clean partidas array
      */
     getCleanPartidas() {
-        return this.partidas.map(({ partida, IMPORTE_PARTIDA }) => ({
-            partida,
-            IMPORTE_PARTIDA
-        }));
+        return this.partidas.map(partida => {
+            // Create a base partida object
+            const cleanPartida = {
+                partida: partida.partida,
+                IMPORTE_PARTIDA: partida.IMPORTE_PARTIDA
+            };
+            
+            // Add contraido if it exists and naturaleza is 5
+            if (this._isContraidoRequired() && partida.contraido !== undefined) {
+                cleanPartida.contraido = partida.contraido;
+            }
+            
+            // Include any other properties that might exist (like 'proyecto')
+            Object.keys(partida).forEach(key => {
+                if (!['_id', 'partida', 'IMPORTE_PARTIDA', 'contraido'].includes(key) && partida[key] !== undefined) {
+                    cleanPartida[key] = partida[key];
+                }
+            });
+            
+            return cleanPartida;
+        });
     }
     
     /**
@@ -450,6 +712,23 @@ class PartidasManager {
             if (typeof partida.IMPORTE_PARTIDA !== 'number' || isNaN(partida.IMPORTE_PARTIDA)) {
                 partidaItem.classList.add('error');
                 isValid = false;
+            }
+            
+            // Check contraido field if required
+            if (this._isContraidoRequired()) {
+                const contraidoCheckbox = document.getElementById(`contraido-toggle-${partida._id}`);
+                const contraidoInput = document.getElementById(`contraido-value-${partida._id}`);
+                
+                if (contraidoCheckbox && contraidoCheckbox.checked && contraidoInput) {
+                    // If checkbox is checked but input is empty, it's just a boolean true
+                    if (contraidoInput.value.trim() === '') {
+                        partida.contraido = true;
+                    } else {
+                        partida.contraido = contraidoInput.value.trim();
+                    }
+                } else if (contraidoCheckbox) {
+                    partida.contraido = contraidoCheckbox.checked;
+                }
             }
         });
         
@@ -483,7 +762,7 @@ class ArqueoEditor {
     }
 
     /**
-     * Render the editor form
+     * Render the editor form with special handling of contraido field
      */
     render() {
         this.container.innerHTML = '';
@@ -502,6 +781,19 @@ class ArqueoEditor {
         form.appendChild(this._createTextoSicalSection());
         
         this.container.appendChild(form);
+        
+        // Set naturaleza event handler to update partidas when naturaleza changes
+        const naturalezaSelect = document.getElementById('naturaleza');
+        if (naturalezaSelect) {
+            naturalezaSelect.addEventListener('change', (e) => {
+                this.naturaleza = e.target.value;
+                
+                if (this.partidasManager) {
+                    console.log('Updating PartidaManager naturaleza to:', this.naturaleza);
+                    this.partidasManager.setNaturaleza(this.naturaleza);
+                }
+            });
+        }
     }
     
     /**
@@ -565,6 +857,9 @@ class ArqueoEditor {
     }
     
     
+    /**
+     * Modified _createPartidasSection method to properly handle contraido field in task data
+     */
     _createPartidasSection() {
         const section = document.createElement('div');
         section.className = 'editor-section';
@@ -586,28 +881,61 @@ class ArqueoEditor {
         partidasContainer.id = 'partidasContainer';
         section.appendChild(partidasContainer);
         
-        // Initialize the partidas manager with the partidas from task data
-        const partidas = this.task.detalle.final && this.task.detalle.final.length > 0 ? 
-            this.task.detalle.final : [{ partida: '', IMPORTE_PARTIDA: 0 }];
+        // Get naturaleza from current task
+        this.naturaleza = this.task.detalle.naturaleza || '';
         
-        // Create partidas manager instance
+        // Initialize the partidas manager with the partidas from task data
+        let partidas = [];
+        
+        if (this.task.detalle.final && this.task.detalle.final.length > 0) {
+            // Copy the partidas with proper type conversion for contraido
+            partidas = this.task.detalle.final.map(p => {
+                const partida = { ...p };
+                
+                // Handle contraido value if it exists
+                if (partida.contraido !== undefined) {
+                    // Convert string boolean values to actual booleans
+                    if (partida.contraido === "True" || partida.contraido === "true") {
+                        partida.contraido = true;
+                    } else if (partida.contraido === "False" || partida.contraido === "false") {
+                        partida.contraido = false;
+                    }
+                    // Other values (like specific strings) are kept as-is
+                }
+                
+                return partida;
+            });
+        } else {
+            // Create a default partida
+            partidas = [{ partida: '', IMPORTE_PARTIDA: 0 }];
+            
+            // Add contraido if naturaleza is 5
+            if (this.naturaleza === "5") {
+                partidas[0].contraido = false;
+            }
+        }
+        
+        console.log('Creating PartidaManager with partidas:', partidas);
+        console.log('Current naturaleza:', this.naturaleza);
+        
+        // Create partidas manager instance with naturaleza and processed partidas
         this.partidasManager = new PartidasManager(
             partidasContainer, 
             partidas,
             (updatedPartidas) => {
                 console.log('Partidas updated:', updatedPartidas);
-                // If needed, update task data directly
-                // this.task.detalle.final = updatedPartidas;
-            }
+            },
+            this.naturaleza  // Pass the naturaleza value
         );
         
         return section;
     }
+
+        
     
-    
-        /**
+    /**
      * Render a single partida item
-     */
+    */
     _renderPartidaItem(container, partida, index) {
         const partidaRow = document.createElement('div');
         partidaRow.className = 'item-row partida-row';

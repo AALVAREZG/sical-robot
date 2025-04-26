@@ -1048,6 +1048,12 @@ ipcMain.handle('test-pattern', async (event, { matcherFunction, generatorFunctio
 
 // Add new handler for balance validation
 ipcMain.handle('validateBalances', async (event, records) => {
+  console.log('Records received in main process:', 
+    JSON.stringify(records.map(r => ({
+      date: r.normalized_date, 
+      concepto: r.concepto.substring(0, 30),
+      is_grouped: r.is_grouped
+    }))));
   try {
     console.log('Validating transaction order and balance consistency of', records.length, 'records');
     const result = BalanceConsistencyValidator.validate(records);
