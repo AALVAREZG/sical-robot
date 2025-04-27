@@ -16,10 +16,10 @@ out/
 
 # Data Files
 extractos*/
-data/samples*/
-data/records*/
-data/output*/
-data/sender/input*/
+src/data/samples*/
+src/data/records*/
+src/data/output*/
+src/data/sender/input*/
 
 # Logs
 logs
