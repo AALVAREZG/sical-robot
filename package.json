@@ -2,7 +2,7 @@
   "name": "sical-robot_v0.1",
   "version": "1.0.0",
   "description": "Generador Asientos Contables Sical",
-  "main": "main.js",
+  "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",

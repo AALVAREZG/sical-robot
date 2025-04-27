@@ -45,7 +45,7 @@ const UNICAJA_FILENAME = 'UNICAJA';
 const UNICAJA_EXTENSION = '.XLS'
 let transactionPatterns = [];
 let mainWindow;
-const db = new Database('./prueba05.sqlite');
+const db = new Database('./src/data/db/prueba05.sqlite');
 
 // Function to load patterns
 async function loadPatternsFromFile() {
@@ -95,7 +95,7 @@ function createWindow() {
     windowState.y = bounds.y;
   });
 
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile('src/index.html');
 }
 
 app.whenReady().then(createWindow);

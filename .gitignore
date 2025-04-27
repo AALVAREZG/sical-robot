@@ -17,6 +17,7 @@ out/
 # Data Files
 extractos*/
 src/data/samples*/
+src/data/db*/
 src/data/records*/
 src/data/output*/
 src/data/sender/input*/
