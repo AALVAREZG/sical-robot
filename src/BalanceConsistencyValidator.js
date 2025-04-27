@@ -18,8 +18,7 @@ class BalanceConsistencyValidator {
    *                   - isAscending: Boolean indicating detected date order
    */
   static validate(transactions) {
-    console.error('Records at start of validation:', JSON.stringify(transactions.map(t => 
-      ({date: t.normalized_date, concepto: t.concepto.substring(0, 30), is_grouped: t.is_grouped}))));
+    //console.log('Records at start of validation:', stringifyRecords(transactions));
     // Cannot validate with less than 2 transactions
     if (!transactions || transactions.length < 2) {
       return { 
@@ -31,7 +30,13 @@ class BalanceConsistencyValidator {
       };
     }
     
-
+    function stringifyRecords(records) {
+      return JSON.stringify(records.map(r => ({
+        date: r.normalized_date, 
+        concepto: r.concepto.substring(0, 30),
+        is_grouped: r.is_grouped
+     })))
+    };
     // First check if records are in descending date order
     const isDescendingOrder = this._checkDescendingOrder([...transactions]);
     

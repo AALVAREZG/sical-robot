@@ -5,17 +5,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const balanceStatusElement = document.getElementById('balanceStatus');
 
     let processedRecords = []; /// Array of records to be displayed in the preview table. Contains both grouped and non-grouped records.
+    let sortedRecords = []; /// Array of records to be displayed in the preview table. Contains both grouped and non-grouped records.
     let balanceValidationResult = { isValid: true, issues: [] };
 
     window.electronAPI.onPreviewData(async (data) => {
         //console.log('Preview data:', data);
         processedRecords = await processGroupedRecords(data);
-        console.log('Processed records:', [...processedRecords]);
+        //console.log('Processed records:', [...processedRecords]);
         // Validate balance consistency
-        // Frist, ewe need to sort the records, because if exist a grouped record it will be in the last position 
+        // First, ewe need to sort the records, because if exist a grouped record it will be in the last position 
         // and the balance validation will fail.
         // Sort records by date (descending) and by idx (ascending) to maintain stable order
-        const sortedRecords = [...processedRecords].sort((a, b) => {
+        sortedRecords = [...processedRecords].sort((a, b) => {
             // First compare by date (descending)
             const dateComparison = b.normalized_date.localeCompare(a.normalized_date);
             if (dateComparison !== 0) return dateComparison;
@@ -181,7 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .map(row => {
                 const index = row.rowIndex - 1;
-                const record = processedRecords[index];
+                const record = sortedRecords[index];
                 return record;
             });
             
@@ -235,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateImportButton() {
-        const newRecordsCount = processedRecords.filter(r => !r.alreadyInDatabase).length;
+        const newRecordsCount = sortedRecords.filter(r => !r.alreadyInDatabase).length;
         importButton.textContent = `Import Selected (${newRecordsCount} new)`;
         importButton.disabled = newRecordsCount === 0;
     }
