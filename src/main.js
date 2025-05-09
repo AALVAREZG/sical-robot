@@ -7,6 +7,8 @@ const XLSX = require('xlsx');
 const fs = require('fs').promises; //added in moment to  create pattern manager
 const { spawn } = require('child_process');
 const BalanceConsistencyValidator = require('./BalanceConsistencyValidator');
+// Import the accounting import service
+const { processAccountingFile } = require('./services/accountingImport');
 
 // Path to the executable relative to the Electron app
 const pythonServicePath = path.join(__dirname, 'data', 'sender', 'senderToRabbitMQ.exe');
@@ -603,6 +605,7 @@ function stringifyRecords(records) {
 };
 
 
+
 // Add new handler for balance validation
 ipcMain.handle('validateBalances', async (event, records) => {
   //console.log('Records received in main process:', stringifyRecords(records));
@@ -636,5 +639,67 @@ ipcMain.handle('validateBalances', async (event, records) => {
       }],
       message: `Error during validation: ${error.message}`
     };
+  }
+});
+
+// Add these IPC handlers in main.js
+ipcMain.handle('select-accounting-file', async () => {
+  const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [
+          { name: 'Text Files', extensions: ['txt'] },
+          { name: 'All Files', extensions: ['*'] }
+      ],
+      title: 'Select Accounting File'
+  });
+  
+  if (!result.canceled) {
+      return result.filePaths[0];
+  }
+  return null;
+});
+
+ipcMain.handle('process-accounting-file', async (event, filePath) => {
+  try {
+      console.log('Processing accounting file:', filePath);
+      const records = await processAccountingFile(filePath);
+      createAccountingPreviewDialog(records);
+      return { success: true, count: records.length };
+  } catch (error) {
+      console.error('Error processing accounting file:', error);
+      return { success: false, error: error.message };
+  }
+});
+
+// Function to create the preview dialog
+function createAccountingPreviewDialog(records) {
+  let previewWindow = new BrowserWindow({
+      width: 1168,
+      height: 750,
+      modal: true,
+      parent: mainWindow,
+      webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          preload: path.join(__dirname, 'preload.js')
+      }
+  });
+  
+  previewWindow.loadFile('./src/previewAccounting.html');
+  previewWindow.webContents.on('did-finish-load', () => {
+      previewWindow.webContents.send('accounting-preview-data', records);
+  });
+}
+
+// This handler will be implemented later
+ipcMain.handle('import-accounting-records', async (event, records) => {
+  try {
+      console.log(`Importing ${records.length} accounting records...`);
+      // Placeholder for future implementation
+      // const results = await db.storeAccountingRecords(records);
+      return { success: true, message: "Import functionality not yet implemented" };
+  } catch (error) {
+      console.error('Error importing accounting records:', error);
+      return { success: false, error: error.message };
   }
 });

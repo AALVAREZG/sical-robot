@@ -888,6 +888,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+const importAccountingBtn = document.getElementById('importAccountingBtn');
+if (importAccountingBtn) {
+  importAccountingBtn.addEventListener('click', () => {
+    window.electronAPI.openAccountingImport();
+  });
+}
+
+// Add this to your renderer.js or index.html
+document.getElementById('selectAccountingFile').addEventListener('click', async () => {
+    try {
+        const filePath = await window.electronAPI.selectAccountingFile();
+        if (filePath) {
+            const result = await window.electronAPI.processAccountingFile(filePath);
+            if (!result.success) {
+                alert('Error processing file: ' + result.error);
+            }
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error: ' + error.message);
+    }
+});
+
 // Add event handlers to window object for HTML access
 window.toggleContabilizado = toggleContabilizado;
 window.openContableTaskDialog = openContableTaskDialog;

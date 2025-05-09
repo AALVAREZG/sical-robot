@@ -24,9 +24,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     testPattern: (data) => ipcRenderer.invoke('test-pattern', data),
     reloadPatterns: () => ipcRenderer.invoke('reload-patterns'),
 
-
-    
     validateBalances: (records) => ipcRenderer.invoke('validateBalances', records),
+    openAccountingImport: () => ipcRenderer.invoke('open-accounting-import'),
+  
+    // New functions for accounting records
+    selectAccountingFile: () => ipcRenderer.invoke('select-accounting-file'),
+    processAccountingFile: (filePath) => ipcRenderer.invoke('process-accounting-file', filePath),
+    onAccountingPreviewData: (callback) => ipcRenderer.on('accounting-preview-data', (_, data) => callback(data)),
+    importAccountingRecords: (records) => ipcRenderer.invoke('import-accounting-records', records)
 });
 
 contextBridge.exposeInMainWorld('versions', {

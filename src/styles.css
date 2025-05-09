@@ -801,3 +801,40 @@ details ul {
     margin-top: 5px;
     padding-left: 20px;
 }
+
+/* Accounting import styles */
+.import-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+  }
+  
+  .action-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .existing-entry {
+    background-color: #f5f5f5;
+    color: #666;
+  }
+  
+  .match-section {
+    margin-top: 20px;
+  }
+  
+  .date-range {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .date-input {
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+  }
+  

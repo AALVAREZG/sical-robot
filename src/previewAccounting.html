@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Preview Accounting Records</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Additional styles for accounting preview */
+        .currency-column {
+            text-align: right;
+            font-family: 'Roboto Mono', monospace;
+        }
+        
+             
+        .status-container {
+            margin: 15px 0;
+            padding: 12px 15px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Preview Accounting Records</h2>
+        <div id="summaryInfo" class="status-container">
+            <span class="status-icon">📊</span>
+            <span>Processing accounting records...</span>
+        </div>
+
+        <div class="table-container">
+            <table id="previewTable">
+                <thead>
+                    <tr>
+                        <th>Caja</th>
+                        <th>Fecha</th>
+                        <th>Fecha Valor</th>
+                        <th>Descripción</th>
+                        <th>Id Operacion</th>
+                        <th>Importe</th>
+                        <th>Id Tercero</th>
+                        <th>Nombre Tercero</th>
+                        <th>Tipo Op</th>
+                        <th>D/C</th>
+                        <th>Import</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="actions">
+            <button id="importRecords">Import Selected</button>
+            <button id="cancelImport">Cancel</button>
+        </div>
+    </div>
+    <script src="previewAccounting.js"></script>
+</body>
+</html>
