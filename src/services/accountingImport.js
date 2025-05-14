@@ -1,12 +1,14 @@
-// accountingImport.js
 const fs = require('fs').promises;
+const path = require('path');
+const { processListBasedAccountingFile, matchAccountingRecordsToLists } = require('./listBasedAccountingImport');
 
 /**
  * Parse an accounting file in the specific format
  * @param {string} filePath - Path to the accounting file
+ * @param {Object} options - Additional options like bankAccount
  * @returns {Array} Array of parsed accounting records
  */
-async function processAccountingFile(filePath) {
+async function processAccountingFile(filePath, options = {}) {
     try {
         const content = await fs.readFile(filePath, 'utf-8');
         const lines = content.split('\n').filter(line => line.trim() !== '');
@@ -28,7 +30,6 @@ async function processAccountingFile(filePath) {
                 let descriptionStart = 42;
                 let refStartPos = 72;
                 
-                               
                 const description = line.substring(descriptionStart, refStartPos).trim();
                 
                 // Reference field has two parts:
@@ -42,7 +43,6 @@ async function processAccountingFile(filePath) {
                 const amountStartPos = 92;
                 const amountEndPos = 112;
                 const amountStr = line.substring(amountStartPos, amountEndPos).trim();
-                
                 
                 // Entity ID follows the amount (9 characters)
                 const entityIdStartPos = 112;
@@ -76,10 +76,50 @@ async function processAccountingFile(filePath) {
                   debitCredit,
                   insertionDate: new Date().toISOString(),
                   relatedBankMovementId: null
-              });
+                });
             } catch (error) {
                 console.error('Error parsing line:', line, error);
             }
+        }
+        
+        // Special handling for account 207 if the option is provided
+        if (options.bankAccount === '207' && options.listFilePath) {
+            // Process the companion XLS file with list information
+            const listGroups = await processListBasedAccountingFile(options.listFilePath);
+            
+            // Match accounting records to lists
+            const matchedRecords = matchAccountingRecordsToLists(records, listGroups);
+            
+            // Enhance records with list information
+            records.forEach(record => {
+                // Find if this record has been matched to a list
+                for (const listNumber in matchedRecords.matched) {
+                    const matchedList = matchedRecords.matched[listNumber];
+                    const isInList = matchedList.accountingRecords.some(r => r.id === record.id);
+                    
+                    if (isInList) {
+                        // Add list information to the record
+                        record.listNumber = listNumber;
+                        record.listInfo = {
+                            totalAmount: matchedList.listInfo.totalAmount,
+                            date: matchedList.listInfo.date,
+                            operationCount: matchedList.listInfo.operations.length
+                        };
+                        break;
+                    }
+                }
+            });
+            
+            // Return enhanced result
+            return {
+                records,
+                listInfo: {
+                    totalLists: Object.keys(listGroups.lists).length,
+                    lists: listGroups.lists,
+                    matchedRecords: matchedRecords.matched,
+                    unmatchedRecords: matchedRecords.unmatched.length
+                }
+            };
         }
         
         return records;

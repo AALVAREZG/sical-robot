@@ -29,9 +29,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
     // New functions for accounting records
     selectAccountingFile: () => ipcRenderer.invoke('select-accounting-file'),
-    processAccountingFile: (filePath) => ipcRenderer.invoke('process-accounting-file', filePath),
+    
+    // After (updated):
+    processAccountingFile: (filePath, options = {}) => 
+        ipcRenderer.invoke('process-accounting-file', { 
+            filePath, 
+            bankAccount: options.bankAccount,
+            listFilePath: options.listFilePath 
+    }),
     onAccountingPreviewData: (callback) => ipcRenderer.on('accounting-preview-data', (_, data) => callback(data)),
-    importAccountingRecords: (records) => ipcRenderer.invoke('import-accounting-records', records)
+    importAccountingRecords: (records) => ipcRenderer.invoke('import-accounting-records', records),
+    onListBasedAccountingPreviewData: (callback) => 
+        ipcRenderer.on('list-based-accounting-preview-data', (_, data) => callback(data))
 });
 
 contextBridge.exposeInMainWorld('versions', {

@@ -428,28 +428,7 @@ function runPythonService() {
   });
 }
 
-function runPythonService_OLD() {
-  return new Promise((resolve, reject) => {
-    const pythonProcess = spawn(pythonServicePath);
-    let dataString = '';
-    
-    pythonProcess.stdout.on('data', (data) => {
-      dataString += data.toString();
-    });
-    
-    pythonProcess.stderr.on('data', (data) => {
-      console.error(`Python Service Error: ${data}`);
-    });
-    
-    pythonProcess.on('close', (code) => {
-      if (code !== 0) {
-        reject(`Python service exited with code ${code}`);
-      } else {
-        resolve(dataString);
-      }
-    });
-  });
-}
+
 
 // Add IPC handler
 ipcMain.handle('run-sender', async (event, args) => {
@@ -654,28 +633,52 @@ ipcMain.handle('select-accounting-file', async () => {
   });
   
   if (!result.canceled) {
+      console.log(`Selecting for import accounts record: `, result.filePaths[0]);
       return result.filePaths[0];
   }
   return null;
 });
 
-ipcMain.handle('process-accounting-file', async (event, filePath) => {
+ipcMain.handle('process-accounting-file', async (event, { filePath, bankAccount, listFilePath }) => {
   try {
-      console.log('Processing accounting file:', filePath);
-      const records = await processAccountingFile(filePath);
-      createAccountingPreviewDialog(records);
-      return { success: true, count: records.length };
+      console.log(`Processing accounting file for bank account ${bankAccount}:`, filePath);
+      
+      const options = {
+          bankAccount
+      };
+      
+      // If this is account 207 and we have a list file, add it to options
+      if (bankAccount === '207' && listFilePath) {
+          options.listFilePath = listFilePath;
+      }
+      
+      const result = await processAccountingFile(filePath, options);
+      
+      // Create preview dialog with the processed records
+      if (Array.isArray(result)) {
+          // Regular processing result
+          createAccountingPreviewDialog(result);
+          return { success: true, count: result.length };
+      } else {
+          // Enhanced result for account 207
+          createListBasedAccountingPreviewDialog(result);
+          return { 
+              success: true, 
+              count: result.records.length,
+              listsProcessed: result.listInfo.totalLists
+          };
+      }
   } catch (error) {
       console.error('Error processing accounting file:', error);
       return { success: false, error: error.message };
   }
 });
 
-// Function to create the preview dialog
-function createAccountingPreviewDialog(records) {
+// New function to create a preview dialog for list-based accounting
+function createListBasedAccountingPreviewDialog(result) {
   let previewWindow = new BrowserWindow({
-      width: 1168,
-      height: 750,
+      width: 1280,
+      height: 920,
       modal: true,
       parent: mainWindow,
       webPreferences: {
@@ -685,9 +688,9 @@ function createAccountingPreviewDialog(records) {
       }
   });
   
-  previewWindow.loadFile('./src/previewAccounting.html');
+  previewWindow.loadFile('./src/previewListBasedAccounting.html');
   previewWindow.webContents.on('did-finish-load', () => {
-      previewWindow.webContents.send('accounting-preview-data', records);
+      previewWindow.webContents.send('list-based-accounting-preview-data', result);
   });
 }
 

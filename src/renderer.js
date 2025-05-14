@@ -895,15 +895,46 @@ if (importAccountingBtn) {
   });
 }
 
-// Add this to your renderer.js or index.html
+
+document.getElementById('bankAccountSelect').addEventListener('change', function() {
+    const accountNumber = this.value;
+    const account207Options = document.getElementById('account207Options');
+    
+    // Show additional options for account 207
+    if (accountNumber === '207') {
+        account207Options.style.display = 'block';
+    } else {
+        account207Options.style.display = 'none';
+    }
+});
+
+/**
+ * Select a file with pattern c[accountNumber].txt (example c207.txt), for extract account
+ * movements execitued in contable app
+*/
 document.getElementById('selectAccountingFile').addEventListener('click', async () => {
+
+    const filePath = document.getElementById('accountingFilePath').textContent;
+    const accountNumber = document.getElementById('bankAccountSelect').value;
+        
+    if (!filePath) {
+        alert('Please select an accounting file first');
+        return;
+    }
+        
+    const options = { bankAccount: accountNumber };
+        
+    // If account 207 and list file selected, include it
+    if (accountNumber === '207' && listFilePath) {
+        options.listFilePath = listFilePath;
+        } else if (accountNumber === '207' && !listFilePath) {
+            alert('For account 207, please select a list file as well');
+            return;
+        }
     try {
-        const filePath = await window.electronAPI.selectAccountingFile();
-        if (filePath) {
-            const result = await window.electronAPI.processAccountingFile(filePath);
-            if (!result.success) {
-                alert('Error processing file: ' + result.error);
-            }
+        const result = await window.electronAPI.processAccountingFile(filePath, options);
+        if (!result.success) {
+            alert('Error processing file: ' + result.error);
         }
     } catch (error) {
         console.error('Error:', error);

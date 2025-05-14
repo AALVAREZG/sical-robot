@@ -1,0 +1,164 @@
+<!-- src/previewListBasedAccounting.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Preview List-Based Accounting Records</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Additional styles for list-based accounting preview */
+        .list-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border-left: 3px solid #4285F4;
+        }
+        
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .list-title {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .list-stats {
+            font-size: 14px;
+            color: #555;
+        }
+        
+        .records-list {
+            margin-top: 10px;
+        }
+        
+        .list-number-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background-color: #4285F4;
+            color: white;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        
+        .currency-column {
+            text-align: right;
+            font-family: 'Roboto Mono', monospace;
+        }
+        
+        .tab-container {
+            margin-bottom: 20px;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab-button {
+            padding: 10px 15px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .tab-button.active {
+            border-bottom-color: #4285F4;
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 15px 0;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Preview List-Based Accounting Records</h2>
+        <div id="summaryInfo" class="status-container">
+            <span class="status-icon">📊</span>
+            <span>Processing accounting records...</span>
+        </div>
+
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="lists-tab">Lists View</button>
+                <button class="tab-button" data-tab="all-records-tab">All Records</button>
+                <button class="tab-button" data-tab="unmatched-tab">Unmatched Records</button>
+            </div>
+            
+            <!-- Lists Tab -->
+            <div id="lists-tab" class="tab-content active">
+                <div id="listContainers">
+                    <!-- List sections will be inserted here -->
+                </div>
+            </div>
+            
+            <!-- All Records Tab -->
+            <div id="all-records-tab" class="tab-content">
+                <div class="table-container">
+                    <table id="allRecordsTable">
+                        <thead>
+                            <tr>
+                                <th>List #</th>
+                                <th>Fecha</th>
+                                <th>Fecha Valor</th>
+                                <th>Descripción</th>
+                                <th>Referencia</th>
+                                <th>Importe</th>
+                                <th>ID Tercero</th>
+                                <th>Nombre Tercero</th>
+                                <th>D/C</th>
+                                <th>Importar</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Unmatched Records Tab -->
+            <div id="unmatched-tab" class="tab-content">
+                <div class="table-container">
+                    <table id="unmatchedTable">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Fecha Valor</th>
+                                <th>Descripción</th>
+                                <th>Referencia</th>
+                                <th>Importe</th>
+                                <th>ID Tercero</th>
+                                <th>Nombre Tercero</th>
+                                <th>D/C</th>
+                                <th>Importar</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button id="importRecords">Import Selected</button>
+            <button id="cancelImport">Cancel</button>
+        </div>
+    </div>
+    
+    <script src="previewListBasedAccounting.js"></script>
+</body>
+</html>
