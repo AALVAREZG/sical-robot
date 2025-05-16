@@ -639,43 +639,29 @@ ipcMain.handle('select-accounting-file', async () => {
   return null;
 });
 
-ipcMain.handle('process-accounting-file', async (event, { filePath, bankAccount, listFilePath }) => {
+ipcMain.handle('import-accounting-records', async (event, records) => {
   try {
-      console.log(`Processing accounting file for bank account ${bankAccount}:`, filePath);
+      console.log(`Importing ${records.length} accounting records...`);
       
-      const options = {
-          bankAccount
-      };
+      // Implement the actual storage functionality
+      const results = await db.storeAccountingRecords(records);
       
-      // If this is account 207 and we have a list file, add it to options
-      if (bankAccount === '207' && listFilePath) {
-          options.listFilePath = listFilePath;
-      }
+      // Notify any open windows about the import
+      BrowserWindow.getAllWindows().forEach(window => {
+        window.webContents.send('accounting-records-imported', {
+          count: records.length
+        });
+      });
       
-      const result = await processAccountingFile(filePath, options);
-      
-      // Create preview dialog with the processed records
-      if (Array.isArray(result)) {
-          // Regular processing result
-          createAccountingPreviewDialog(result);
-          return { success: true, count: result.length };
-      } else {
-          // Enhanced result for account 207
-          createListBasedAccountingPreviewDialog(result);
-          return { 
-              success: true, 
-              count: result.records.length,
-              listsProcessed: result.listInfo.totalLists
-          };
-      }
+      return { success: true, count: records.length };
   } catch (error) {
-      console.error('Error processing accounting file:', error);
+      console.error('Error importing accounting records:', error);
       return { success: false, error: error.message };
   }
 });
 
-// New function to create a preview dialog for list-based accounting
-function createListBasedAccountingPreviewDialog(result) {
+// Modify the existing createAccountingPreviewDialog function if needed
+function createAccountingPreviewDialog(records) {
   let previewWindow = new BrowserWindow({
       width: 1280,
       height: 920,
@@ -688,21 +674,8 @@ function createListBasedAccountingPreviewDialog(result) {
       }
   });
   
-  previewWindow.loadFile('./src/previewListBasedAccounting.html');
+  previewWindow.loadFile('./src/previewAccounting.html');
   previewWindow.webContents.on('did-finish-load', () => {
-      previewWindow.webContents.send('list-based-accounting-preview-data', result);
+      previewWindow.webContents.send('accounting-preview-data', records);
   });
 }
-
-// This handler will be implemented later
-ipcMain.handle('import-accounting-records', async (event, records) => {
-  try {
-      console.log(`Importing ${records.length} accounting records...`);
-      // Placeholder for future implementation
-      // const results = await db.storeAccountingRecords(records);
-      return { success: true, message: "Import functionality not yet implemented" };
-  } catch (error) {
-      console.error('Error importing accounting records:', error);
-      return { success: false, error: error.message };
-  }
-});

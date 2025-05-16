@@ -96,6 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Update the import button click handler in previewAccounting.js
     importButton.addEventListener('click', async () => {
         const selectedRows = Array.from(previewTable.querySelectorAll('tr'))
             .filter(row => {
@@ -109,11 +110,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (selectedRows.length > 0) {
             try {
-                // Import functionality will be implemented later
-                alert('Import functionality will be implemented in a future step.');
-                // Uncomment when ready:
-                // await window.electronAPI.importAccountingRecords(selectedRows);
-                // window.close();
+                // Call the now-implemented import function
+                const result = await window.electronAPI.importAccountingRecords(selectedRows);
+                
+                if (result.success) {
+                    alert(`Successfully imported ${result.count} accounting records`);
+                    window.close();
+                } else {
+                    alert('Error importing records: ' + result.error);
+                }
             } catch (error) {
                 console.error('Error:', error);
                 alert('Error: ' + error.message);

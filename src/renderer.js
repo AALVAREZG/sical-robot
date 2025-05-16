@@ -568,6 +568,37 @@ function setupEventListeners() {
     window.electronAPI.onRecordsImported((caja) => {
         loadRecordsForCaja(caja);
     });
+
+    // Accounting import handling
+    const selectAccountingFileBtn = document.getElementById('selectAccountingFile');
+    if (selectAccountingFileBtn) {
+        selectAccountingFileBtn.addEventListener('click', toggleAccountingImportPanel);
+    }
+    
+    const bankAccountSelect = document.getElementById('bankAccountSelect');
+    if (bankAccountSelect) {
+        bankAccountSelect.addEventListener('change', handleAccountSelection);
+    }
+    
+    const selectAccountingFileBtnInner = document.getElementById('selectAccountingFileBtn');
+    if (selectAccountingFileBtnInner) {
+        selectAccountingFileBtnInner.addEventListener('click', selectAccountingFile);
+    }
+    
+    const selectListFileBtn = document.getElementById('selectListFileBtn');
+    if (selectListFileBtn) {
+        selectListFileBtn.addEventListener('click', selectListFile);
+    }
+    
+    const processAccountingFileBtn = document.getElementById('processAccountingFileBtn');
+    if (processAccountingFileBtn) {
+        processAccountingFileBtn.addEventListener('click', processAccountingFile);
+    }
+    
+    const cancelAccountingImportBtn = document.getElementById('cancelAccountingImportBtn');
+    if (cancelAccountingImportBtn) {
+        cancelAccountingImportBtn.addEventListener('click', toggleAccountingImportPanel);
+    }
 }
 
 /**
@@ -941,6 +972,127 @@ document.getElementById('selectAccountingFile').addEventListener('click', async 
         alert('Error: ' + error.message);
     }
 });
+
+
+// Add these functions to renderer.js
+let accountingFilePath = null;
+let listFilePath = null;
+
+function toggleAccountingImportPanel() {
+    const panel = document.getElementById('accountingImportPanel');
+    if (panel) {
+        if (panel.style.display === 'none') {
+            panel.style.display = 'block';
+        } else {
+            panel.style.display = 'none';
+            // Reset state
+            accountingFilePath = null;
+            listFilePath = null;
+            document.getElementById('accountingFilePath').textContent = 'No file selected';
+            document.getElementById('selectedListFile').textContent = 'No file selected';
+            document.getElementById('processAccountingFileBtn').disabled = true;
+        }
+    }
+}
+
+function handleAccountSelection() {
+    const bankAccountSelect = document.getElementById('bankAccountSelect');
+    const account207Options = document.getElementById('account207Options');
+    
+    if (bankAccountSelect && bankAccountSelect.value === '207') {
+        if (account207Options) account207Options.style.display = 'block';
+    } else {
+        if (account207Options) account207Options.style.display = 'none';
+    }
+    
+    updateProcessButtonState();
+}
+
+async function selectAccountingFile() {
+    try {
+        const filePath = await window.electronAPI.selectAccountingFile();
+        if (filePath) {
+            accountingFilePath = filePath;
+            document.getElementById('accountingFilePath').textContent = filePath;
+            updateProcessButtonState();
+        }
+    } catch (error) {
+        console.error('Error selecting accounting file:', error);
+        showToast('Error selecting file', true);
+    }
+}
+
+async function selectListFile() {
+    try {
+        // We can reuse the general file selection method but for a different purpose
+        const filePath = await window.electronAPI.selectFile();
+        if (filePath) {
+            listFilePath = filePath;
+            document.getElementById('selectedListFile').textContent = filePath;
+            updateProcessButtonState();
+        }
+    } catch (error) {
+        console.error('Error selecting list file:', error);
+        showToast('Error selecting file', true);
+    }
+}
+
+function updateProcessButtonState() {
+    const processBtn = document.getElementById('processAccountingFileBtn');
+    if (!processBtn) return;
+    
+    const bankAccountSelect = document.getElementById('bankAccountSelect');
+    const accountNumber = bankAccountSelect ? bankAccountSelect.value : '';
+    
+    // Enable the process button only if all required files are selected
+    let canProcess = accountingFilePath !== null;
+    
+    // For account 207, we also need a list file
+    if (accountNumber === '207') {
+        canProcess = canProcess && listFilePath !== null;
+    }
+    
+    processBtn.disabled = !canProcess;
+}
+
+async function processAccountingFile() {
+    const bankAccountSelect = document.getElementById('bankAccountSelect');
+    const accountNumber = bankAccountSelect ? bankAccountSelect.value : '';
+    
+    if (!accountingFilePath) {
+        showToast('Please select an accounting file first', true);
+        return;
+    }
+    
+    const options = { bankAccount: accountNumber };
+    
+    // If account 207 and list file selected, include it
+    if (accountNumber === '207') {
+        if (!listFilePath) {
+            showToast('For account 207, please select a list file as well', true);
+            return;
+        }
+        options.listFilePath = listFilePath;
+    }
+    
+    try {
+        showLoading(true);
+        const result = await window.electronAPI.processAccountingFile(accountingFilePath, options);
+        showLoading(false);
+        
+        if (!result.success) {
+            showToast('Error processing file: ' + result.error, true);
+        } else {
+            // Hide the panel after successful processing
+            toggleAccountingImportPanel();
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showLoading(false);
+        showToast('Error: ' + error.message, true);
+    }
+}
+
 
 // Add event handlers to window object for HTML access
 window.toggleContabilizado = toggleContabilizado;

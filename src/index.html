@@ -45,10 +45,32 @@
                     <button class="btn-secondary" id="patternManagerBtn">Manage Patterns</button>       
                     <button class="btn-primary" id="selectFile">Importar</button>
                     <button class="btn-secondary" id="selectAccountingFile">Import Accounting</button>
-                    <div id="account207Options" style="display: none;">
-                        <p>For account 207, please also select the list file:</p>
-                        <button id="selectListFile">Select List File</button>
-                        <span id="selectedListFile">No file selected</span>
+                    <div id="accountingImportPanel" style="display: none; margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                        <div style="margin-bottom: 10px;">
+                            <label for="bankAccountSelect">Select Bank Account:</label>
+                            <select id="bankAccountSelect" style="margin-left: 10px;">
+                                <option value="200">200 - CAIXABANK</option>
+                                <option value="201">201 - SANTANDER</option>
+                                <option value="203">203 - CRURAL</option>
+                                <option value="204">204 - CAIXABANK_REC</option>
+                                <option value="207">207 - BBVA</option>
+                                <option value="233">233 - BBVA_PCONTIGO</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <span>Accounting File: </span>
+                            <span id="accountingFilePath">No file selected</span>
+                            <button id="selectAccountingFileBtn" class="btn-secondary">Select File</button>
+                        </div>
+                        <div id="account207Options" style="display: none; margin-bottom: 10px;">
+                            <span>List File (required for account 207): </span>
+                            <span id="selectedListFile">No file selected</span>
+                            <button id="selectListFileBtn" class="btn-secondary">Select List File</button>
+                        </div>
+                        <div>
+                            <button id="processAccountingFileBtn" class="btn-primary" disabled>Process File</button>
+                            <button id="cancelAccountingImportBtn" class="btn-secondary">Cancel</button>
+                        </div>
                     </div>
                 </div>
             </div>

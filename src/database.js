@@ -459,24 +459,20 @@ async findPotentialMatches(accountCode, startDate, endDate) {
   });
 }
 
-/**
- * Store confirmed mappings between bank movements and accounting entries
- * @param {Array} mappings - Array of mapping objects
- * @returns {Promise<Object>} Result with success status
- */
-async storeBankAccountingMappings(mappings) {
+// Add this method to the Database class in database.js
+async storeAccountingRecords(records) {
+  console.log('Starting storeAccountingRecords with', records.length, 'records');
   const insertSql = `
-    INSERT OR REPLACE INTO bank_accounting_mapping 
-    (bank_movement_id, accounting_entry_id, match_confidence, is_confirmed, match_date)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO accounting_entries 
+    (id, account_code, transaction_type, entry_date, value_date, 
+     description, reference_number, amount, entity_code, entity_name, 
+     is_credit, insertion_date, processed)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
-  
-  const updateSql = `
-    UPDATE accounting_entries 
-    SET processed = 1 
-    WHERE id = ?
-  `;
-  
+
+  const currentDate = new Date().toISOString();
+  let newRecordsCount = 0;
+
   const runAsync = (sql, params = []) => {
     return new Promise((resolve, reject) => {
       this.db.run(sql, params, function (err) {
@@ -485,128 +481,43 @@ async storeBankAccountingMappings(mappings) {
       });
     });
   };
-  
+
   try {
     await runAsync('BEGIN TRANSACTION');
-    
-    let mappingCount = 0;
-    
-    for (const mapping of mappings) {
-      // Store the mapping
-      await runAsync(insertSql, [
-        mapping.bank_movement_id,
-        mapping.accounting_entry_id,
-        mapping.confidence,
-        1, // Confirmed
-        new Date().toISOString()
-      ]);
+
+    for (const record of records) {
+      // Process the debit/credit indicator
+      const isCredit = record.debitCredit === '+' ? 1 : 0;
       
-      // Mark the accounting entry as processed
-      await runAsync(updateSql, [mapping.accounting_entry_id]);
-      
-      mappingCount++;
+      const params = [
+        record.id,
+        record.accountCode,
+        record.transactionType,
+        record.transactionDate,
+        record.valueDate,
+        record.description,
+        record.reference,
+        record.amount,
+        record.entityId,
+        record.entityName,
+        isCredit,
+        record.insertionDate || currentDate,
+        0 // Not processed by default
+      ];
+
+      const runResult = await runAsync(insertSql, params);
+      if (runResult.changes > 0) newRecordsCount++;
     }
-    
+
     await runAsync('COMMIT');
-    
-    return {
-      success: true,
-      count: mappingCount
-    };
+    console.log(`Inserted ${newRecordsCount} new accounting records`);
+    return { success: true, newRecords: newRecordsCount };
   } catch (err) {
-    console.error('Error storing mappings:', err);
+    console.error('Error in transaction:', err);
     await runAsync('ROLLBACK');
     throw err;
   }
-}
-
-
-}
-
-/**
- * Calculate match confidence between accounting entry and bank movement
- * @param {Object} entry - Accounting entry
- * @param {Object} movement - Bank movement
- * @returns {number} Confidence score (0-1)
- */
-function calculateMatchConfidence(entry, movement) {
-  let confidence = 0;
-  
-  // Exact amount match is very important
-  if (Math.abs(entry.amount - movement.importe) < 0.01) {
-    confidence += 0.5;
-  } else {
-    // If amounts don't match, it's likely not the same transaction
-    return 0;
-  }
-  
-  // Date match
-  if (entry.entry_date === movement.fecha || entry.value_date === movement.fecha) {
-    confidence += 0.3;
-  } else {
-    // Allow for 1-day difference (processing delays)
-    const entryDate = new Date(entry.entry_date);
-    const valueDate = new Date(entry.value_date);
-    const movementDate = new Date(movement.fecha);
-    
-    const oneDayMs = 24 * 60 * 60 * 1000;
-    if (Math.abs(entryDate - movementDate) <= oneDayMs || 
-        Math.abs(valueDate - movementDate) <= oneDayMs) {
-      confidence += 0.2;
-    }
-  }
-  
-  // Description similarity
-  if (entry.description && movement.concepto) {
-    const entryDesc = entry.description.toLowerCase();
-    const movementDesc = movement.concepto.toLowerCase();
-    
-    // Check if one contains the other
-    if (entryDesc.includes(movementDesc) || movementDesc.includes(entryDesc)) {
-      confidence += 0.2;
-    } else {
-      // Check for common significant words
-      const entryWords = new Set(entryDesc.split(/\s+/).filter(w => w.length > 3));
-      const movementWords = new Set(movementDesc.split(/\s+/).filter(w => w.length > 3));
-      
-      let commonWordCount = 0;
-      for (const word of entryWords) {
-        if (movementWords.has(word)) {
-          commonWordCount++;
-        }
-      }
-      
-      if (commonWordCount > 0) {
-        const wordSimilarity = commonWordCount / Math.max(entryWords.size, movementWords.size);
-        confidence += 0.1 * wordSimilarity;
-      }
-    }
-  }
-  
-  // Reference number match
-  if (entry.reference_number && movement.concepto && 
-      movement.concepto.includes(entry.reference_number)) {
-    confidence += 0.2;
-  }
-  
-  // Cap at 1.0
-  return Math.min(confidence, 1.0);
-}
-
-/**
- * Map accounting account code to bank account code
- * @param {string} accountCode - Accounting account code
- * @returns {string} Bank account code
- */
-function mapAccountCodeToBankAccount(accountCode) {
-  // Map account codes to bank accounts
-  const mapping = {
-    '203': '203_CRURAL'
-    // Add more mappings as needed
-  };
-  
-  return mapping[accountCode] || accountCode;
-}
+}}
 module.exports = Database;
 
 
