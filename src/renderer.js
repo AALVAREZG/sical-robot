@@ -939,40 +939,6 @@ document.getElementById('bankAccountSelect').addEventListener('change', function
     }
 });
 
-/**
- * Select a file with pattern c[accountNumber].txt (example c207.txt), for extract account
- * movements execitued in contable app
-*/
-document.getElementById('selectAccountingFile').addEventListener('click', async () => {
-
-    const filePath = document.getElementById('accountingFilePath').textContent;
-    const accountNumber = document.getElementById('bankAccountSelect').value;
-        
-    if (!filePath) {
-        alert('Please select an accounting file first');
-        return;
-    }
-        
-    const options = { bankAccount: accountNumber };
-        
-    // If account 207 and list file selected, include it
-    if (accountNumber === '207' && listFilePath) {
-        options.listFilePath = listFilePath;
-        } else if (accountNumber === '207' && !listFilePath) {
-            alert('For account 207, please select a list file as well');
-            return;
-        }
-    try {
-        const result = await window.electronAPI.processAccountingFile(filePath, options);
-        if (!result.success) {
-            alert('Error processing file: ' + result.error);
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error: ' + error.message);
-    }
-});
-
 
 // Add these functions to renderer.js
 let accountingFilePath = null;
@@ -1024,11 +990,18 @@ async function selectAccountingFile() {
 
 async function selectListFile() {
     try {
-        // We can reuse the general file selection method but for a different purpose
-        const filePath = await window.electronAPI.selectFile();
-        if (filePath) {
-            listFilePath = filePath;
-            document.getElementById('selectedListFile').textContent = filePath;
+        const filePath = await dialog.showOpenDialog({
+            properties: ['openFile'],
+            filters: [
+                { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
+                { name: 'All Files', extensions: ['*'] }
+            ],
+            title: 'Select List File'
+        });
+        
+        if (!filePath.canceled) {
+            listFilePath = filePath.filePaths[0];
+            document.getElementById('selectedListFile').textContent = listFilePath;
             updateProcessButtonState();
         }
     } catch (error) {

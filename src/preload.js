@@ -37,8 +37,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
             bankAccount: options.bankAccount,
             listFilePath: options.listFilePath 
     }),
-    onAccountingPreviewData: (callback) => ipcRenderer.on('accounting-preview-data', (_, data) => callback(data)),
     importAccountingRecords: (records) => ipcRenderer.invoke('import-accounting-records', records),
+    // Add this to contextBridge.exposeInMainWorld() in preload.js
+    onAccountingPreviewData: (callback) => 
+        ipcRenderer.on('accounting-preview-data', (_, data) => callback(data)),
     onListBasedAccountingPreviewData: (callback) => 
         ipcRenderer.on('list-based-accounting-preview-data', (_, data) => callback(data))
 });

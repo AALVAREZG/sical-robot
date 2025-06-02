@@ -33,10 +33,13 @@ async function processFile(filePath, db) {
       caja = '239_CRURAL_MUR_8923';
     } 
     const rawRecords = XLSX.utils.sheet_to_json(sheet, { 
-      range: 3, 
-      header: ['FECHA', 'FVALOR', 'CONCEPTO', 'IMPORTE', 'SALDO', 'NUM_APUNTE'] 
+      range: 4, 
+      header: ['FECHA', 'FVALOR', 'CONCEPTO', 'IMPORTE', 'SALDO', 'NUM_APUNTE'] ,
+      // Convert dates to JS Date objects
+      raw: false
+      
   });
-  
+    console.log(rawRecords)
     // Process records and check if they exist in database
     records = await checkExistingRecords(processCRuralRecords(rawRecords, caja), db);
 
@@ -229,23 +232,23 @@ function processCRuralRecords(records, caja) {
     const importTimestamp = new Date().toISOString();
     
     const processedRecords = records.map((record, index) => {
-      const transactionDate = normalizeCRuralDate(record.FECHA);
-      const amount = parseFloat(record.IMPORTE);
-      const balance = parseFloat(record.SALDO);
-      const importIndex = String(index).padStart(6, '0');
+    const transactionDate = normalizeCRuralDate(record.FECHA);
+    const amount = parseFloat(record.IMPORTE);
+    const balance = parseFloat(record.SALDO);
+    const importIndex = String(index).padStart(6, '0');
       
-      return {
-        caja: caja,
-        fecha: normalizeCruralRawDate(record.FECHA),
-        normalized_date: transactionDate,
-        concepto: record.CONCEPTO,
-        importe: record.IMPORTE,
-        saldo: record.SALDO,
-        num_apunte: record.NUM_APUNTE || 0,
-        idx: index,
-        // Composite key for sorting
-        sort_key: `${transactionDate}_${importTimestamp}_${String(999999 - index).padStart(6, '0')}`
-      };
+    return {
+      caja: caja,
+      fecha: normalizeCruralRawDate(record.FECHA),
+      normalized_date: transactionDate,
+      concepto: record.CONCEPTO,
+      importe: parseSpanishNumber(record.IMPORTE),
+      saldo: parseSpanishNumber(record.SALDO),
+      num_apunte: record.NUM_APUNTE || 0,
+      idx: index,
+      // Composite key for sorting
+      sort_key: `${transactionDate}_${importTimestamp}_${String(999999 - index).padStart(6, '0')}`
+    };
     });
     
     return processedRecords;
@@ -422,11 +425,73 @@ function normalizeCaixaBankDate(date) {
 }
 
 
+function normalizeCRuralDate(date) {
+  // date is now a string in format dd-mmm-yy (e.g., "30-may-25")
+  const [day, monthName, year] = date.split('-');
+  
+  // Map Spanish/English month names to numbers
+  const monthMap = {
+    'ene': '01', 'jan': '01', 'enero': '01', 'january': '01',
+    'feb': '02', 'febrero': '02', 'february': '02',
+    'mar': '03', 'marzo': '03', 'march': '03',
+    'abr': '04', 'abril': '04', 'april': '04', 'apr': '04',
+    'may': '05', 'mayo': '05',
+    'jun': '06', 'junio': '06', 'june': '06',
+    'jul': '07', 'julio': '07', 'july': '07',
+    'ago': '08', 'agosto': '08', 'august': '08', 'aug': '08',
+    'sep': '09', 'septiembre': '09', 'september': '09',
+    'oct': '10', 'octubre': '10', 'october': '10',
+    'nov': '11', 'noviembre': '11', 'november': '11',
+    'dic': '12', 'diciembre': '12', 'december': '12', 'dec': '12'
+  };
+  
+  const month = monthMap[monthName.toLowerCase()];
+  if (!month) {
+    throw new Error(`Unknown month: ${monthName}`);
+  }
+  
+  // Convert 2-digit year to 4-digit (assuming 20xx for years 00-99)
+  const fullYear = year.length === 2 ? `20${year}` : year;
+  
+  const d = new Date(`${fullYear}-${month}-${day.padStart(2, '0')}`);
+  
+  return d.toLocaleDateString('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+}
 
-function normalizeCruralRawDate(date){
-  const [day, month, year] = date.split('/');
-  let _s_date = `${year}-${month}-${day}`;
-  const d = new Date(_s_date);
+function normalizeCruralRawDate(date) {
+  // date is now a string in format dd-mmm-yy (e.g., "30-may-25")
+  const [day, monthName, year] = date.split('-');
+  
+  // Map Spanish/English month names to numbers
+  const monthMap = {
+    'ene': '01', 'jan': '01', 'enero': '01', 'january': '01',
+    'feb': '02', 'febrero': '02', 'february': '02',
+    'mar': '03', 'marzo': '03', 'march': '03',
+    'abr': '04', 'abril': '04', 'april': '04', 'apr': '04',
+    'may': '05', 'mayo': '05',
+    'jun': '06', 'junio': '06', 'june': '06',
+    'jul': '07', 'julio': '07', 'july': '07',
+    'ago': '08', 'agosto': '08', 'august': '08', 'aug': '08',
+    'sep': '09', 'septiembre': '09', 'september': '09',
+    'oct': '10', 'octubre': '10', 'october': '10',
+    'nov': '11', 'noviembre': '11', 'november': '11',
+    'dic': '12', 'diciembre': '12', 'december': '12', 'dec': '12'
+  };
+  
+  const month = monthMap[monthName.toLowerCase()];
+  if (!month) {
+    throw new Error(`Unknown month: ${monthName}`);
+  }
+  
+  // Convert 2-digit year to 4-digit (assuming 20xx for years 00-99)
+  const fullYear = year.length === 2 ? `20${year}` : year;
+  
+  const d = new Date(`${fullYear}-${month}-${day.padStart(2, '0')}`);
+  
   return  d.toLocaleDateString('es-ES', {
     year: 'numeric',
     month: '2-digit', 
@@ -434,8 +499,7 @@ function normalizeCruralRawDate(date){
   });
 }
 
-
-function normalizeCRuralDate(date) { 
+function normalizeCRuralDate_old(date) { 
   //date is a string in format d|dd / m|mm / yyyy
   const [day, month, year] = date.split('/');
   let _s_date = `${year}-${month}-${day}`;
@@ -445,6 +509,17 @@ function normalizeCRuralDate(date) {
     month: '2-digit', 
     day: '2-digit'
   }).replace(/\//g, '-');
+}
+
+function normalizeCruralRawDate_old(date){
+  const [day, month, year] = date.split('/');
+  let _s_date = `${year}-${month}-${day}`;
+  const d = new Date(_s_date);
+  return  d.toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: '2-digit', 
+    day: '2-digit'
+  });
 }
 
 async function checkExistingRecords(records, db) {

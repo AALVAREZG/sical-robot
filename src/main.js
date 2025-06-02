@@ -583,7 +583,72 @@ function stringifyRecords(records) {
  })))
 };
 
+function createAccountingPreviewDialog(records) {
+  let previewWindow = new BrowserWindow({
+      width: 1280,
+      height: 920,
+      modal: true,
+      parent: mainWindow,
+      webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          preload: path.join(__dirname, 'preload.js')
+      }
+  });
+  
+  previewWindow.loadFile('./src/previewAccounting.html');
+  previewWindow.webContents.on('did-finish-load', () => {
+      previewWindow.webContents.send('accounting-preview-data', records);
+  });
+}
 
+function createListBasedAccountingPreviewDialog(data) {
+  let previewWindow = new BrowserWindow({
+      width: 1280,
+      height: 920,
+      modal: true,
+      parent: mainWindow,
+      webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          preload: path.join(__dirname, 'preload.js')
+      }
+  });
+  
+  previewWindow.loadFile('./src/previewListBasedAccounting.html');
+  previewWindow.webContents.on('did-finish-load', () => {
+      previewWindow.webContents.send('list-based-accounting-preview-data', data);
+  });
+}
+
+ipcMain.handle('process-accounting-file', async (event, params) => {
+  try {
+    const { filePath, bankAccount, listFilePath } = params;
+    console.log(`Processing accounting file for account ${bankAccount}:`, filePath);
+    
+    let result;
+    
+    // Special handling for account 207 with list-based processing
+    if (bankAccount === '207' && listFilePath) {
+      // Process the file with list-based approach
+      result = await processAccountingFile(filePath, { bankAccount, listFilePath });
+      
+      // Show list-based preview dialog
+      createListBasedAccountingPreviewDialog(result);
+    } else {
+      // Process regular accounting file
+      result = await processAccountingFile(filePath, { bankAccount });
+      
+      // Show standard preview dialog
+      createAccountingPreviewDialog(result);
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error processing accounting file:', error);
+    return { success: false, error: error.message };
+  }
+});
 
 // Add new handler for balance validation
 ipcMain.handle('validateBalances', async (event, records) => {
@@ -661,21 +726,3 @@ ipcMain.handle('import-accounting-records', async (event, records) => {
 });
 
 // Modify the existing createAccountingPreviewDialog function if needed
-function createAccountingPreviewDialog(records) {
-  let previewWindow = new BrowserWindow({
-      width: 1280,
-      height: 920,
-      modal: true,
-      parent: mainWindow,
-      webPreferences: {
-          nodeIntegration: false,
-          contextIsolation: true,
-          preload: path.join(__dirname, 'preload.js')
-      }
-  });
-  
-  previewWindow.loadFile('./src/previewAccounting.html');
-  previewWindow.webContents.on('did-finish-load', () => {
-      previewWindow.webContents.send('accounting-preview-data', records);
-  });
-}

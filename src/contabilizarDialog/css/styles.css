@@ -279,10 +279,37 @@ button.secondary:hover {
     max-width: 600px;
 }
 
+.pattern-search-container {
+    margin: 15px 0;
+    padding: 0 20px;
+}
+
+.pattern-search-input {
+    width: 100%;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.pattern-search-input:focus {
+    outline: none;
+    border-color: #2196F3;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+.pattern-search-results {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #666;
+    min-height: 16px;
+}
+
 .pattern-list {
     max-height: 350px;
     overflow-y: auto;
-    margin: 15px 0;
+    margin: 0 15px 15px 15px;
     border: 1px solid #eee;
     border-radius: 4px;
 }
@@ -294,6 +321,7 @@ button.secondary:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: background-color 0.2s ease;
 }
 
 .pattern-item:hover {
@@ -305,8 +333,13 @@ button.secondary:hover {
     border-left: 4px solid #2196F3;
 }
 
+.pattern-item.hidden {
+    display: none;
+}
+
 .pattern-name {
     font-weight: 500;
+    color: #333;
 }
 
 .pattern-description {
@@ -323,10 +356,18 @@ button.secondary:hover {
     border-radius: 3px;
     cursor: pointer;
     font-size: 12px;
+    transition: background-color 0.2s ease;
 }
 
 .pattern-apply-btn:hover {
     background-color: #0b7dda;
+}
+
+.no-patterns-found {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
 }
 
 /* Debug Console Styles */
