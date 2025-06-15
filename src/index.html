@@ -4,6 +4,7 @@
     <title>Bank Movement Manager</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="tabNavigation.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto+Condensed:wght@700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -77,9 +78,9 @@
             
             <!-- Tab Navigation -->
             <div class="tab-navigation">
-                <div class="tab-item active">All</div>
-                <div class="tab-item">Contabilized</div>
-                <div class="tab-item">Not Contabilized</div>
+                <div class="tab-item active" data-filter="all">Todos</div>
+                <div class="tab-item" data-filter="contabilized">Contabilizado</div>
+                <div class="tab-item" data-filter="not_contabilized">No Contabilizado</div>
             </div>
             
             <!-- Search/Filter Bar and Account Info -->
@@ -167,5 +168,6 @@
     <!-- JS Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
     <script src="renderer.js"></script>
+    <script src="tabNavigation.js"></script>
 </body>
 </html>

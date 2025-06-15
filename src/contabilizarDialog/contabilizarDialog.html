@@ -111,11 +111,20 @@
         </div>
     </div>
     
-    <!-- Pattern selection modal -->
+   <!-- Pattern selection modal -->
     <div id="patternModal" class="modal">
         <div class="modal-content pattern-modal-content">
-            <span class="close">&times;</span>
-            <h2>Seleccionar Patrón</h2>
+            <div class="modal-header">
+                <h2>Seleccionar Patrón</h2>
+                <span class="close">&times;</span>
+            </div>
+            
+            <div class="pattern-search-container">
+                <input type="text" id="patternSearchInput" placeholder="Buscar patrones..." class="pattern-search-input">
+                <div class="pattern-search-results" id="patternSearchResults">
+                    <!-- Search results count will appear here -->
+                </div>
+            </div>
             
             <div class="pattern-list" id="patternList">
                 <!-- Patterns will be inserted here dynamically -->

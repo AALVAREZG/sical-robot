@@ -109,10 +109,20 @@ async function loadRecordsForCaja(caja) {
     }
 }
 
+
+/**
+ * Modified applyFilters function to work with tab filtering
+ * Replace your existing applyFilters function with this one
+ */
+function applyFilters() {
+    // First apply tab filter, then search filter
+    applyTabFilter();
+}
+
 /**
  * Apply search filters to the current records
  */
-function applyFilters() {
+function applyFilters_old() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const filterField = document.getElementById('filterField').value;
     

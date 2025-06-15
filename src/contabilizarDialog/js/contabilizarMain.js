@@ -597,6 +597,58 @@ function setupPatternSelector() {
     const closePatternBtn = patternModal.querySelector('.close');
     const cancelPatternBtn = document.getElementById('cancelPatternBtn');
     const refreshPatternsBtn = document.getElementById('refreshPatternsBtn');
+    const patternSearchInput = document.getElementById('patternSearchInput');
+    
+    // Close modal events
+    if (closePatternBtn) {
+        closePatternBtn.addEventListener('click', closePatternModal);
+    }
+    
+    if (cancelPatternBtn) {
+        cancelPatternBtn.addEventListener('click', closePatternModal);
+    }
+    
+    // Refresh patterns list
+    if (refreshPatternsBtn) {
+        refreshPatternsBtn.addEventListener('click', loadAvailablePatterns);
+    }
+    
+    // Search functionality
+    if (patternSearchInput) {
+        patternSearchInput.addEventListener('input', filterPatterns);
+        patternSearchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                patternSearchInput.value = '';
+                filterPatterns();
+                patternSearchInput.blur();
+            }
+        });
+    }
+    
+    // When user clicks outside the modal, close it
+    window.addEventListener('click', function(event) {
+        if (event.target === patternModal) {
+            closePatternModal();
+        }
+    });
+    
+    // Load available patterns on startup
+    loadAvailablePatterns();
+}
+
+// Add these to your event listeners setup
+function setupPatternSelector_old() {
+    // Pattern selector button
+    const changePatternBtn = document.getElementById('changePatternBtn');
+    if (changePatternBtn) {
+        changePatternBtn.addEventListener('click', openPatternModal);
+    }
+    
+    // Pattern modal elements
+    const patternModal = document.getElementById('patternModal');
+    const closePatternBtn = patternModal.querySelector('.close');
+    const cancelPatternBtn = document.getElementById('cancelPatternBtn');
+    const refreshPatternsBtn = document.getElementById('refreshPatternsBtn');
     
     // Close modal events
     if (closePatternBtn) {
@@ -706,6 +758,90 @@ function renderPatternList() {
     }
 }
 
+// Function to filter patterns based on search input
+function filterPatterns() {
+    const searchInput = document.getElementById('patternSearchInput');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const patternItems = document.querySelectorAll('.pattern-item:not(.no-patterns-found):not(.no-results-found)');
+    
+    let visibleCount = 0;
+    const totalCount = patternItems.length;
+    
+    console.log('Filtering patterns:', { searchTerm, totalCount }); // Debug log
+    
+    patternItems.forEach(item => {
+        // Get pattern name from dataset
+        const patternName = item.dataset.patternName || '';
+        
+        // Get pattern name and description from text content as backup
+        const nameElement = item.querySelector('.pattern-name');
+        const descriptionElement = item.querySelector('.pattern-description');
+        const nameText = nameElement ? nameElement.textContent.toLowerCase() : '';
+        const descriptionText = descriptionElement ? descriptionElement.textContent.toLowerCase() : '';
+        
+        // Search in name (from dataset or text) and description
+        const matches = searchTerm === '' || 
+                       patternName.includes(searchTerm) || 
+                       nameText.includes(searchTerm) || 
+                       descriptionText.includes(searchTerm);
+        
+        console.log('Pattern check:', { 
+            patternName, 
+            nameText, 
+            descriptionText, 
+            searchTerm, 
+            matches 
+        }); // Debug log
+        
+        if (matches) {
+            item.classList.remove('hidden');
+            item.style.display = 'flex'; // Ensure it's visible
+            visibleCount++;
+        } else {
+            item.classList.add('hidden');
+            item.style.display = 'none'; // Hide it
+        }
+    });
+    
+    console.log('Filter results:', { visibleCount, totalCount }); // Debug log
+    
+    // Update search results count
+    updateSearchResults(visibleCount, totalCount);
+    
+    // Show "no results" message if no patterns match
+    const patternList = document.getElementById('patternList');
+    const existingNoResults = patternList.querySelector('.no-results-found');
+    
+    if (visibleCount === 0 && searchTerm !== '' && totalCount > 0) {
+        if (!existingNoResults) {
+            const noResults = document.createElement('div');
+            noResults.className = 'no-results-found';
+            noResults.style.padding = '20px';
+            noResults.style.textAlign = 'center';
+            noResults.style.color = '#666';
+            noResults.style.fontStyle = 'italic';
+            noResults.textContent = `No se encontraron patrones que coincidan con "${searchInput.value}"`;
+            patternList.appendChild(noResults);
+        }
+    } else if (existingNoResults) {
+        existingNoResults.remove();
+    }
+}
+
+// Function to update search results display
+function updateSearchResults(visibleCount, totalCount) {
+    const searchResults = document.getElementById('patternSearchResults');
+    if (!searchResults) return;
+    
+    const searchInput = document.getElementById('patternSearchInput');
+    const searchTerm = searchInput ? searchInput.value.trim() : '';
+    
+    if (searchTerm === '') {
+        searchResults.textContent = `${totalCount} patrones disponibles`;
+    } else {
+        searchResults.textContent = `${visibleCount} de ${totalCount} patrones`;
+    }
+}
 // Function to select a pattern (highlight but don't apply)
 function selectPattern(pattern) {
     // Update current pattern ID
