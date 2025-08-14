@@ -183,3 +183,5 @@
 .fa-trash:before {
     content: "×";
 }
+
+*[id*="tcargo"], *[name*="tcargo"] { text-transform: uppercase; }

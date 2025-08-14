@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Cleanup System</title>
+</head>
+<body>
+    <h1>Test Cleanup System</h1>
+    <button id="testBtn">Test Focus</button>
+    <input id="testInput" placeholder="Test input">
+    
+    <script>
+        // Test script to verify cleanup is working
+        console.log('Testing cleanup system...');
+        
+        // Test that CleanupManager is available
+        if (window.CleanupManager) {
+            console.log('✓ CleanupManager is available');
+            
+            const cleanup = new CleanupManager();
+            const button = document.getElementById('testBtn');
+            
+            cleanup.addListener(button, 'click', () => {
+                console.log('Button clicked - cleanup system working');
+            });
+            
+            // Test cleanup
+            setTimeout(() => {
+                cleanup.cleanup();
+                console.log('✓ Cleanup executed successfully');
+            }, 1000);
+            
+        } else {
+            console.error('✗ CleanupManager not available');
+        }
+        
+        // Test FocusManager
+        if (window.FocusManager) {
+            console.log('✓ FocusManager is available');
+        } else {
+            console.error('✗ FocusManager not available');
+        }
+    </script>
+</body>
+</html>
