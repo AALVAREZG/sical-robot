@@ -273,6 +273,7 @@ ipcMain.handle('open-contabilizar-dialog', async (event, { operationId, operatio
           const result = await runPythonService();
           console.log("Result of contabilizar: ", result)
         } catch (error) {
+          result = "Error running Python service: "
           console.error('Error running Python service:', error);
         }
        
@@ -398,7 +399,7 @@ function runPythonService() {
       const timeout = setTimeout(() => {
         pythonProcess.kill();
         reject(new Error('Python service execution timed out'));
-      }, 30000); // 30 seconds timeout
+      }, 60000); // 60 seconds timeout for complete
       
       pythonProcess.stdout.on('data', (data) => {
         dataString += data.toString();

@@ -181,6 +181,7 @@ async getLast100RecordsByCaja(caja, page = 1, pageSize = 100) {
           ...row,
           alreadyInDatabase: true
         })) : [];
+        console.log(`Retrieved: ${rows ? rows.length : 0} records`);
         resolve({
           status: 'success',
           message: `Retrieved ${rows ? rows.length : 0} records for caja ${caja}`,
