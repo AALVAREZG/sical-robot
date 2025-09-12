@@ -69,6 +69,25 @@ init() {
     match_date TEXT,
     PRIMARY KEY (bank_movement_id, accounting_entry_id)
   )`);
+
+  // Create accounting tasks table
+console.log('CREATE TABLE IF NOT EXISTS accounting_tasks');
+this.db.run(`CREATE TABLE IF NOT EXISTS accounting_tasks (
+  id TEXT PRIMARY KEY,
+  bank_movement_id TEXT NOT NULL,
+  task_id TEXT NOT NULL,
+  task_type TEXT NOT NULL,
+  task_data TEXT NOT NULL,
+  creation_date TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  processed_date TEXT,
+  FOREIGN KEY (bank_movement_id) REFERENCES movimientos_bancarios(id)
+)`);
+
+  // Create indexes for accounting tasks
+  this.db.run(`CREATE INDEX IF NOT EXISTS idx_accounting_tasks_bank_movement ON accounting_tasks(bank_movement_id)`);
+  this.db.run(`CREATE INDEX IF NOT EXISTS idx_accounting_tasks_task_id ON accounting_tasks(task_id)`);
+  this.db.run(`CREATE INDEX IF NOT EXISTS idx_accounting_tasks_status ON accounting_tasks(status)`);
   
   // Create needed indexes
   this.db.run(`CREATE INDEX IF NOT EXISTS idx_accounting_account ON accounting_entries(account_code)`);
@@ -518,7 +537,188 @@ async storeAccountingRecords(records) {
     await runAsync('ROLLBACK');
     throw err;
   }
-}}
+}
+
+// Add these methods to your Database class in database.js
+
+/**
+ * Save accounting tasks to database
+ * @param {string} bankMovementId - Bank movement ID
+ * @param {Object} tasksData - Complete tasks data object
+ * @returns {Promise<Object>} Result with success status
+ */
+async saveAccountingTasks(bankMovementId, tasksData) {
+  const insertSql = `
+    INSERT OR REPLACE INTO accounting_tasks 
+    (id, bank_movement_id, task_id, task_type, task_data, creation_date, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const runAsync = (sql, params = []) => {
+    return new Promise((resolve, reject) => {
+      this.db.run(sql, params, function (err) {
+        if (err) reject(err);
+        else resolve(this);
+      });
+    });
+  };
+
+  try {
+    await runAsync('BEGIN TRANSACTION');
+    
+    let savedCount = 0;
+    const currentDate = new Date().toISOString();
+    
+    // Save each task operation
+    for (const [index, operacion] of tasksData.operaciones.entries()) {
+      const taskId = `${tasksData.id_task}_${index}`;
+      const uniqueId = `${bankMovementId}_${taskId}`;
+      
+      const params = [
+        uniqueId,
+        bankMovementId,
+        taskId,
+        operacion.tipo,
+        JSON.stringify(operacion),
+        currentDate,
+        'pending'
+      ];
+      
+      const result = await runAsync(insertSql, params);
+      if (result.changes > 0) savedCount++;
+    }
+    
+    // Also save the complete tasks data as a summary
+    const summaryId = `${bankMovementId}_summary`;
+    const summaryParams = [
+      summaryId,
+      bankMovementId,
+      tasksData.id_task,
+      'summary',
+      JSON.stringify(tasksData),
+      currentDate,
+      'pending'
+    ];
+    
+    await runAsync(insertSql, summaryParams);
+    
+    // Update bank movement as contabilized
+    const updateBankSql = `
+      UPDATE movimientos_bancarios 
+      SET is_contabilized = 1, id_apunte_contable = ?
+      WHERE id = ?
+    `;
+    
+    await runAsync(updateBankSql, [tasksData.id_task, bankMovementId]);
+    
+    await runAsync('COMMIT');
+    
+    console.log(`Saved ${savedCount} accounting tasks for bank movement ${bankMovementId}`);
+    
+    return {
+      success: true,
+      savedTasks: savedCount, // add +1 for summary
+      bankMovementId: bankMovementId,
+      taskId: tasksData.id_task
+    };
+    
+  } catch (err) {
+    console.error('Error saving accounting tasks:', err);
+    await runAsync('ROLLBACK');
+    throw err;
+  }
+}
+
+/**
+ * Get accounting tasks for a bank movement
+ * @param {string} bankMovementId - Bank movement ID
+ * @returns {Promise<Array>} Array of accounting tasks
+ */
+async getAccountingTasksByBankMovement(bankMovementId) {
+  return new Promise((resolve, reject) => {
+    const sql = `
+      SELECT * FROM accounting_tasks 
+      WHERE bank_movement_id = ? 
+      ORDER BY creation_date DESC
+    `;
+    
+    this.db.all(sql, [bankMovementId], (err, rows) => {
+      if (err) {
+        reject(err);
+      } else {
+        const tasks = (rows || []).map(row => ({
+          ...row,
+          task_data: JSON.parse(row.task_data)
+        }));
+        resolve(tasks);
+      }
+    });
+  });
+}
+
+/**
+ * Check if accounting tasks exist for a bank movement
+ * @param {string} bankMovementId - Bank movement ID
+ * @returns {Promise<boolean>} True if tasks exist
+ */
+async hasAccountingTasks(bankMovementId) {
+  return new Promise((resolve, reject) => {
+    const sql = 'SELECT COUNT(*) as count FROM accounting_tasks WHERE bank_movement_id = ?';
+    this.db.get(sql, [bankMovementId], (err, row) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(row.count > 0);
+      }
+    });
+  });
+}
+
+/**
+ * Delete accounting tasks for a bank movement
+ * @param {string} bankMovementId - Bank movement ID
+ * @returns {Promise<Object>} Result with success status
+ */
+async deleteAccountingTasks(bankMovementId) {
+  const runAsync = (sql, params = []) => {
+    return new Promise((resolve, reject) => {
+      this.db.run(sql, params, function (err) {
+        if (err) reject(err);
+        else resolve(this);
+      });
+    });
+  };
+
+  try {
+    await runAsync('BEGIN TRANSACTION');
+    
+    const deleteSql = 'DELETE FROM accounting_tasks WHERE bank_movement_id = ?';
+    const result = await runAsync(deleteSql, [bankMovementId]);
+    
+    // Optionally update bank movement as not contabilized
+    const updateBankSql = `
+      UPDATE movimientos_bancarios 
+      SET is_contabilized = 0, id_apunte_contable = NULL
+      WHERE id = ?
+    `;
+    
+    await runAsync(updateBankSql, [bankMovementId]);
+    
+    await runAsync('COMMIT');
+    
+    return {
+      success: true,
+      deletedCount: result.changes
+    };
+    
+  } catch (err) {
+    console.error('Error deleting accounting tasks:', err);
+    await runAsync('ROLLBACK');
+    throw err;
+  }
+ }
+}
+
 module.exports = Database;
 
 

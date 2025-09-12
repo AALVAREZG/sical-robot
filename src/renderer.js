@@ -88,10 +88,16 @@ async function loadRecordsForCaja(caja) {
         showLoading(true);
         currentCaja = caja;
         
-        // Update UI to show currently selected caja
-        document.getElementById('currentCajaTitle').textContent = caja;
-        document.getElementById('accountName').textContent = caja;
-        document.getElementById('statusCaja').textContent = caja;
+        // Update UI to show currently selected caja (WITH SAFETY CHECKS)
+        const currentCajaTitleEl = document.getElementById('currentCajaTitle');
+        if (currentCajaTitleEl) {
+            currentCajaTitleEl.textContent = caja;
+        }
+        
+        const statusCajaEl = document.getElementById('statusCaja');
+        if (statusCajaEl) {
+            statusCajaEl.textContent = caja;
+        }
         
         const result = await window.electronAPI.getLast100Records(caja);
         currentRecords = result.data;
@@ -926,6 +932,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Trigger search event to refresh results
             searchInput.dispatchEvent(new Event('input'));
         });
+    }
+    // Initialize Treasury Module
+    if (typeof initializeTreasuryModule === 'function') {
+        initializeTreasuryModule();
     }
 });
 

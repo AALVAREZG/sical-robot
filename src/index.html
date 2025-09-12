@@ -33,114 +33,147 @@
     <!-- Main Layout -->
     <div class="app-layout">
         <div class="main-content">
-            <!-- Page Header -->
-            <div class="page-header">
-                <h1 class="page-title">Movimientos - <span id="currentCajaTitle">Seleccione cuenta</span></h1>
-                
-                <div class="page-actions">
-                    <button class="btn-secondary" id="exportBtn">Export ▾</button>
-                    <button class="btn-secondary" id="columnsBtn">Columns ▾</button>
-                    <button class="btn-secondary" id="bulkActionsBtn">Bulk actions ▾</button>
-                    <button class="btn-secondary" id="clearFiltersBtn">Clear filters</button>
-                    <!-- Add this to the page-actions div in index.html -->
-                    <button class="btn-secondary" id="patternManagerBtn">Manage Patterns</button>       
-                    <button class="btn-primary" id="selectFile">Importar</button>
-                    <button class="btn-secondary" id="selectAccountingFile">Import Accounting</button>
-                    <div id="accountingImportPanel" style="display: none; margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
-                        <div style="margin-bottom: 10px;">
-                            <label for="bankAccountSelect">Select Bank Account:</label>
-                            <select id="bankAccountSelect" style="margin-left: 10px;">
-                                <option value="200">200 - CAIXABANK</option>
-                                <option value="201">201 - SANTANDER</option>
-                                <option value="203">203 - CRURAL</option>
-                                <option value="204">204 - CAIXABANK_REC</option>
-                                <option value="207">207 - BBVA</option>
-                                <option value="233">233 - BBVA_PCONTIGO</option>
-                            </select>
-                        </div>
-                        <div style="margin-bottom: 10px;">
-                            <span>Accounting File: </span>
-                            <span id="accountingFilePath">No file selected</span>
-                            <button id="selectAccountingFileBtn" class="btn-secondary">Select File</button>
-                        </div>
-                        <div id="account207Options" style="display: none; margin-bottom: 10px;">
-                            <span>List File (required for account 207): </span>
-                            <span id="selectedListFile">No file selected</span>
-                            <button id="selectListFileBtn" class="btn-secondary">Select List File</button>
-                        </div>
-                        <div>
-                            <button id="processAccountingFileBtn" class="btn-primary" disabled>Process File</button>
-                            <button id="cancelAccountingImportBtn" class="btn-secondary">Cancel</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Tab Navigation -->
+            <!-- Treasury Tab Navigation (NEW) -->
             <div class="tab-navigation">
-                <div class="tab-item active" data-filter="all">Todos</div>
-                <div class="tab-item" data-filter="contabilized">Contabilizado</div>
-                <div class="tab-item" data-filter="not_contabilized">No Contabilizado</div>
+                <button class="tab-item active" data-tab="movimientos">Movimientos</button>
+                <button class="tab-item" data-tab="treasury" id="treasuryTab">Treasury Forecast</button>
+                <button class="tab-item" data-tab="reports">Reports</button>
             </div>
-            
-            <!-- Search/Filter Bar and Account Info -->
-            <div class="search-filter-section">
-                <div id="accountInfo" class="account-badge">
-                    <svg class="account-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="2" y="5" width="20" height="14" rx="2"></rect>
-                        <line x1="2" y1="10" x2="22" y2="10"></line>
-                    </svg>
-                    <span class="account-info-label">Account:</span>
-                    <span id="accountName" class="account-info-value">None</span>
-                </div>
-                <div class="search-container">
-                    <div class="search-input-wrapper">
-                        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                        <input type="text" id="searchInput" placeholder="Search records..." class="search-input">
-                        <button class="search-clear" id="clearSearch" title="Clear search">×</button>
+
+            <!-- Movimientos Tab Content (EXISTING CONTENT WRAPPED) -->
+            <div id="movimientos-content" class="tab-content active">
+                
+                <!-- Page Header (EXISTING) -->
+                <div class="page-header">
+                    <h1 class="page-title">Movimientos - <span id="currentCajaTitle">Seleccione cuenta</span></h1>
+                    
+                    <div class="page-actions">
+                        <button class="btn-secondary" id="exportBtn">Export ▾</button>
+                        <button class="btn-secondary" id="columnsBtn">Columns ▾</button>
+                        <button class="btn-secondary" id="bulkActionsBtn">Bulk actions ▾</button>
+                        <button class="btn-secondary" id="clearFiltersBtn">Clear filters</button>
+                        <button class="btn-secondary" id="patternManagerBtn">Manage Patterns</button>       
+                        <button class="btn-primary" id="selectFile">Importar</button>
+                        <button class="btn-secondary" id="selectAccountingFile">Import Accounting</button>
+                        
+                        <div id="accountingImportPanel" style="display: none; margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Select Date Range:</label>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <input type="date" id="startDate" class="date-input" />
+                                    <span>to</span>
+                                    <input type="date" id="endDate" class="date-input" />
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn-primary" id="processAccountingBtn">Process File</button>
+                                <button class="btn-secondary" id="cancelAccountingBtn">Cancel</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="search-filter-divider"></div>
-                    <div class="filter-dropdown-wrapper">
-                        <select id="filterField" class="filter-dropdown">
-                            <option value="all">All Fields</option>
-                            <option value="caja">Caja</option>
-                            <option value="fecha">Fecha</option>
-                            <option value="concepto">Concepto</option>
-                        </select>
-                        <svg class="dropdown-arrow" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="6 9 12 15 18 9"></polyline>
+                </div>
+
+                <!-- Search and Filter Section (EXISTING) -->
+                <div class="search-filter-section">
+                    <div class="search-container">
+                        <input type="text" id="searchInput" placeholder="Search movements..." />
+                        <div class="filter-dropdown-container">
+                            <select id="filterDropdown" class="filter-dropdown">
+                                <option value="">All Records</option>
+                                <option value="contabilized">Contabilized</option>
+                                <option value="not-contabilized">Not Contabilized</option>
+                            </select>
+                            <span class="dropdown-arrow">▾</span>
+                        </div>
+                    </div>
+                    
+                    <div class="account-badge" id="accountBadge" style="display: none;">
+                        <span class="account-icon">🏦</span>
+                        <span class="account-info-label">Account:</span>
+                        <span class="account-info-value" id="accountBadgeText">None Selected</span>
+                    </div>
+                </div>
+
+                <!-- Chart Container (EXISTING) -->
+                <div class="chart-container" id="chartContainer" style="display: none;">
+                    <div class="chart-header">
+                        <h3>Balance Evolution</h3>
+                        <button id="toggleChart" class="btn-secondary">Hide Chart</button>
+                    </div>
+                    <div class="chart-placeholder">
+                        <svg id="balanceChart" width="100%" height="200">
+                            <defs>
+                                <linearGradient id="balanceGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#4C9AFF;stop-opacity:0.3" />
+                                    <stop offset="100%" style="stop-color:#4C9AFF;stop-opacity:0.1" />
+                                </linearGradient>
+                            </defs>
+                            <polyline id="balanceLine" fill="none" stroke="#4C9AFF" stroke-width="3"/>
+                            <polygon id="balanceArea" fill="url(#balanceGradient)"/>
                         </svg>
                     </div>
                 </div>
+                
+                <!-- Table View (EXISTING) -->
+                <div class="table-container">
+                    <table id="records">
+                        <thead>
+                            <tr>
+                                <th data-sort="fecha">FECHA</th>
+                                <th data-sort="concepto">CONCEPTO</th>
+                                <th data-sort="importe">IMPORTE</th>
+                                <th data-sort="saldo">SALDO</th>
+                                <th data-sort="is_contabilized">CONT</th>
+                                <th>ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Record rows will be dynamically inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination (EXISTING) -->
+                <div class="pagination">
+                    <div class="pagination-info">Showing <span id="pageStart">1</span> to <span id="pageEnd">25</span> of <span id="totalRecords">0</span> rows</div>
+                    <div class="pagination-controls" id="paginationControls">
+                        <!-- Pagination buttons will be dynamically inserted here -->
+                    </div>
+                </div>
+
             </div>
-            
-            <!-- Table View -->
-            <div class="table-container">
-                <table id="records">
-                    <thead>
-                        <tr>
-                            <th data-sort="fecha">FECHA</th>
-                            <th data-sort="concepto">CONCEPTO</th>
-                            <th data-sort="importe">IMPORTE</th>
-                            <th data-sort="saldo">SALDO</th>
-                            <th data-sort="is_contabilized">CONT</th>
-                            <th>ACTIONS</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Record rows will be dynamically inserted here -->
-                    </tbody>
-                </table>
+
+            <!-- Treasury Tab Content (NEW) -->
+            <div id="treasury-content" class="tab-content" style="display: none;">
+                <div class="metro-treasury-container">
+                    <div class="metro-header">
+                        <h2 class="metro-title">Treasury Forecast - Metro Line</h2>
+                        <div class="metro-controls">
+                            <div class="loading-spinner" id="treasuryLoadingSpinner"></div>
+                            <button class="refresh-btn" id="treasuryRefreshBtn">Refresh Data</button>
+                        </div>
+                    </div>
+
+                    <!-- Metro Line Layout -->
+                    <div class="metro-line-layout" id="metroLineLayout">
+                        <div class="metro-track"></div>
+                        <div class="metro-stations" id="metroStations">
+                            <!-- Stations will be populated by JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="metro-summary" id="metroSummary">
+                        <!-- Summary cards will be populated by JavaScript -->
+                    </div>
+                </div>
             </div>
-            
-            <!-- Pagination -->
-            <div class="pagination">
-                <div class="pagination-info">Showing <span id="pageStart">1</span> to <span id="pageEnd">25</span> of <span id="totalRecords">0</span> rows</div>
-                <div class="pagination-controls" id="paginationControls">
-                    <!-- Pagination buttons will be dynamically inserted here -->
+
+            <!-- Reports Tab Content (NEW - placeholder) -->
+            <div id="reports-content" class="tab-content" style="display: none;">
+                <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <h3>Reports Coming Soon</h3>
+                    <p>Advanced reporting features will be available here.</p>
                 </div>
             </div>
         </div>
@@ -167,6 +200,7 @@
     
     <!-- JS Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <script src="treasuryForecastRenderer.js"></script>
     <script src="renderer.js"></script>
     <script src="tabNavigation.js"></script>
 </body>

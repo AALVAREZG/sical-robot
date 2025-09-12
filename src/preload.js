@@ -42,7 +42,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onAccountingPreviewData: (callback) => 
         ipcRenderer.on('accounting-preview-data', (_, data) => callback(data)),
     onListBasedAccountingPreviewData: (callback) => 
-        ipcRenderer.on('list-based-accounting-preview-data', (_, data) => callback(data))
+        ipcRenderer.on('list-based-accounting-preview-data', (_, data) => callback(data)),
+    
+    saveAccountingTasks: (bankMovementId, tasksData) => ipcRenderer.invoke('save-accounting-tasks', { bankMovementId, tasksData }),
+    getAccountingTasks: (bankMovementId) => ipcRenderer.invoke('get-accounting-tasks', bankMovementId),
+    hasAccountingTasks: (bankMovementId) => ipcRenderer.invoke('has-accounting-tasks', bankMovementId),
+    deleteAccountingTasks: (bankMovementId) => ipcRenderer.invoke('delete-accounting-tasks', bankMovementId),
+
+    // Treasury methods (NEW)
+    getMetroTreasuryData: () => ipcRenderer.invoke('get-metro-treasury-data'),
+    updateTreasuryForecast: (data) => ipcRenderer.invoke('update-treasury-forecast', data),
+    getTreasuryCategories: () => ipcRenderer.invoke('get-treasury-categories'),
+    getCurrentBalance: () => ipcRenderer.invoke('get-current-balance'),
 });
 
 contextBridge.exposeInMainWorld('versions', {

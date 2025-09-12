@@ -19,6 +19,7 @@ const PATTERNS_FILE_PATH = path.join(__dirname, 'data', 'transaction-patterns.js
 const bankTranslator = require('./bank-translator');
 const { json } = require('stream/consumers');
 const fileImportService = require('./services/fileImport');
+const TreasuryForecastDatabase = require('./treasuryForecastDatabase.js');
 
 // Extract functions and variables from bank-translator.js
 const { 
@@ -38,7 +39,8 @@ const {
 let transactionPatterns = [];
 let mainWindow;
 const db = new Database('./src/data/db/prueba05.sqlite');
-
+// Add treasury database initialization
+let treasuryDB;
 // Function to load patterns
 async function loadPatternsFromFile() {
   try {
@@ -95,6 +97,13 @@ app.whenReady().then(createWindow);
 app.whenReady().then(async () => {
   // Your existing code...
   console.log("async loads and initializations .....")
+  // Initialize treasury database (NEW)
+  try {
+    treasuryDB = new TreasuryForecastDatabase('./src/data/db/treasury.sqlite');
+    console.log('✅ Treasury database initialized');
+  } catch (error) {
+    console.error('❌ Error initializing treasury database:', error);
+  }
   // Load the simplified model (no TensorFlow)
   // Load patterns on startup
   await loadPatternsFromFile();
@@ -497,8 +506,8 @@ ipcMain.handle('apply-pattern', async (event, { patternId, bankData }) => {
 });
 
 // Update translate-operation to include pattern information
-ipcMain.handle('translate-operation', async (event, data) => {
-  console.log('IPC: Translating bank operation:', data);
+ipcMain.handle('get-ai-translation', async (event, data) => {
+  console.log('IPC: AI Translating bank operation:', data);
   const result = translateBankOperation(data);
   
   // Extract and include pattern information
@@ -726,4 +735,113 @@ ipcMain.handle('import-accounting-records', async (event, records) => {
   }
 });
 
-// Modify the existing createAccountingPreviewDialog function if needed
+// Save accounting tasks to database
+ipcMain.handle('save-accounting-tasks', async (event, { bankMovementId, tasksData }) => {
+  try {
+    console.log('Saving accounting tasks for bank movement:', bankMovementId);
+    const result = await db.saveAccountingTasks(bankMovementId, tasksData);
+    
+    // Still save to JSON file for Python service if needed
+    const taskDataJson = JSON.stringify(tasksData, null, 2);
+    const filePath = path.join(__dirname, 'data', 'sender', 'input', 'pending_files', `task-${tasksData.id_task}.json`);
+    
+    try {
+      await fs.writeFile(filePath, taskDataJson);
+      console.log('JSON file created successfully at:', filePath);
+      
+      // Run Python service
+      const pythonResult = await runPythonService();
+      console.log("Result of contabilizar:", pythonResult);
+      
+    } catch (fileError) {
+      console.error('Error writing JSON file:', fileError);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error saving accounting tasks:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get accounting tasks for a bank movement
+ipcMain.handle('get-accounting-tasks', async (event, bankMovementId) => {
+  try {
+    const tasks = await db.getAccountingTasksByBankMovement(bankMovementId);
+    return { success: true, tasks: tasks };
+  } catch (error) {
+    console.error('Error getting accounting tasks:', error);
+    return { success: false, error: error.message, tasks: [] };
+  }
+});
+
+// Check if accounting tasks exist
+ipcMain.handle('has-accounting-tasks', async (event, bankMovementId) => {
+  try {
+    const exists = await db.hasAccountingTasks(bankMovementId);
+    return { success: true, exists: exists };
+  } catch (error) {
+    console.error('Error checking accounting tasks:', error);
+    return { success: false, exists: false, error: error.message };
+  }
+});
+
+// Delete accounting tasks
+ipcMain.handle('delete-accounting-tasks', async (event, bankMovementId) => {
+  try {
+    const result = await db.deleteAccountingTasks(bankMovementId);
+    return result;
+  } catch (error) {
+    console.error('Error deleting accounting tasks:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Add these NEW IPC handlers for treasury forecasting:
+ipcMain.handle('get-metro-treasury-data', async () => {
+  try {
+    const metroData = await treasuryDB.getMetroLineData();
+    return { success: true, data: metroData };
+  } catch (error) {
+    console.error('Error getting metro treasury data:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('update-treasury-forecast', async (event, { periodId, categoryType, categoryId, amount, notes }) => {
+  try {
+    await treasuryDB.updateForecast(periodId, categoryType, categoryId, amount, notes);
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating treasury forecast:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-treasury-categories', async () => {
+  try {
+    const categories = await treasuryDB.getCategories();
+    return { success: true, data: categories };
+  } catch (error) {
+    console.error('Error getting treasury categories:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Bridge method to get current balance from main database
+ipcMain.handle('get-current-balance', async () => {
+  try {
+    const balanceResult = await db.get(`
+      SELECT saldo as current_balance
+      FROM movimientos_bancarios 
+      ORDER BY normalized_date DESC, id DESC
+      LIMIT 1
+    `);
+    
+    const currentBalance = balanceResult ? balanceResult.current_balance || 0 : 0;
+    return { success: true, data: currentBalance };
+  } catch (error) {
+    console.error('Error getting current balance:', error);
+    return { success: false, error: error.message };
+  }
+});

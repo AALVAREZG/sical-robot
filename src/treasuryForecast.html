@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metro Line Treasury - First Version</title>
+    <style>
+        /* Import your existing CSS variables */
+        :root {
+            --primary: #0052CC;
+            --primary-light: #4C9AFF;
+            --primary-dark: #172B4D;
+            --secondary: #DFE1E6;
+            --success: #00875A;
+            --danger: #DE350B;
+            --warning: #FF8B00;
+            --light-bg: #f5f7fa;
+            --text-primary: #172B4D;
+            --text-secondary: #7A869A;
+            --border-color: #DFE1E6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--light-bg);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* Tab Integration - matches your existing style */
+        .tab-navigation {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tab-item {
+            padding: 15px 25px;
+            font-size: 14px;
+            cursor: pointer;
+            background: white;
+            border: none;
+            transition: all 0.2s;
+            color: var(--text-secondary);
+        }
+
+        .tab-item:hover {
+            background-color: var(--light-bg);
+        }
+
+        .tab-item.active {
+            color: var(--primary);
+            font-weight: bold;
+            position: relative;
+            background-color: var(--light-bg);
+        }
+
+        .tab-item.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: var(--primary);
+        }
+
+        /* Metro Line Container */
+        .metro-treasury-container {
+            background: white;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 30px;
+            min-height: 600px;
+        }
+
+        .metro-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .metro-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+
+        .metro-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .refresh-btn {
+            padding: 8px 16px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background-color: #0747A6;
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Metro Line Layout - Landscape optimized */
+        .metro-line-layout {
+            position: relative;
+            padding: 40px 20px;
+            min-height: 400px;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8f4ff 100%);
+            border-radius: 12px;
+            overflow: visible;
+        }
+
+        /* Metro Track - Horizontal line */
+        .metro-track {
+            position: absolute;
+            top: 50%;
+            left: 5%;
+            right: 5%;
+            height: 6px;
+            background: linear-gradient(90deg, 
+                var(--success) 0%, 
+                var(--success) 20%, 
+                var(--primary) 40%, 
+                var(--warning) 70%, 
+                var(--danger) 100%);
+            border-radius: 3px;
+            transform: translateY(-50%);
+        }
+
+        /* Metro Stations Container */
+        .metro-stations {
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 100%;
+            padding: 60px 5%;
+        }
+
+        /* Individual Metro Station */
+        .metro-station {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 5;
+        }
+
+        .metro-station:hover {
+            transform: translateY(-10px);
+        }
+
+        /* Station Circle */
+        .metro-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: white;
+            border: 5px solid var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: var(--primary);
+            font-size: 12px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .metro-circle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        /* Station States */
+        .metro-circle.current {
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
+            font-size: 10px;
+        }
+
+        .metro-circle.forecast {
+            border-style: dashed;
+            border-color: var(--warning);
+            color: var(--warning);
+        }
+
+        .metro-circle.negative {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        /* Station Info */
+        .metro-info {
+            text-align: center;
+            min-width: 120px;
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+        }
+
+        .metro-station:hover .metro-info {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            transform: translateY(-2px);
+        }
+
+        .metro-month {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .metro-balance {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .metro-change {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .change-positive {
+            background: #E3FCEF;
+            color: var(--success);
+        }
+
+        .change-negative {
+            background: #FFEBE6;
+            color: var(--danger);
+        }
+
+        .change-neutral {
+            background: var(--secondary);
+            color: var(--text-secondary);
+        }
+
+        /* Station Detail Popup */
+        .metro-popup {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            min-width: 350px;
+            max-width: 400px;
+            display: none;
+            border: 2px solid var(--primary-light);
+            z-index: 20;
+            margin-bottom: 15px;
+        }
+
+        .metro-popup::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 10px solid transparent;
+            border-top-color: var(--primary-light);
+        }
+
+        .metro-station.active .metro-popup {
+            display: block;
+            animation: popupFadeIn 0.3s ease-out;
+        }
+
+        @keyframes popupFadeIn {
+            0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+            100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        /* Popup Content */
+        .popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .popup-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+
+        .popup-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .breakdown-section {
+            margin-bottom: 15px;
+        }
+
+        .breakdown-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .breakdown-total {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .income-total { color: var(--success); }
+        .expense-total { color: var(--danger); }
+        .reserve-total { color: var(--warning); }
+
+        .breakdown-items {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .breakdown-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 12px;
+        }
+
+        .item-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .item-icon {
+            font-size: 14px;
+        }
+
+        .item-name {
+            color: var(--text-secondary);
+        }
+
+        .item-amount {
+            font-weight: 600;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 11px;
+        }
+
+        /* Summary Cards */
+        .metro-summary {
+            margin-top: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .summary-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid var(--primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .summary-card.positive {
+            border-left-color: var(--success);
+        }
+
+        .summary-card.warning {
+            border-left-color: var(--warning);
+        }
+
+        .summary-card.negative {
+            border-left-color: var(--danger);
+        }
+
+        .summary-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .summary-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Error State */
+        .metro-error {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .metro-stations {
+                gap: 10px;
+            }
+            
+            .metro-info {
+                min-width: 100px;
+                padding: 10px 12px;
+            }
+            
+            .metro-popup {
+                min-width: 300px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .metro-line-layout {
+                padding: 20px 10px;
+            }
+            
+            .metro-stations {
+                flex-direction: column;
+                gap: 30px;
+                padding: 40px 20px;
+            }
+            
+            .metro-track {
+                left: 50%;
+                top: 10%;
+                bottom: 10%;
+                right: auto;
+                width: 6px;
+                height: auto;
+                background: linear-gradient(180deg, 
+                    var(--success) 0%, 
+                    var(--primary) 40%, 
+                    var(--warning) 70%, 
+                    var(--danger) 100%);
+                transform: translateX(-50%);
+            }
+            
+            .metro-summary {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .metro-popup {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                max-width: 90vw;
+                max-height: 80vh;
+                overflow-y: auto;
+                z-index: 1000;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Tab Navigation (simulating integration) -->
+    <div class="tab-navigation">
+        <button class="tab-item">Movimientos</button>
+        <button class="tab-item active">Treasury Forecast</button>
+        <button class="tab-item">Reports</button>
+        <button class="tab-item">Settings</button>
+    </div>
+
+    <!-- Metro Treasury Container -->
+    <div class="metro-treasury-container">
+        <div class="metro-header">
+            <h2 class="metro-title">Treasury Forecast - Metro Line</h2>
+            <div class="metro-controls">
+                <div class="loading-spinner" id="loadingSpinner"></div>
+                <button class="refresh-btn" id="refreshBtn">Refresh Data</button>
+            </div>
+        </div>
+
+        <!-- Metro Line Layout -->
+        <div class="metro-line-layout" id="metroLineLayout">
+            <div class="metro-track"></div>
+            
+            <div class="metro-stations" id="metroStations">
+                <!-- Stations will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="metro-summary" id="metroSummary">
+            <!-- Summary cards will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <script>
+        // Mock data for initial testing (replace with actual API calls later)
+        const MOCK_METRO_DATA = [
+            {
+                id: 1,
+                period_display: 'Oct 2024',
+                is_current: true,
+                is_forecast: false,
+                ending_balance: 47285,
+                net_flow: 2285,
+                health_indicator: 'positive',
+                days_covered: 45,
+                breakdown: {
+                    income: {
+                        total: 5150,
+                        items: [
+                            { name: 'Primary Salary', icon: '💼', amount: 3500, confidence_level: 100 },
+                            { name: 'Consulting/Projects', icon: '🔧', amount: 1200, confidence_level: 95 },
+                            { name: 'Investments', icon: '📈', amount: 450, confidence_level: 80 }
+                        ]
+                    },
+                    expenses: {
+                        total: 2865,
+                        items: [
+                            { name: 'Housing', icon: '🏠', amount: 1200, confidence_level: 100 },
+                            { name: 'Utilities', icon: '⚡', amount: 350, confidence_level: 95 },
+                            { name: 'Food & Living', icon: '🍽️', amount: 600, confidence_level: 85 },
+                            { name: 'Transportation', icon: '🚗', amount: 290, confidence_level: 80 },
+                            { name: 'Personal', icon: '👤', amount: 425, confidence_level: 75 }
+                        ]
+                    },
+                    reserves: {
+                        total: 12000,
+                        items: [
+                            { name: 'Emergency Fund', current_amount: 8500, target_amount: 15000 },
+                            { name: 'Tax Savings', current_amount: 2500, target_amount: 5000 },
+                            { name: 'Investment Buffer', current_amount: 1000, target_amount: 3000 }
+                        ]
+                    }
+                }
+            },
+            {
+                id: 2,
+                period_display: 'Nov 2024',
+                is_current: false,
+                is_forecast: true,
+                ending_balance: 49100,
+                net_flow: 1815,
+                health_indicator: 'positive',
+                days_covered: 47,
+                breakdown: {
+                    income: {
+                        total: 5850,
+                        items: [
+                            { name: 'Primary Salary', icon: '💼', amount: 3500, confidence_level: 100 },
+                            { name: 'Project Payment', icon: '🔧', amount: 2200, confidence_level: 85 },
+                            { name: 'Dividend', icon: '📈', amount: 150, confidence_level: 70 }
+                        ]
+                    },
+                    expenses: {
+                        total: 4035,
+                        items: [
+                            { name: 'Fixed Costs', icon: '🏠', amount: 2100, confidence_level: 95 },
+                            { name: 'Variable Costs', icon: '🛒', amount: 1200, confidence_level: 80 },
+                            { name: 'Tax Payment', icon: '💸', amount: 635, confidence_level: 90 },
+                            { name: 'Insurance', icon: '🛡️', amount: 100, confidence_level: 100 }
+                        ]
+                    },
+                    reserves: {
+                        total: 12500,
+                        items: [
+                            { name: 'Emergency Fund', current_amount: 9000, target_amount: 15000 },
+                            { name: 'Tax Savings', current_amount: 2500, target_amount: 5000 },
+                            { name: 'Investment Buffer', current_amount: 1000, target_amount: 3000 }
+                        ]
+                    }
+                }
+            },
+            {
+                id: 3,
+                period_display: 'Dec 2024',
+                is_current: false,
+                is_forecast: true,
+                ending_balance: 51250,
+                net_flow: 2150,
+                health_indicator: 'positive',
+                days_covered: 52,
+                breakdown: {
+                    income: {
+                        total: 6250,
+                        items: [
+                            { name: 'Primary Salary', icon: '💼', amount: 3500, confidence_level: 100 },
+                            { name: 'Year-end Bonus', icon: '🎉', amount: 1800, confidence_level: 90 },
+                            { name: 'Client Payment', icon: '💰', amount: 950, confidence_level: 85 }
+                        ]
+                    },
+                    expenses: {
+                        total: 4100,
+                        items: [
+                            { name: 'Regular Costs', icon: '🏠', amount: 2100, confidence_level: 95 },
+                            { name: 'Holiday Expenses', icon: '🎄', amount: 1500, confidence_level: 75 },
+                            { name: 'Annual Insurance', icon: '🛡️', amount: 500, confidence_level: 100 }
+                        ]
+                    },
+                    reserves: {
+                        total: 13200,
+                        items: [
+                            { name: 'Emergency Fund', current_amount: 9500, target_amount: 15000 },
+                            { name: 'Tax Savings', current_amount: 2700, target_amount: 5000 },
+                            { name: 'Investment Buffer', current_amount: 1000, target_amount: 3000 }
+                        ]
+                    }
+                }
+            },
+            {
+                id: 4,
+                period_display: 'Jan 2025',
+                is_current: false,
+                is_forecast: true,
+                ending_balance: 48900,
+                net_flow: -2350,
+                health_indicator: 'warning',
+                days_covered: 42,
+                breakdown: {
+                    income: {
+                        total: 4300,
+                        items: [
+                            { name: 'Primary Salary', icon: '💼', amount: 3500, confidence_level: 100 },
+                            { name: 'Freelance', icon: '🔧', amount: 800, confidence_level: 70 }
+                        ]
+                    },
+                    expenses: {
+                        total: 6650,
+                        items: [
+                            { name: 'Regular Costs', icon: '🏠', amount: 2100, confidence_level: 95 },
+                            { name: 'Annual Fees', icon: '💳', amount: 2500, confidence_level: 100 },
+                            { name: 'Tax Payment', icon: '💸', amount: 1200, confidence_level: 90 },
+                            { name: 'Equipment', icon: '💻', amount: 850, confidence_level: 80 }
+                        ]
+                    },
+                    reserves: {
+                        total: 11900,
+                        items: [
+                            { name: 'Emergency Fund', current_amount: 8700, target_amount: 15000 },
+                            { name: 'Tax Savings', current_amount: 2200, target_amount: 5000 },
+                            { name: 'Investment Buffer', current_amount: 1000, target_amount: 3000 }
+                        ]
+                    }
+                }
+            },
+            {
+                id: 5,
+                period_display: 'Feb 2025',
+                is_current: false,
+                is_forecast: true,
+                ending_balance: 51150,
+                net_flow: 2250,
+                health_indicator: 'positive',
+                days_covered: 48,
+                breakdown: {
+                    income: {
+                        total: 5750,
+                        items: [
+                            { name: 'Primary Salary', icon: '💼', amount: 3500, confidence_level: 100 },
+                            { name: 'New Project', icon: '🚀', amount: 1800, confidence_level: 75 },
+                            { name: 'Investments', icon: '📈', amount: 450, confidence_level: 65 }
+                        ]
+                    },
+                    expenses: {
+                        total: 3500,
+                        items: [
+                            { name: 'Regular Costs', icon: '🏠', amount: 2100, confidence_level: 95 },
+                            { name: 'Variable Costs', icon: '🛒', amount: 900, confidence_level: 80 },
+                            { name: 'Personal', icon: '👤', amount: 500, confidence_level: 75 }
+                        ]
+                    },
+                    reserves: {
+                        total: 12400,
+                        items: [
+                            { name: 'Emergency Fund', current_amount: 9200, target_amount: 15000 },
+                            { name: 'Tax Savings', current_amount: 2200, target_amount: 5000 },
+                            { name: 'Investment Buffer', current_amount: 1000, target_amount: 3000 }
+                        ]
+                    }
+                }
+            }
+        ];
+
+        // Global state
+        let currentMetroData = [];
+        let activeStationId = null;
+
+        // Initialize the UI
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMetroLine();
+            setupEventListeners();
+        });
+
+        // Initialize metro line with mock data
+        function initializeMetroLine() {
+            currentMetroData = MOCK_METRO_DATA;
+            renderMetroStations();
+            renderSummaryCards();
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Refresh button
+            document.getElementById('refreshBtn').addEventListener('click', refreshMetroData);
+
+            // Tab switching (for demo)
+            document.querySelectorAll('.tab-item').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+
+            // Close popups when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.metro-station')) {
+                    closeAllPopups();
+                }
+            });
+        }
+
+        // Render metro stations
+        function renderMetroStations() {
+            const container = document.getElementById('metroStations');
+            container.innerHTML = '';
+
+            currentMetroData.forEach((period, index) => {
+                const station = createStationElement(period, index);
+                container.appendChild(station);
+            });
+        }
+
+        // Create individual station element
+        function createStationElement(period, index) {
+            const station = document.createElement('div');
+            station.className = 'metro-station';
+            station.setAttribute('data-period-id', period.id);
+
+            // Determine circle class
+            let circleClass = 'metro-circle';
+            if (period.is_current) circleClass += ' current';
+            else if (period.is_forecast) circleClass += ' forecast';
+            if (period.health_indicator === 'negative') circleClass += ' negative';
+
+            // Determine change class
+            let changeClass = 'metro-change';
+            if (period.net_flow > 0) changeClass += ' change-positive';
+            else if (period.net_flow < 0) changeClass += ' change-negative';
+            else changeClass += ' change-neutral';
+
+            // Format amounts
+            const balance = formatCurrency(period.ending_balance);
+            const change = period.net_flow >= 0 ? `+${formatCurrency(period.net_flow)}` : formatCurrency(period.net_flow);
+
+            station.innerHTML = `
+                <div class="${circleClass}">
+                    ${period.is_current ? 'NOW' : (index + 1)}
+                </div>
+                
+                <div class="metro-info">
+                    <div class="metro-month">${period.period_display}</div>
+                    <div class="metro-balance">${balance}</div>
+                    <div class="${changeClass}">${change}</div>
+                </div>
+
+                <div class="metro-popup">
+                    <div class="popup-header">
+                        <div class="popup-title">${period.period_display} - Details</div>
+                        <button class="popup-close">×</button>
+                    </div>
+                    
+                    <div class="breakdown-section">
+                        <div class="breakdown-title">💰 Income</div>
+                        <div class="breakdown-total income-total">${formatCurrency(period.breakdown.income.total)}</div>
+                        <div class="breakdown-items">
+                            ${period.breakdown.income.items.map(item => `
+                                <div class="breakdown-item">
+                                    <div class="item-left">
+                                        <span class="item-icon">${item.icon}</span>
+                                        <span class="item-name">${item.name}</span>
+                                    </div>
+                                    <span class="item-amount">${formatCurrency(item.amount)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="breakdown-section">
+                        <div class="breakdown-title">💸 Expenses</div>
+                        <div class="breakdown-total expense-total">${formatCurrency(period.breakdown.expenses.total)}</div>
+                        <div class="breakdown-items">
+                            ${period.breakdown.expenses.items.map(item => `
+                                <div class="breakdown-item">
+                                    <div class="item-left">
+                                        <span class="item-icon">${item.icon}</span>
+                                        <span class="item-name">${item.name}</span>
+                                    </div>
+                                    <span class="item-amount">${formatCurrency(item.amount)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="breakdown-section">
+                        <div class="breakdown-title">🛡️ Reserves</div>
+                        <div class="breakdown-total reserve-total">${formatCurrency(period.breakdown.reserves.total)}</div>
+                        <div class="breakdown-items">
+                            ${period.breakdown.reserves.items.map(item => `
+                                <div class="breakdown-item">
+                                    <div class="item-left">
+                                        <span class="item-icon">💰</span>
+                                        <span

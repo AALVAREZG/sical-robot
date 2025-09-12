@@ -1,11 +1,10 @@
 /**
- * Main application script for contabilizarDialog
+ * Main application script for contabilizarDialog - Refactored Version
+ * Includes database persistence and enhanced functionality
  */
-
 
 // Get the electron modules
 const { ipcRenderer } = require('electron');
-
 
 // Require the modules instead of including them via script tags
 const DebugConsole = require('./js/utils/debugConsole');
@@ -27,86 +26,96 @@ let tasksData = {
 // Current editor instance
 let currentEditor = null;
 
-// DOM elements
-const taskContainer = document.getElementById('taskContainer');
-const bankBox = document.getElementById('bankBox');
-const bankDate = document.getElementById('bankDate');
-const bankConcept = document.getElementById('bankConcept');
-const bankAmount = document.getElementById('bankAmount');
-const bankBalance = document.getElementById('bankBalance');
-const aiSuggestionCount = document.getElementById('aiSuggestionCount');
-const selectedPattern = document.getElementById('selectedPattern');
+// DOM elements - Initialize after DOM loaded
+let taskContainer, bankBox, bankDate, bankConcept, bankAmount, bankBalance;
+let aiSuggestionCount, selectedPattern, taskModal, modalTitle, taskType;
+let dynamicFormFields, closeModalBtn, saveModalBtn, cancelModalBtn;
+let addTaskBtn, confirmBtn, cancelBtn, acceptAllBtn, rejectAllBtn;
+let trainAIBtn, saveBtn;
 
-// Modal elements
-const taskModal = document.getElementById('taskModal');
-const modalTitle = document.getElementById('modalTitle');
-const taskType = document.getElementById('taskType');
-const dynamicFormFields = document.getElementById('dynamicFormFields');
-const modalHeader = document.querySelector('.modal-header') || document.createElement('div');
-const closeModalBtn = document.querySelector('.close');
-const saveModalBtn = document.getElementById('saveModalBtn');
-const cancelModalBtn = document.getElementById('cancelModalBtn');
-
-// Buttons
-const addTaskBtn = document.getElementById('addTaskBtn');
-const confirmBtn = document.getElementById('confirmBtn');
-const cancelBtn = document.getElementById('cancelBtn');
-const acceptAllBtn = document.getElementById('acceptAllBtn');
-const rejectAllBtn = document.getElementById('rejectAllBtn');
-const trainAIBtn = document.getElementById('trainAIBtn');
-const saveBtn = document.getElementById('saveBtn');
+// Pattern management variables
+let availablePatterns = [];
+let currentPatternId = null;
 
 /**
- * Initialize the application
+ * Initialize DOM elements
  */
-async function init() {
-    console.log('Initializing application...');
-    
-    // Initialize debug console
-    DebugConsole.init();
-    
-    // Get data from main process
+function initializeDOMElements() {
+    // Main container elements
+    taskContainer = document.getElementById('taskContainer');
+    bankBox = document.getElementById('bankBox');
+    bankDate = document.getElementById('bankDate');
+    bankConcept = document.getElementById('bankConcept');
+    bankAmount = document.getElementById('bankAmount');
+    bankBalance = document.getElementById('bankBalance');
+    aiSuggestionCount = document.getElementById('aiSuggestionCount');
+    selectedPattern = document.getElementById('selectedPattern');
+
+    // Modal elements
+    taskModal = document.getElementById('taskModal');
+    modalTitle = document.getElementById('modalTitle');
+    taskType = document.getElementById('taskType');
+    dynamicFormFields = document.getElementById('dynamicFormFields');
+    closeModalBtn = document.querySelector('.close');
+    saveModalBtn = document.getElementById('saveModalBtn');
+    cancelModalBtn = document.getElementById('cancelModalBtn');
+
+    // Button elements
+    addTaskBtn = document.getElementById('addTaskBtn');
+    confirmBtn = document.getElementById('confirmBtn');
+    cancelBtn = document.getElementById('cancelBtn');
+    acceptAllBtn = document.getElementById('acceptAllBtn');
+    rejectAllBtn = document.getElementById('rejectAllBtn');
+    trainAIBtn = document.getElementById('trainAIBtn');
+    saveBtn = document.getElementById('saveBtn');
+}
+
+/**
+ * Enhanced initialization with database support
+ */
+async function enhancedInit() {
     try {
+        console.log('Initializing contabilizar dialog with database support...');
+        
+        // Get data from URL params or IPC
         const urlParams = new URLSearchParams(window.location.search);
         const operationId = urlParams.get('id');
         
-        console.log('Operation ID:', operationId);
+        // Store the bank movement ID globally for later use
+        if (operationId) {
+            window.currentBankMovementId = operationId;
+        }
         
         // Get bank operation data
-        bankData = await ipcRenderer.invoke('get-bank-operation', operationId);
-        console.log('Bank data received:', bankData);
-        
-        // Display bank operation details
-        displayBankOperation(bankData);
-
-        // Setup pattern selector
-        setupPatternSelector();
-        
-        // Get AI suggestion
-        console.log('Requesting AI translation...');
-        const aiSuggestion = await ipcRenderer.invoke('translate-operation', bankData);
-        console.log('AI suggestion received:', aiSuggestion);
-        
-        // Store original data for comparison
-        originalTasksData = JSON.parse(JSON.stringify(aiSuggestion)); 
-        
-        // Store AI suggestion
-        tasksData = aiSuggestion.data;
-        
-        // Display AI suggestion count
-        updateAISuggestionInfo(aiSuggestion);
-
-        // Update the pattern display if available in the response
-        if (aiSuggestion.description) {
-            updateSelectedPattern(aiSuggestion.description);
-            // Update current pattern ID if available
-            if (aiSuggestion.patternId) {
-                currentPatternId = aiSuggestion.patternId;
+        const data = await ipcRenderer.invoke('get-bank-operation', operationId);
+        console.log('Received bank operation data:', data);
+        if (data) {
+            bankData = data;
+            displayBankOperation(data);
+            
+            // Store bank movement ID if we generated it from data
+            if (!window.currentBankMovementId && bankData) {
+                window.currentBankMovementId = getBankMovementId();
             }
         }
         
-        // Render tasks
-        renderTasks();
+        // Check for existing tasks first
+        const existingTasksLoaded = await checkForExistingTasks();
+        
+        // Only get AI suggestion if we didn't load existing tasks
+        if (!existingTasksLoaded) {
+            const aiSuggestion = await ipcRenderer.invoke('get-ai-translation', bankData);
+            console.log('Received AI suggestion:', aiSuggestion);
+            if (aiSuggestion && aiSuggestion.data.operaciones) {
+                originalTasksData = JSON.parse(JSON.stringify(aiSuggestion));
+                tasksData = aiSuggestion.data;
+                console.log('Received AI suggestion: task data', tasksData);
+                updateAISuggestionInfo(aiSuggestion);
+                renderTasks();
+            } else {
+                console.log('AI suggestion error:', aiSuggestion);
+            }
+        }
         
         console.log('Initialization complete');
     } catch (error) {
@@ -122,16 +131,20 @@ function displayBankOperation(data) {
     console.log('Displaying bank operation:', data);
     
     const [caja, fecha, concepto, importe, saldo] = data;
-    bankBox.textContent = caja;
-    bankDate.textContent = fecha;
-    bankConcept.textContent = concepto;
+    if (bankBox) bankBox.textContent = caja;
+    if (bankDate) bankDate.textContent = fecha;
+    if (bankConcept) bankConcept.textContent = concepto;
     
     // Format currency values
-    bankAmount.textContent = formatCurrency(importe);
-    bankAmount.classList.add('currency-value');
+    if (bankAmount) {
+        bankAmount.textContent = formatCurrency(importe);
+        bankAmount.classList.add('currency-value');
+    }
     
-    bankBalance.textContent = formatCurrency(saldo);
-    bankBalance.classList.add('currency-value');
+    if (bankBalance) {
+        bankBalance.textContent = formatCurrency(saldo);
+        bankBalance.classList.add('currency-value');
+    }
 }
 
 /**
@@ -155,6 +168,8 @@ function updateAISuggestionInfo(aiSuggestion) {
 function renderTasks() {
     console.log('Rendering tasks:', tasksData.operaciones.length);
     
+    if (!taskContainer) return;
+    
     // Clear the container
     taskContainer.innerHTML = '';
     
@@ -170,6 +185,11 @@ function renderTasks() {
  */
 function openEditModal(index) {
     console.log('Opening edit modal for task index:', index);
+    
+    if (!taskModal || !modalTitle || !taskType || !dynamicFormFields) {
+        console.error('Modal elements not found');
+        return;
+    }
     
     // Set modal title
     const isEditMode = index >= 0;
@@ -274,13 +294,13 @@ function calculateTotalAmount() {
     
     tasksData.operaciones.forEach(task => {
         if (task.tipo === 'arqueo') {
-            task.detalle.final.forEach(partida => {
+            task.detalle.final?.forEach(partida => {
                 if (partida.partida !== 'Total') {
                     total += parseFloat(partida.IMPORTE_PARTIDA) || 0;
                 }
             });
         } else if (task.tipo === 'ado220') {
-            task.detalle.aplicaciones.forEach(aplicacion => {
+            task.detalle.aplicaciones?.forEach(aplicacion => {
                 total += parseFloat(aplicacion.importe) || 0;
             });
         }
@@ -289,100 +309,6 @@ function calculateTotalAmount() {
     tasksData.liquido_operaciones = total;
     console.log('Total amount calculated:', total);
 }
-
-/**
- * Format a number as currency in EUR format
- * @param {number} value - The value to format
- * @param {boolean} showSymbol - Whether to show the € symbol
- * @return {string} Formatted currency string
- */
-function formatCurrency(value, showSymbol = true) {
-    if (value === null || value === undefined || isNaN(value)) {
-        return showSymbol ? '0,00 €' : '0,00';
-    }
-    
-    // Convert to number if it's a string
-    const numValue = typeof value === 'string' ? parseFloat(value) : value;
-    
-    // Format with Spanish locale (dot for thousands, comma for decimals)
-    const formatted = numValue.toLocaleString('es-ES', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-    
-    return showSymbol ? `${formatted} €` : formatted;
-}
-    /**
-     * Convert date from UI format to storage format (ddmmaaaa)
-     * @param {string} dateStr - Date in format YYYY-MM-DD
-     * @return {string} Date in format ddmmaaaa
-     */
-    function formatDateForStorage(dateStr) {
-        if (!dateStr) return '';
-        
-        // Handle ISO format (YYYY-MM-DD)
-        if (dateStr.includes('-')) {
-            const [year, month, day] = dateStr.split('-');
-            return day + month + year;
-        }
-        
-        // Handle already formatted date (assume it's already correct)
-        if (dateStr.length === 8 && !dateStr.includes('/') && !dateStr.includes('-')) {
-            return dateStr;
-        }
-        
-        // Handle Spanish format (DD/MM/YYYY)
-        if (dateStr.includes('/')) {
-            const [day, month, year] = dateStr.split('/');
-            return day.padStart(2, '0') + month.padStart(2, '0') + year;
-        }
-        
-        // Return original if format is unknown
-        return dateStr;
-    }
-
-/**
- * Convert date from storage format (ddmmaaaa) to UI format (YYYY-MM-DD)
- * @param {string} dateStr - Date in format ddmmaaaa
- * @return {string} Date in format YYYY-MM-DD for input[type="date"]
- */
-    function formatDateForDisplay(dateStr) {
-        if (!dateStr) return '';
-        
-        // Only process if it's in the expected format
-        if (dateStr.length === 8 && !dateStr.includes('/') && !dateStr.includes('-')) {
-            const day = dateStr.substring(0, 2);
-            const month = dateStr.substring(2, 4);
-            const year = dateStr.substring(4, 8);
-            return `${year}-${month}-${day}`;
-        }
-        
-        // If it already has separators, try to parse and standardize
-        if (dateStr.includes('/') || dateStr.includes('-')) {
-            const separator = dateStr.includes('/') ? '/' : '-';
-            const parts = dateStr.split(separator);
-            
-            // Guess format based on parts
-            let year, month, day;
-            if (parts[0].length === 4) {
-                // Assume YYYY-MM-DD
-                [year, month, day] = parts;
-            } else {
-                // Assume DD/MM/YYYY or MM/DD/YYYY (default to DD/MM/YYYY for European format)
-                [day, month, year] = parts;
-            }
-            
-            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-        }
-        
-        return dateStr;
-    }
-    function logFormData(formElement) {
-        console.log('Form data being submitted:');
-        const dateValue = document.getElementById('fecha').value;
-        console.log('Raw date value:', dateValue);
-        console.log('Converted date value:', formatDateForStorage(dateValue));
-    }
 
 /**
  * Close the modal
@@ -394,7 +320,9 @@ function closeModal() {
     currentEditor = null;
     
     // Hide the modal
-    taskModal.style.display = 'none';
+    if (taskModal) {
+        taskModal.style.display = 'none';
+    }
 }
 
 /**
@@ -424,7 +352,7 @@ function rejectAllSuggestions() {
 }
 
 /**
- * Save translation to file
+ * Save translation to file (legacy functionality)
  */
 async function saveTranslation() {
     try {
@@ -445,30 +373,239 @@ async function saveTranslation() {
 }
 
 /**
- * Submit tasks and close dialog
+ * Submit tasks and close dialog - ENHANCED WITH DATABASE SUPPORT
  */
-function submitAndClose() {
+async function submitAndClose() {
     console.log('Submitting tasks and closing dialog');
     
-    // Send data back to main process
-    if (window.responseChannel) {
-        console.log('Using response channel:', window.responseChannel);
-        ipcRenderer.send(window.responseChannel, tasksData);
-        window.close(); 
+    try {
+        // Get bank movement ID from the current bank data
+        const bankMovementId = getBankMovementId();
         
-    } else {
-        // Fallback to the original method if responseChannel is not set
-        console.warn('Response channel not set, using fallback method');
-        ipcRenderer.invoke('submit-tasks', tasksData)
-            .then(() => {
-                window.close(); 
-                
-            })
-            .catch(error => {
-                console.error('Error submitting tasks:', error);
-                showErrorMessage('Error al enviar las tareas: ' + error.message);
-            });
+        if (!bankMovementId) {
+            showErrorMessage('Error: No se pudo obtener el ID del movimiento bancario');
+            return;
+        }
+        
+        // Validate that we have operations to save
+        if (!tasksData.operaciones || tasksData.operaciones.length === 0) {
+            showErrorMessage('Error: No hay tareas contables para guardar');
+            return;
+        }
+        
+        // Show loading state
+        if (confirmBtn) {
+            const originalText = confirmBtn.textContent;
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Guardando...';
+        }
+        
+        // Save to database using the new IPC call
+        const result = await ipcRenderer.invoke('save-accounting-tasks', {
+            bankMovementId: bankMovementId,
+            tasksData: tasksData
+        });
+        
+        if (result.success) {
+            showSuccessMessage(`Tareas contables guardadas correctamente. Se guardaron ${result.savedTasks} tareas.`);
+            
+            // Send success data back to main process if needed
+            if (window.responseChannel) {
+                console.log('Using response channel:', window.responseChannel);
+                ipcRenderer.send(window.responseChannel, { 
+                    success: true, 
+                    tasksData: tasksData,
+                    databaseResult: result 
+                });
+            }
+            
+            // Close the window after a short delay
+            setTimeout(() => {
+                window.close();
+            }, 1000);
+            
+        } else {
+            throw new Error(result.error || 'Error desconocido al guardar las tareas');
+        }
+        
+    } catch (error) {
+        console.error('Error submitting tasks:', error);
+        showErrorMessage('Error al guardar las tareas: ' + error.message);
+        
+        // Restore button state
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Confirmar';
+        }
     }
+}
+
+/**
+ * Get bank movement ID from current bank data
+ */
+function getBankMovementId() {
+    // Option 1: If passed via URL query params
+    const urlParams = new URLSearchParams(window.location.search);
+    const bankId = urlParams.get('id');
+    if (bankId) return bankId;
+    
+    // Option 2: If stored in a global variable
+    if (window.currentBankMovementId) return window.currentBankMovementId;
+    
+    // Option 3: Generate from bank data (if you have access to the original bank record)
+    if (bankData && bankData.length > 0) {
+        // This assumes you have a way to generate the same hash as used in the main database
+        console.log('Generating bank movement ID from bank data');
+        // You may need to implement this based on your hash generation logic
+        return `${bankData[0]}_${bankData[1]}_${Date.now()}`;
+    }
+    
+    console.error('Could not determine bank movement ID');
+    return null;
+}
+
+/**
+ * Load existing accounting tasks for the current bank movement
+ */
+async function loadExistingTasks() {
+    const bankMovementId = getBankMovementId();
+    if (!bankMovementId) return;
+    
+    try {
+        const result = await ipcRenderer.invoke('get-accounting-tasks', bankMovementId);
+        
+        if (result.success && result.tasks.length > 0) {
+            console.log('Loaded existing tasks:', result.tasks);
+            
+            // Find the summary task that contains the complete tasksData
+            const summaryTask = result.tasks.find(task => task.task_type === 'summary');
+            
+            if (summaryTask) {
+                tasksData = summaryTask.task_data;
+                originalTasksData = JSON.parse(JSON.stringify(tasksData));
+                renderTasks();
+                updateAISuggestionInfo(tasksData);
+                
+                // Show indication that tasks were loaded from database
+                showInfoMessage('Se cargaron las tareas contables guardadas previamente.');
+            }
+        }
+    } catch (error) {
+        console.error('Error loading existing tasks:', error);
+    }
+}
+
+/**
+ * Check if tasks already exist and ask user if they want to load them
+ */
+async function checkForExistingTasks() {
+    const bankMovementId = getBankMovementId();
+    if (!bankMovementId) return false;
+    
+    try {
+        const result = await ipcRenderer.invoke('has-accounting-tasks', bankMovementId);
+        
+        if (result.success && result.exists) {
+            const shouldLoad = confirm(
+                'Ya existen tareas contables guardadas para esta operación bancaria. ' +
+                '¿Desea cargar las tareas existentes?\n\n' +
+                'Sí: Cargar tareas guardadas\n' +
+                'No: Crear nuevas tareas'
+            );
+            
+            if (shouldLoad) {
+                await loadExistingTasks();
+                return true; // Indicates that existing tasks were loaded
+            }
+        }
+    } catch (error) {
+        console.error('Error checking for existing tasks:', error);
+    }
+    
+    return false; // No existing tasks loaded
+}
+
+/**
+ * Delete existing tasks (useful for starting over)
+ */
+async function deleteExistingTasks() {
+    const bankMovementId = getBankMovementId();
+    if (!bankMovementId) return;
+    
+    const confirmDelete = confirm(
+        '¿Está seguro de que desea eliminar todas las tareas contables guardadas para esta operación?\n\n' +
+        'Esta acción no se puede deshacer.'
+    );
+    
+    if (!confirmDelete) return;
+    
+    try {
+        const result = await ipcRenderer.invoke('delete-accounting-tasks', bankMovementId);
+        
+        if (result.success) {
+            showSuccessMessage('Tareas contables eliminadas correctamente.');
+            
+            // Reset the current tasks
+            tasksData = {
+                id_task: 'temp',
+                num_operaciones: 0,
+                liquido_operaciones: 0,
+                operaciones: []
+            };
+            renderTasks();
+            
+        } else {
+            showErrorMessage('Error al eliminar las tareas: ' + (result.error || 'Error desconocido'));
+        }
+    } catch (error) {
+        console.error('Error deleting tasks:', error);
+        showErrorMessage('Error al eliminar las tareas: ' + error.message);
+    }
+}
+
+/**
+ * Format a number as currency in EUR format
+ */
+function formatCurrency(value, showSymbol = true) {
+    if (value === null || value === undefined || isNaN(value)) {
+        return showSymbol ? '0,00 €' : '0,00';
+    }
+    
+    // Convert to number if it's a string
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    
+    // Format with Spanish locale (dot for thousands, comma for decimals)
+    const formatted = numValue.toLocaleString('es-ES', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    
+    return showSymbol ? `${formatted} €` : formatted;
+}
+
+/**
+ * Format date for storage
+ */
+function formatDateForStorage(dateStr) {
+    if (dateStr) {
+        // Handle various date formats
+        const separator = dateStr.includes('/') ? '/' : '-';
+        const parts = dateStr.split(separator);
+        
+        // Guess format based on parts
+        let year, month, day;
+        if (parts[0].length === 4) {
+            // Assume YYYY-MM-DD
+            [year, month, day] = parts;
+        } else {
+            // Assume DD/MM/YYYY
+            [day, month, year] = parts;
+        }
+        
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    
+    return dateStr;
 }
 
 /**
@@ -476,6 +613,7 @@ function submitAndClose() {
  */
 function showErrorMessage(message) {
     alert(message);
+    console.error(message);
 }
 
 /**
@@ -483,6 +621,53 @@ function showErrorMessage(message) {
  */
 function showSuccessMessage(message) {
     alert(message);
+    console.log(message);
+}
+
+/**
+ * Show info message (non-blocking)
+ */
+function showInfoMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #2196F3;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 4px;
+        z-index: 1000;
+        font-size: 14px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    `;
+    alertDiv.textContent = message;
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 3000);
+}
+
+/**
+ * Add delete tasks button to UI
+ */
+function addDeleteTasksButton() {
+    const controlsDiv = document.querySelector('.controls');
+    if (controlsDiv) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Eliminar Todo';
+        deleteBtn.className = 'secondary';
+        deleteBtn.style.backgroundColor = '#f44336';
+        deleteBtn.style.color = 'white';
+        deleteBtn.addEventListener('click', deleteExistingTasks);
+        
+        // Insert before the confirm button
+        const confirmBtn = document.getElementById('confirmBtn');
+        controlsDiv.insertBefore(deleteBtn, confirmBtn);
+    }
 }
 
 /**
@@ -510,7 +695,10 @@ function setupEventListeners() {
     }
     
     if (confirmBtn) {
-        confirmBtn.addEventListener('click', submitAndClose);
+        // Make this async to handle the database operations
+        confirmBtn.addEventListener('click', async () => {
+            await submitAndClose();
+        });
     }
     
     if (cancelBtn) {
@@ -544,19 +732,9 @@ function setupEventListeners() {
     };
 }
 
-// Initialize application when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM content loaded, initializing...');
-    
-    // Ensure all DOM elements are available before setting up
-    setTimeout(() => {
-        setupEventListeners();
-        init();
-    }, 100);
-});
-
-
-// Open pattern modal
+/**
+ * Pattern management functions
+ */
 function openPatternModal() {
     const patternModal = document.getElementById('patternModal');
     if (patternModal) {
@@ -564,7 +742,6 @@ function openPatternModal() {
     }
 }
 
-// Close pattern modal
 function closePatternModal() {
     const patternModal = document.getElementById('patternModal');
     if (patternModal) {
@@ -572,110 +749,12 @@ function closePatternModal() {
     }
 }
 
-// Update selected pattern display
 function updateSelectedPattern(patternName) {
-    const selectedPatternElement = document.getElementById('selectedPattern');
-    if (selectedPatternElement) {
-        selectedPatternElement.textContent = patternName || 'Ninguno';
+    if (selectedPattern) {
+        selectedPattern.textContent = patternName || 'Ninguno';
     }
 }
 
-// Variables to store patterns data
-let availablePatterns = [];
-let currentPatternId = null;
-
-// Add these to your event listeners setup
-function setupPatternSelector() {
-    // Pattern selector button
-    const changePatternBtn = document.getElementById('changePatternBtn');
-    if (changePatternBtn) {
-        changePatternBtn.addEventListener('click', openPatternModal);
-    }
-    
-    // Pattern modal elements
-    const patternModal = document.getElementById('patternModal');
-    const closePatternBtn = patternModal.querySelector('.close');
-    const cancelPatternBtn = document.getElementById('cancelPatternBtn');
-    const refreshPatternsBtn = document.getElementById('refreshPatternsBtn');
-    const patternSearchInput = document.getElementById('patternSearchInput');
-    
-    // Close modal events
-    if (closePatternBtn) {
-        closePatternBtn.addEventListener('click', closePatternModal);
-    }
-    
-    if (cancelPatternBtn) {
-        cancelPatternBtn.addEventListener('click', closePatternModal);
-    }
-    
-    // Refresh patterns list
-    if (refreshPatternsBtn) {
-        refreshPatternsBtn.addEventListener('click', loadAvailablePatterns);
-    }
-    
-    // Search functionality
-    if (patternSearchInput) {
-        patternSearchInput.addEventListener('input', filterPatterns);
-        patternSearchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                patternSearchInput.value = '';
-                filterPatterns();
-                patternSearchInput.blur();
-            }
-        });
-    }
-    
-    // When user clicks outside the modal, close it
-    window.addEventListener('click', function(event) {
-        if (event.target === patternModal) {
-            closePatternModal();
-        }
-    });
-    
-    // Load available patterns on startup
-    loadAvailablePatterns();
-}
-
-// Add these to your event listeners setup
-function setupPatternSelector_old() {
-    // Pattern selector button
-    const changePatternBtn = document.getElementById('changePatternBtn');
-    if (changePatternBtn) {
-        changePatternBtn.addEventListener('click', openPatternModal);
-    }
-    
-    // Pattern modal elements
-    const patternModal = document.getElementById('patternModal');
-    const closePatternBtn = patternModal.querySelector('.close');
-    const cancelPatternBtn = document.getElementById('cancelPatternBtn');
-    const refreshPatternsBtn = document.getElementById('refreshPatternsBtn');
-    
-    // Close modal events
-    if (closePatternBtn) {
-        closePatternBtn.addEventListener('click', closePatternModal);
-    }
-    
-    if (cancelPatternBtn) {
-        cancelPatternBtn.addEventListener('click', closePatternModal);
-    }
-    
-    // Refresh patterns list
-    if (refreshPatternsBtn) {
-        refreshPatternsBtn.addEventListener('click', loadAvailablePatterns);
-    }
-    
-    // When user clicks outside the modal, close it
-    window.addEventListener('click', function(event) {
-        if (event.target === patternModal) {
-            closePatternModal();
-        }
-    });
-    
-    // Load available patterns on startup
-    loadAvailablePatterns();
-}
-
-// Function to load available patterns from the main process
 async function loadAvailablePatterns() {
     try {
         console.log('Loading available patterns...');
@@ -698,136 +777,10 @@ async function loadAvailablePatterns() {
         // Show error in pattern list
         const patternList = document.getElementById('patternList');
         if (patternList) {
-            patternList.innerHTML = '<div class="pattern-item">Error al cargar patrones: ' + error.message + '</div>';
+            patternList.innerHTML = '<div class="pattern-item error">Error cargando patrones</div>';
         }
     }
 }
-
-// Function to render the patterns list
-function renderPatternList() {
-    const patternList = document.getElementById('patternList');
-    if (!patternList) return;
-    
-    // Clear the list
-    patternList.innerHTML = '';
-    
-    // Add each pattern
-    if (availablePatterns && availablePatterns.length > 0) {
-        availablePatterns.forEach(pattern => {
-            const patternItem = document.createElement('div');
-            patternItem.className = 'pattern-item';
-            if (pattern.id === currentPatternId) {
-                patternItem.classList.add('selected');
-            }
-            
-            const patternInfo = document.createElement('div');
-            patternInfo.className = 'pattern-info';
-            
-            const patternName = document.createElement('div');
-            patternName.className = 'pattern-name';
-            patternName.textContent = pattern.name;
-            
-            const patternDescription = document.createElement('div');
-            patternDescription.className = 'pattern-description';
-            patternDescription.textContent = pattern.description || 'Sin descripción';
-            
-            patternInfo.appendChild(patternName);
-            patternInfo.appendChild(patternDescription);
-            
-            const applyButton = document.createElement('button');
-            applyButton.className = 'pattern-apply-btn';
-            applyButton.textContent = 'Aplicar';
-            applyButton.addEventListener('click', () => applyPattern(pattern));
-            
-            patternItem.appendChild(patternInfo);
-            patternItem.appendChild(applyButton);
-            
-            // Click on item also selects
-            patternItem.addEventListener('click', (event) => {
-                // Only handle clicks on the item itself, not on buttons
-                if (event.target === patternItem || event.target === patternInfo || 
-                    event.target === patternName || event.target === patternDescription) {
-                    selectPattern(pattern);
-                }
-            });
-            
-            patternList.appendChild(patternItem);
-        });
-    } else {
-        patternList.innerHTML = '<div class="pattern-item">No hay patrones disponibles</div>';
-    }
-}
-
-// Function to filter patterns based on search input
-function filterPatterns() {
-    const searchInput = document.getElementById('patternSearchInput');
-    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
-    const patternItems = document.querySelectorAll('.pattern-item:not(.no-patterns-found):not(.no-results-found)');
-    
-    let visibleCount = 0;
-    const totalCount = patternItems.length;
-    
-    console.log('Filtering patterns:', { searchTerm, totalCount }); // Debug log
-    
-    patternItems.forEach(item => {
-        // Get pattern name from dataset
-        const patternName = item.dataset.patternName || '';
-        
-        // Get pattern name and description from text content as backup
-        const nameElement = item.querySelector('.pattern-name');
-        const descriptionElement = item.querySelector('.pattern-description');
-        const nameText = nameElement ? nameElement.textContent.toLowerCase() : '';
-        const descriptionText = descriptionElement ? descriptionElement.textContent.toLowerCase() : '';
-        
-        // Search in name (from dataset or text) and description
-        const matches = searchTerm === '' || 
-                       patternName.includes(searchTerm) || 
-                       nameText.includes(searchTerm) || 
-                       descriptionText.includes(searchTerm);
-        
-        console.log('Pattern check:', { 
-            patternName, 
-            nameText, 
-            descriptionText, 
-            searchTerm, 
-            matches 
-        }); // Debug log
-        
-        if (matches) {
-            item.classList.remove('hidden');
-            item.style.display = 'flex'; // Ensure it's visible
-            visibleCount++;
-        } else {
-            item.classList.add('hidden');
-            item.style.display = 'none'; // Hide it
-        }
-    });
-    
-    console.log('Filter results:', { visibleCount, totalCount }); // Debug log
-    
-    // Update search results count
-    updateSearchResults(visibleCount, totalCount);
-    
-    // Show "no results" message if no patterns match
-    const patternList = document.getElementById('patternList');
-    const existingNoResults = patternList.querySelector('.no-results-found');
-    
-    if (visibleCount === 0 && searchTerm !== '' && totalCount > 0) {
-        if (!existingNoResults) {
-            const noResults = document.createElement('div');
-            noResults.className = 'no-results-found';
-            noResults.style.padding = '20px';
-            noResults.style.textAlign = 'center';
-            noResults.style.color = '#666';
-            noResults.style.fontStyle = 'italic';
-            noResults.textContent = `No se encontraron patrones que coincidan con "${searchInput.value}"`;
-            patternList.appendChild(noResults);
-        }
-    } else if (existingNoResults) {
-        existingNoResults.remove();
-    }
-}
-
 // Function to update search results display
 function updateSearchResults(visibleCount, totalCount) {
     const searchResults = document.getElementById('patternSearchResults');
@@ -904,12 +857,302 @@ async function applyPattern(pattern) {
     }
 }
 
-// Export any necessary functions or variables
-module.exports = {
-    init,
-    renderTasks,
-    openEditModal,
-    closeModal,
-    saveTaskFromModal,
-    deleteTask
-};
+// Function to filter patterns based on search input
+function filterPatterns() {
+    const searchInput = document.getElementById('patternSearchInput');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const patternItems = document.querySelectorAll('.pattern-item:not(.no-patterns-found):not(.no-results-found)');
+    
+    let visibleCount = 0;
+    const totalCount = patternItems.length;
+    
+    console.log('Filtering patterns:', { searchTerm, totalCount }); // Debug log
+    
+    patternItems.forEach(item => {
+        // Get pattern name from dataset
+        const patternName = item.dataset.patternName || '';
+        
+        // Get pattern name and description from text content as backup
+        const nameElement = item.querySelector('.pattern-name');
+        const descriptionElement = item.querySelector('.pattern-description');
+        const nameText = nameElement ? nameElement.textContent.toLowerCase() : '';
+        const descriptionText = descriptionElement ? descriptionElement.textContent.toLowerCase() : '';
+        
+        // Search in name (from dataset or text) and description
+        const matches = searchTerm === '' || 
+                       patternName.includes(searchTerm) || 
+                       nameText.includes(searchTerm) || 
+                       descriptionText.includes(searchTerm);
+        
+        console.log('Pattern check:', { 
+            patternName, 
+            nameText, 
+            descriptionText, 
+            searchTerm, 
+            matches 
+        }); // Debug log
+        
+        if (matches) {
+            item.classList.remove('hidden');
+            item.style.display = 'flex'; // Ensure it's visible
+            visibleCount++;
+        } else {
+            item.classList.add('hidden');
+            item.style.display = 'none'; // Hide it
+        }
+    });
+    
+    console.log('Filter results:', { visibleCount, totalCount }); // Debug log
+    
+    // Update search results count
+    updateSearchResults(visibleCount, totalCount);
+    
+    // Show "no results" message if no patterns match
+    const patternList = document.getElementById('patternList');
+    const existingNoResults = patternList.querySelector('.no-results-found');
+    
+    if (visibleCount === 0 && searchTerm !== '' && totalCount > 0) {
+        if (!existingNoResults) {
+            const noResults = document.createElement('div');
+            noResults.className = 'no-results-found';
+            noResults.style.padding = '20px';
+            noResults.style.textAlign = 'center';
+            noResults.style.color = '#666';
+            noResults.style.fontStyle = 'italic';
+            noResults.textContent = `No se encontraron patrones que coincidan con "${searchInput.value}"`;
+            patternList.appendChild(noResults);
+        }
+    } else if (existingNoResults) {
+        existingNoResults.remove();
+    }
+}
+/**
+ * Setup pattern selector functionality
+ */
+function setupPatternSelector() {
+    // Pattern selector button
+    const changePatternBtn = document.getElementById('changePatternBtn');
+    if (changePatternBtn) {
+        changePatternBtn.addEventListener('click', openPatternModal);
+    }
+    
+    // Pattern modal elements
+    const patternModal = document.getElementById('patternModal');
+    const closePatternBtn = patternModal.querySelector('.close');
+    const cancelPatternBtn = document.getElementById('cancelPatternBtn');
+    const refreshPatternsBtn = document.getElementById('refreshPatternsBtn');
+    const patternSearchInput = document.getElementById('patternSearchInput');
+    
+    // Close modal events
+    if (closePatternBtn) {
+        closePatternBtn.addEventListener('click', closePatternModal);
+    }
+    
+    if (cancelPatternBtn) {
+        cancelPatternBtn.addEventListener('click', closePatternModal);
+    }
+    
+    // Refresh patterns list
+    if (refreshPatternsBtn) {
+        refreshPatternsBtn.addEventListener('click', loadAvailablePatterns);
+    }
+    
+    // Search functionality
+    if (patternSearchInput) {
+        patternSearchInput.addEventListener('input', filterPatterns);
+        patternSearchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                patternSearchInput.value = '';
+                filterPatterns();
+                patternSearchInput.blur();
+            }
+        });
+    }
+    
+    // When user clicks outside the modal, close it
+    window.addEventListener('click', function(event) {
+        if (event.target === patternModal) {
+            closePatternModal();
+        }
+    });
+    
+    // Load available patterns on startup
+    loadAvailablePatterns();
+}
+
+
+function renderPatternList() {
+    const patternList = document.getElementById('patternList');
+    if (!patternList) return;
+    
+    // Clear the list
+    patternList.innerHTML = '';
+    
+    // Add each pattern
+    if (availablePatterns && availablePatterns.length > 0) {
+        availablePatterns.forEach(pattern => {
+            const patternItem = document.createElement('div');
+            patternItem.className = 'pattern-item';
+            if (pattern.id === currentPatternId) {
+                patternItem.classList.add('selected');
+            }
+            
+            const patternInfo = document.createElement('div');
+            patternInfo.className = 'pattern-info';
+            
+            const patternName = document.createElement('div');
+            patternName.className = 'pattern-name';
+            patternName.textContent = pattern.name;
+            
+            const patternDescription = document.createElement('div');
+            patternDescription.className = 'pattern-description';
+            patternDescription.textContent = pattern.description || 'Sin descripción';
+            
+            patternInfo.appendChild(patternName);
+            patternInfo.appendChild(patternDescription);
+            
+            const applyButton = document.createElement('button');
+            applyButton.className = 'pattern-apply-btn';
+            applyButton.textContent = 'Aplicar';
+            applyButton.addEventListener('click', () => applyPattern(pattern));
+            
+            patternItem.appendChild(patternInfo);
+            patternItem.appendChild(applyButton);
+            
+            // Click on item also selects
+            patternItem.addEventListener('click', (event) => {
+                // Only handle clicks on the item itself, not on buttons
+                if (event.target === patternItem || event.target === patternInfo || 
+                    event.target === patternName || event.target === patternDescription) {
+                    selectPattern(pattern);
+                }
+            });
+            
+            patternList.appendChild(patternItem);
+        });
+    } else {
+        patternList.innerHTML = '<div class="pattern-item">No hay patrones disponibles</div>';
+    }
+}
+
+
+/**
+ * Format a number as currency in EUR format
+ * @param {number} value - The value to format
+ * @param {boolean} showSymbol - Whether to show the € symbol
+ * @return {string} Formatted currency string
+ */
+function formatCurrency(value, showSymbol = true) {
+    if (value === null || value === undefined || isNaN(value)) {
+        return showSymbol ? '0,00 €' : '0,00';
+    }
+    
+    // Convert to number if it's a string
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    
+    // Format with Spanish locale (dot for thousands, comma for decimals)
+    const formatted = numValue.toLocaleString('es-ES', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    
+    return showSymbol ? `${formatted} €` : formatted;
+}
+    /**
+     * Convert date from UI format to storage format (ddmmaaaa)
+     * @param {string} dateStr - Date in format YYYY-MM-DD
+     * @return {string} Date in format ddmmaaaa
+     */
+function formatDateForStorage(dateStr) {
+        if (!dateStr) return '';
+        
+        // Handle ISO format (YYYY-MM-DD)
+        if (dateStr.includes('-')) {
+            const [year, month, day] = dateStr.split('-');
+            return day + month + year;
+        }
+        
+        // Handle already formatted date (assume it's already correct)
+        if (dateStr.length === 8 && !dateStr.includes('/') && !dateStr.includes('-')) {
+            return dateStr;
+        }
+        
+        // Handle Spanish format (DD/MM/YYYY)
+        if (dateStr.includes('/')) {
+            const [day, month, year] = dateStr.split('/');
+            return day.padStart(2, '0') + month.padStart(2, '0') + year;
+        }
+        
+        // Return original if format is unknown
+        return dateStr;
+    }
+
+/**
+ * Convert date from storage format (ddmmaaaa) to UI format (YYYY-MM-DD)
+ * @param {string} dateStr - Date in format ddmmaaaa
+ * @return {string} Date in format YYYY-MM-DD for input[type="date"]
+ */
+function formatDateForDisplay(dateStr) {
+        if (!dateStr) return '';
+        
+        // Only process if it's in the expected format
+        if (dateStr.length === 8 && !dateStr.includes('/') && !dateStr.includes('-')) {
+            const day = dateStr.substring(0, 2);
+            const month = dateStr.substring(2, 4);
+            const year = dateStr.substring(4, 8);
+            return `${year}-${month}-${day}`;
+        }
+        
+        // If it already has separators, try to parse and standardize
+        if (dateStr.includes('/') || dateStr.includes('-')) {
+            const separator = dateStr.includes('/') ? '/' : '-';
+            const parts = dateStr.split(separator);
+            
+            // Guess format based on parts
+            let year, month, day;
+            if (parts[0].length === 4) {
+                // Assume YYYY-MM-DD
+                [year, month, day] = parts;
+            } else {
+                // Assume DD/MM/YYYY or MM/DD/YYYY (default to DD/MM/YYYY for European format)
+                [day, month, year] = parts;
+            }
+            
+            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+        
+        return dateStr;
+    }
+
+function logFormData(formElement) {
+        console.log('Form data being submitted:');
+        const dateValue = document.getElementById('fecha').value;
+        console.log('Raw date value:', dateValue);
+        console.log('Converted date value:', formatDateForStorage(dateValue));
+    }
+
+
+/**
+ * Initialize application when the DOM is fully loaded
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM content loaded, initializing...');
+    
+    // Ensure all DOM elements are available before setting up
+    setTimeout(() => {
+        // Initialize DOM element references
+        initializeDOMElements();
+        
+        // Setup event listeners
+        setupEventListeners();
+        
+        // Setup pattern functionality
+        setupPatternSelector();
+        
+        // Use the enhanced initialization that checks for existing tasks
+        enhancedInit();
+        
+        // Optionally add the delete tasks button
+        addDeleteTasksButton();
+    }, 100);
+});
