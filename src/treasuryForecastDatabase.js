@@ -194,36 +194,57 @@ class TreasuryDatabase {
       console.log('✅ Default treasury data inserted');
     }
 
-    async generateInitialPeriods() {
-      const configId = 1;
-      const currentDate = new Date();
-      
-      // First period represents "end of current month" as a forecast
-      const currentMonthEndDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0); // Last day of current month
-      const currentPeriodDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-01`;
-      const currentPeriodDisplay = this.formatPeriodDisplay(currentDate) + ' (End)';
+    // Replace the generateInitialPeriods method in treasuryForecastDatabase.js
+  async generateInitialPeriods() {
+    const configId = 1;
+    const currentDate = new Date();
+    
+    // First period represents "end of current month" as a forecast
+    const currentPeriodDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-01`;
+    const currentPeriodDisplay = this.formatPeriodDisplay(currentDate) + ' (End)';
+    
+    await this.run(`
+      INSERT OR IGNORE INTO treasury_periods 
+      (config_id, period_date, period_display, is_current, is_forecast)
+      VALUES (?, ?, ?, 0, 1)
+    `, [configId, currentPeriodDate, currentPeriodDisplay]);
+
+    // Generate 5 additional forecast periods
+    for (let i = 1; i <= 5; i++) {
+      const forecastDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
+      const forecastPeriodDate = `${forecastDate.getFullYear()}-${String(forecastDate.getMonth() + 1).padStart(2, '0')}-01`;
+      const forecastPeriodDisplay = this.formatPeriodDisplay(forecastDate);
       
       await this.run(`
         INSERT OR IGNORE INTO treasury_periods 
         (config_id, period_date, period_display, is_current, is_forecast)
         VALUES (?, ?, ?, 0, 1)
-      `, [configId, currentPeriodDate, currentPeriodDisplay]);
+      `, [configId, forecastPeriodDate, forecastPeriodDisplay]);
+    }
 
-      // Generate 5 additional forecast periods (next months)
-      for (let i = 1; i <= 4; i++) {
-        const forecastDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
-        const forecastPeriodDate = `${forecastDate.getFullYear()}-${String(forecastDate.getMonth() + 1).padStart(2, '0')}-01`;
-        const forecastPeriodDisplay = this.formatPeriodDisplay(forecastDate);
-        
-        await this.run(`
-          INSERT OR IGNORE INTO treasury_periods 
-          (config_id, period_date, period_display, is_current, is_forecast)
-          VALUES (?, ?, ?, 0, 1)
-        `, [configId, forecastPeriodDate, forecastPeriodDisplay]);
-      }
+    await this.insertSampleForecasts();
+  }
 
-      // Insert sample forecast data for demonstration
-      await this.insertSampleForecasts();
+// Add to treasuryForecastDatabase.js
+  async getStartingBalanceFromBankMovements() {
+    try {
+      // You'll need to pass the main database instance or create a connection
+      // This is a bridge method to get current balance from main database
+      const Database = require('./database.js');
+      const mainDB = new Database('./src/data/db/database.sqlite');
+      
+      const result = await mainDB.get(`
+        SELECT saldo as current_balance
+        FROM movimientos_bancarios 
+        ORDER BY normalized_date DESC, id DESC
+        LIMIT 1
+      `);
+      
+      return result ? result.current_balance || 0 : 0;
+    } catch (error) {
+      console.error('Error getting starting balance:', error);
+      return 0;
+    }
   }
 
   async insertSampleForecasts() {
@@ -459,24 +480,117 @@ class TreasuryDatabase {
     return 'negative';
   }
 
-  // Update forecast amount
-  async updateForecast(periodId, categoryType, categoryId, amount, notes = '') {
-    const table = categoryType === 'income' ? 'income_forecasts' : 'expense_forecasts';
     
-    return await this.run(`
-      INSERT OR REPLACE INTO ${table} 
-      (period_id, category_id, forecasted_amount, notes, updated_at)
-      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `, [periodId, categoryId, amount, notes]);
-  }
 
-  // Get categories
-  async getCategories() {
+// Add these methods to treasuryForecastDatabase.js
+
+// Get categories for the UI
+async getCategories() {
+  try {
     const income = await this.all('SELECT * FROM income_categories WHERE is_active = 1 ORDER BY sort_order');
     const expenses = await this.all('SELECT * FROM expense_categories WHERE is_active = 1 ORDER BY sort_order');
     
-    return { income, expenses };
+    return {
+      income: income,
+      expenses: expenses
+    };
+  } catch (error) {
+    console.error('Error getting categories:', error);
+    return { income: [], expenses: [] };
   }
+}
+
+// Update forecast amount
+async updateForecast(periodId, categoryType, categoryId, amount, notes = null) {
+  try {
+    const table = categoryType === 'income' ? 'income_forecasts' : 'expense_forecasts';
+    
+    await this.run(`
+      INSERT OR REPLACE INTO ${table}
+      (period_id, category_id, forecasted_amount, notes, updated_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `, [periodId, categoryId, amount, notes]);
+    
+    // Recalculate period totals
+    await this.recalculatePeriodTotals(periodId);
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating forecast:', error);
+    throw error;
+  }
+}
+
+// Calculate period totals
+async recalculatePeriodTotals(periodId) {
+  try {
+    // Get total income
+    const incomeResult = await this.get(`
+      SELECT COALESCE(SUM(forecasted_amount), 0) as total
+      FROM income_forecasts 
+      WHERE period_id = ?
+    `, [periodId]);
+    
+    // Get total expenses
+    const expenseResult = await this.get(`
+      SELECT COALESCE(SUM(forecasted_amount), 0) as total
+      FROM expense_forecasts 
+      WHERE period_id = ?
+    `, [periodId]);
+    
+    const totalIncome = incomeResult?.total || 0;
+    const totalExpenses = expenseResult?.total || 0;
+    const netFlow = totalIncome - totalExpenses;
+    
+    // Get previous period ending balance (or starting balance)
+    const previousBalance = await this.getPreviousPeriodBalance(periodId);
+    const endingBalance = previousBalance + netFlow;
+    
+    // Update period
+    await this.run(`
+      UPDATE treasury_periods 
+      SET starting_balance = ?, 
+          ending_balance = ?, 
+          net_flow = ?,
+          health_indicator = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [previousBalance, endingBalance, netFlow, this.calculateHealthIndicator(endingBalance, netFlow), periodId]);
+    
+  } catch (error) {
+    console.error('Error recalculating period totals:', error);
+    throw error;
+  }
+}
+
+// Get previous period balance
+async getPreviousPeriodBalance(periodId) {
+  try {
+    const currentPeriod = await this.get('SELECT period_date FROM treasury_periods WHERE id = ?', [periodId]);
+    if (!currentPeriod) return 0;
+    
+    const previousPeriod = await this.get(`
+      SELECT ending_balance FROM treasury_periods 
+      WHERE period_date < ? AND config_id = 1
+      ORDER BY period_date DESC 
+      LIMIT 1
+    `, [currentPeriod.period_date]);
+    
+    return previousPeriod?.ending_balance || await this.getStartingBalanceFromBankMovements();
+  } catch (error) {
+    console.error('Error getting previous period balance:', error);
+    return 0;
+  }
+}
+
+// Calculate health indicator
+calculateHealthIndicator(endingBalance, netFlow) {
+  if (endingBalance < 0) return 'critical';
+  if (endingBalance < 1000) return 'warning';
+  if (netFlow < -500) return 'negative';
+  if (netFlow > 500) return 'positive';
+  return 'neutral';
+}
 
   // Close database connection
   close() {

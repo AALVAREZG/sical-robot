@@ -1,16 +1,7 @@
-document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM Content Loaded");
-    loadCajas();
-    setupEventListeners();
-    initializeUI();
-
-    // Reload patterns when the page loads
-    window.electronAPI.reloadPatterns().then(() => {
-        console.log("Patterns reloaded for transaction matching");
-    }).catch(error => {
-        console.error("Error reloading patterns:", error);
-    });
-});
+/**
+ * Main renderer script for the Electron application
+ * Handles UI logic, data display, and user interactions
+ */
 
 // Global variables
 let currentRecords = [];
@@ -21,6 +12,37 @@ let currentCaja = '';
 let expandedRowId = null;
 let isActionMenuOpen = false;
 let actionMenuTarget = null;
+let currentTabFilter = 'all';
+
+// Accounting import variables
+let accountingFilePath = null;
+let listFilePath = null;
+
+/**
+ * Initialize the application when DOM is loaded
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOM Content Loaded");
+    loadCajas();
+    setupEventListeners();
+    initializeUI();
+    initializeTabNavigation();
+
+    // Reload patterns when the page loads
+    window.electronAPI.reloadPatterns().then(() => {
+        console.log("Patterns reloaded for transaction matching");
+    }).catch(error => {
+        console.error("Error reloading patterns:", error);
+    });
+
+    // Initialize Treasury Module if available
+    if (typeof initializeTreasuryModule === 'function') {
+        initializeTreasuryModule();
+    }
+
+    // Setup clear search button
+    setupClearSearchButton();
+});
 
 /**
  * Initialize UI elements
@@ -43,6 +65,12 @@ async function loadCajas() {
         const result = await window.electronAPI.getCajas();
         console.log("get-cajas result:", result);
         const cajasDiv = document.getElementById('cajas');
+        
+        if (!cajasDiv) {
+            console.error("Element 'cajas' not found");
+            return;
+        }
+        
         cajasDiv.innerHTML = ''; // Clear existing buttons
         
         result.data.forEach(caja => {
@@ -88,7 +116,7 @@ async function loadRecordsForCaja(caja) {
         showLoading(true);
         currentCaja = caja;
         
-        // Update UI to show currently selected caja (WITH SAFETY CHECKS)
+        // Update UI to show currently selected caja (with safety checks)
         const currentCajaTitleEl = document.getElementById('currentCajaTitle');
         if (currentCajaTitleEl) {
             currentCajaTitleEl.textContent = caja;
@@ -108,6 +136,7 @@ async function loadRecordsForCaja(caja) {
         
         // Update the status bar
         updateStatusBar(currentRecords.length, filteredRecords.length, caja);
+        updateTabCounters();
     } catch (error) {
         console.error("Error loading records:", error);
         showLoading(false);
@@ -115,42 +144,403 @@ async function loadRecordsForCaja(caja) {
     }
 }
 
+/**
+ * Set up event listeners
+ */
+function setupEventListeners() {
+    // Setup main tab navigation
+    const mainTabItems = document.querySelectorAll('.tab-navigation .tab-item');
+    mainTabItems.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            const tabId = e.target.getAttribute('data-tab');
+            switchToTab(tabId);
+        });
+    });
+    
+    // Setup search input
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(() => {
+            applyFilters();
+        }, 300));
+    }
+    
+    // Setup filter field selection
+    const filterField = document.getElementById('filterField');
+    if (filterField) {
+        filterField.addEventListener('change', () => {
+            applyFilters();
+        });
+    }
+    
+    // Handle file selection
+    const selectFileButton = document.getElementById('selectFile');
+    if (selectFileButton) {
+        selectFileButton.addEventListener('click', selectFile);
+    }
+    
+    // Setup clear filters
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', () => {
+            const searchInput = document.getElementById('searchInput');
+            const filterField = document.getElementById('filterField');
+            if (searchInput) searchInput.value = '';
+            if (filterField) filterField.value = 'all';
+            applyFilters();
+        });
+    }
+    
+    // Close action menu when clicking elsewhere
+    document.addEventListener('click', (e) => {
+        if (isActionMenuOpen && e.target !== actionMenuTarget) {
+            closeActionMenu();
+        }
+    });
+    
+    // Add keyboard shortcut for search (Ctrl+F)
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.focus();
+            }
+        }
+    });
+    
+    // Register for import events
+    if (window.electronAPI && window.electronAPI.onRecordsImported) {
+        window.electronAPI.onRecordsImported((caja) => {
+            loadRecordsForCaja(caja);
+        });
+    }
+
+    // Pattern manager button
+    const patternManagerBtn = document.getElementById('patternManagerBtn');
+    if (patternManagerBtn) {
+        patternManagerBtn.addEventListener('click', openPatternManager);
+    }
+
+    // Accounting import handling
+    const selectAccountingFileBtn = document.getElementById('selectAccountingFile');
+    if (selectAccountingFileBtn) {
+        selectAccountingFileBtn.addEventListener('click', toggleAccountingImportPanel);
+    }
+    
+    const bankAccountSelect = document.getElementById('bankAccountSelect');
+    if (bankAccountSelect) {
+        bankAccountSelect.addEventListener('change', handleAccountSelection);
+    }
+    
+    const selectAccountingFileBtnInner = document.getElementById('selectAccountingFileBtn');
+    if (selectAccountingFileBtnInner) {
+        selectAccountingFileBtnInner.addEventListener('click', selectAccountingFile);
+    }
+    
+    const selectListFileBtn = document.getElementById('selectListFileBtn');
+    if (selectListFileBtn) {
+        selectListFileBtn.addEventListener('click', selectListFile);
+    }
+    
+    const processAccountingFileBtn = document.getElementById('processAccountingFileBtn');
+    if (processAccountingFileBtn) {
+        processAccountingFileBtn.addEventListener('click', processAccountingFile);
+    }
+    
+    const cancelAccountingImportBtn = document.getElementById('cancelAccountingImportBtn');
+    if (cancelAccountingImportBtn) {
+        cancelAccountingImportBtn.addEventListener('click', toggleAccountingImportPanel);
+    }
+
+    // Import accounting button
+    const importAccountingBtn = document.getElementById('importAccountingBtn');
+    if (importAccountingBtn) {
+        importAccountingBtn.addEventListener('click', () => {
+            window.electronAPI.openAccountingImport();
+        });
+    }
+}
 
 /**
- * Modified applyFilters function to work with tab filtering
- * Replace your existing applyFilters function with this one
+ * Switch between main application tabs
+ */
+function switchToTab(tabId) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-navigation .tab-item').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.getAttribute('data-tab') === tabId) {
+            tab.classList.add('active');
+        }
+    });
+
+    // Update tab content visibility
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+        content.style.display = 'none';
+    });
+
+    const activeContent = document.getElementById(tabId + '-content');
+    if (activeContent) {
+        activeContent.classList.add('active');
+        activeContent.style.display = 'block';
+    }
+
+    // Handle specific tab initialization
+    if (tabId === 'treasury') {
+        // Initialize treasury forecast if needed
+        if (typeof initializeTreasuryForecast === 'function') {
+            initializeTreasuryForecast();
+        }
+    }
+}
+
+/**
+ * Initialize tab navigation functionality
+ */
+function initializeTabNavigation() {
+    const tabItems = document.querySelectorAll('.movement-tabs .tab-item');
+    
+    tabItems.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            handleTabClick(e.target);
+        });
+    });
+}
+
+/**
+ * Handle tab click events
+ */
+function handleTabClick(clickedTab) {
+    // Remove active class from all tabs
+    document.querySelectorAll('.movement-tabs .tab-item').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Add active class to clicked tab
+    clickedTab.classList.add('active');
+    
+    // Get filter type from data attribute
+    currentTabFilter = clickedTab.dataset.filter || 'all';
+    console.log(`Tab clicked: ${clickedTab.textContent.trim()}, Filter: ${currentTabFilter}`);
+    
+    // Apply the new filter
+    applyFilters();
+}
+
+/**
+ * Set up pagination controls
+ */
+function setupPagination(totalRecords) {
+    const totalPages = Math.ceil(totalRecords / pageSize) || 1;
+    const paginationControls = document.getElementById('paginationControls');
+    
+    if (!paginationControls) return;
+    
+    paginationControls.innerHTML = '';
+    
+    // Previous button
+    const prevButton = document.createElement('button');
+    prevButton.textContent = '←';
+    prevButton.className = 'page-btn';
+    prevButton.disabled = currentPage === 1;
+    prevButton.addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            displayCurrentPage();
+            setupPagination(totalRecords);
+        }
+    });
+    paginationControls.appendChild(prevButton);
+    
+    // Page number buttons (show max 5 pages)
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(startPage + 4, totalPages);
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const pageButton = document.createElement('button');
+        pageButton.textContent = i;
+        pageButton.className = 'page-btn';
+        if (i === currentPage) {
+            pageButton.classList.add('active');
+        }
+        
+        pageButton.addEventListener('click', () => {
+            currentPage = i;
+            displayCurrentPage();
+            setupPagination(totalRecords);
+        });
+        
+        paginationControls.appendChild(pageButton);
+    }
+    
+    // Next button
+    const nextButton = document.createElement('button');
+    nextButton.textContent = '→';
+    nextButton.className = 'page-btn';
+    nextButton.disabled = currentPage === totalPages;
+    nextButton.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+            currentPage++;
+            displayCurrentPage();
+            setupPagination(totalRecords);
+        }
+    });
+    paginationControls.appendChild(nextButton);
+}
+
+/**
+ * Setup table sorting
+ */
+function setupTableSorting() {
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+        th.style.cursor = 'pointer';
+        th.addEventListener('click', () => {
+            const column = th.getAttribute('data-sort');
+            sortRecords(column, th);
+        });
+    });
+}
+
+/**
+ * Sort records by column
+ */
+function sortRecords(column, thElement) {
+    // Get current sort direction
+    const currentDir = thElement.getAttribute('data-direction') || 'asc';
+    const newDir = currentDir === 'asc' ? 'desc' : 'asc';
+    
+    // Reset all columns
+    document.querySelectorAll('th[data-sort]').forEach(header => {
+        header.removeAttribute('data-direction');
+        header.textContent = header.textContent.replace(' ↑', '').replace(' ↓', '');
+    });
+    
+    // Set the new direction
+    thElement.setAttribute('data-direction', newDir);
+    thElement.textContent += newDir === 'asc' ? ' ↑' : ' ↓';
+    
+    // Sort the records
+    filteredRecords.sort((a, b) => {
+        let valA = a[column];
+        let valB = b[column];
+        
+        // Handle different data types
+        if (typeof valA === 'string') {
+            valA = valA.toLowerCase();
+            valB = valB.toLowerCase();
+        }
+        
+        if (valA < valB) return newDir === 'asc' ? -1 : 1;
+        if (valA > valB) return newDir === 'asc' ? 1 : -1;
+        return 0;
+    });
+    
+    // Refresh the display
+    displayCurrentPage();
+}
+
+/**
+ * Setup search functionality
+ */
+function setupSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const filterField = document.getElementById('filterField');
+    
+    // Add keyboard shortcut (Ctrl+F)
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            if (searchInput) {
+                searchInput.focus();
+            }
+        }
+    });
+}
+
+/**
+ * Setup clear search button functionality
+ */
+function setupClearSearchButton() {
+    const searchInput = document.getElementById('searchInput');
+    const clearSearch = document.getElementById('clearSearch');
+    
+    if (clearSearch && searchInput) {
+        clearSearch.addEventListener('click', () => {
+            searchInput.value = '';
+            searchInput.focus();
+            // Trigger search event to refresh results
+            searchInput.dispatchEvent(new Event('input'));
+        });
+    }
+}
+
+/**
+ * Apply filters (combines tab and search filtering)
  */
 function applyFilters() {
-    // First apply tab filter, then search filter
+    // First apply tab filter
     applyTabFilter();
 }
 
 /**
- * Apply search filters to the current records
+ * Apply tab filter
  */
-function applyFilters_old() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const filterField = document.getElementById('filterField').value;
+function applyTabFilter() {
+    let tabFilteredRecords;
     
-    filteredRecords = currentRecords.filter(record => {
-        if (!searchTerm) return true; // No search term, show all
-        
-        if (filterField === 'all') {
-            // Search in all text fields
+    switch(currentTabFilter) {
+        case 'contabilized':
+            tabFilteredRecords = currentRecords.filter(record => 
+                record.is_contabilized === 1 || record.is_contabilized === true
+            );
+            break;
+        case 'not_contabilized':
+            tabFilteredRecords = currentRecords.filter(record => 
+                record.is_contabilized === 0 || record.is_contabilized === false || !record.is_contabilized
+            );
+            break;
+        case 'all':
+        default:
+            tabFilteredRecords = currentRecords;
+            break;
+    }
+    
+    // Apply search filter to tab-filtered records
+    filteredRecords = applySearchFilter(tabFilteredRecords);
+    
+    // Update pagination and display
+    setupPagination(filteredRecords.length);
+    displayCurrentPage();
+    updateStatusBar(currentRecords.length, filteredRecords.length, currentCaja);
+    updateTabCounters();
+}
+
+/**
+ * Apply search filter to records
+ */
+function applySearchFilter(records) {
+    const searchInput = document.getElementById('searchInput');
+    const filterField = document.getElementById('filterField');
+    
+    const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+    const filterFieldValue = filterField ? filterField.value : 'all';
+    
+    if (!searchTerm) return records;
+    
+    return records.filter(record => {
+        if (filterFieldValue === 'all') {
             return Object.entries(record).some(([key, value]) => {
-                // Only search in string fields and exclude id fields
                 if (typeof value === 'string' && !key.includes('id')) {
                     return value.toLowerCase().includes(searchTerm);
                 }
-                // Also search in numeric fields converted to string
                 if (typeof value === 'number') {
                     return value.toString().includes(searchTerm);
                 }
                 return false;
             });
         } else {
-            // Search in specific field
-            const value = record[filterField];
+            const value = record[filterFieldValue];
             if (typeof value === 'string') {
                 return value.toLowerCase().includes(searchTerm);
             } else if (typeof value === 'number') {
@@ -159,15 +549,32 @@ function applyFilters_old() {
             return false;
         }
     });
+}
+
+/**
+ * Update tab counters with current record counts
+ */
+function updateTabCounters() {
+    if (!currentRecords) return;
     
-    // Update pagination
-    setupPagination(filteredRecords.length);
+    const contabilizedCount = currentRecords.filter(record => 
+        record.is_contabilized === 1 || record.is_contabilized === true
+    ).length;
     
-    // Display the current page
-    displayCurrentPage();
+    const notContabilizedCount = currentRecords.filter(record => 
+        record.is_contabilized === 0 || record.is_contabilized === false || !record.is_contabilized
+    ).length;
     
-    // Update status bar
-    updateStatusBar(currentRecords.length, filteredRecords.length, currentCaja);
+    const totalCount = currentRecords.length;
+    
+    // Update tab counters in the UI
+    const allTab = document.querySelector('.tab-item[data-filter="all"] .tab-counter');
+    const contabilizedTab = document.querySelector('.tab-item[data-filter="contabilized"] .tab-counter');
+    const notContabilizedTab = document.querySelector('.tab-item[data-filter="not_contabilized"] .tab-counter');
+    
+    if (allTab) allTab.textContent = totalCount;
+    if (contabilizedTab) contabilizedTab.textContent = contabilizedCount;
+    if (notContabilizedTab) notContabilizedTab.textContent = notContabilizedCount;
 }
 
 /**
@@ -181,9 +588,13 @@ function displayCurrentPage() {
     displayRecords(recordsToDisplay);
     
     // Update pagination info
-    document.getElementById('pageStart').textContent = start + 1;
-    document.getElementById('pageEnd').textContent = end;
-    document.getElementById('totalRecords').textContent = filteredRecords.length;
+    const pageStartEl = document.getElementById('pageStart');
+    const pageEndEl = document.getElementById('pageEnd');
+    const totalRecordsEl = document.getElementById('totalRecords');
+    
+    if (pageStartEl) pageStartEl.textContent = start + 1;
+    if (pageEndEl) pageEndEl.textContent = end;
+    if (totalRecordsEl) totalRecordsEl.textContent = filteredRecords.length;
 }
 
 /**
@@ -191,6 +602,8 @@ function displayCurrentPage() {
  */
 function displayRecords(records) {
     const tbody = document.querySelector('#records tbody');
+    if (!tbody) return;
+    
     tbody.innerHTML = '';
     
     records.forEach(record => {
@@ -211,9 +624,6 @@ function displayRecords(records) {
 function createRecordRow(record) {
     const tr = document.createElement('tr');
     tr.dataset.id = record.id;
-    
-    // Format date
-    const formattedDate = formatDate(record.fecha);
     
     // Format currency
     const formattedImporte = formatCurrency(record.importe);
@@ -292,46 +702,45 @@ function createExpandedDetailsRow(record) {
         <button class="btn-secondary" onclick="toggleContabilizado('${record.id}', '${record.caja}', ${!record.is_contabilized})">
             ${record.is_contabilized ? 'Desmarcar Cont.' : 'Marcar Cont.'}
         </button>
-        <button class="btn-secondary">Editar</button>
-        <button class="btn-danger">Eliminar</button>
     `;
     
-    // Details grid
+    // Details information
     const detailsDiv = document.createElement('div');
     detailsDiv.className = 'expanded-details';
     
-    // Left column
     const leftCol = document.createElement('div');
+    leftCol.className = 'details-column';
     leftCol.innerHTML = `
-        <div>
-            <div class="detail-label">Fecha Normalizada:</div>
-            <div class="detail-value code-value">${record.normalized_date || 'N/A'}</div>
+        <div class="detail-item">
+            <span class="detail-label">ID:</span>
+            <span class="detail-value">${record.id}</span>
         </div>
-        <div>
-            <div class="detail-label">Fecha Inserción:</div>
-            <div class="detail-value code-value">${record.insertion_date || 'N/A'}</div>
+        <div class="detail-item">
+            <span class="detail-label">Entidad:</span>
+            <span class="detail-value">${extractEntity(record.concepto)}</span>
         </div>
-        <div>
-            <div class="detail-label">ID Apunte:</div>
-            <div class="detail-value code-value">${record.id_apunte_banco || 'N/A'}</div>
+        <div class="detail-item">
+            <span class="detail-label">Referencia:</span>
+            <span class="detail-value">${extractReference(record.concepto)}</span>
         </div>
     `;
     
-    // Right column
     const rightCol = document.createElement('div');
+    rightCol.className = 'details-column';
     rightCol.innerHTML = `
-        <div>
-            <div class="detail-label">Entidad:</div>
-            <div class="detail-value">${extractEntity(record.concepto) || 'N/A'}</div>
+        <div class="detail-item">
+            <span class="detail-label">Caja:</span>
+            <span class="detail-value">${record.caja}</span>
         </div>
-        <div>
-            <div class="detail-label">Referencia:</div>
-            <div class="detail-value code-value">${extractReference(record.concepto) || 'N/A'}</div>
+        <div class="detail-item">
+            <span class="detail-label">Fecha Valor:</span>
+            <span class="detail-value">${record.fecha_valor || 'N/A'}</span>
         </div>
-        <div>
-            <div class="detail-label">Estado:</div>
+        <div class="detail-item">
+            <span class="detail-label">Estado:</span>
             <div class="detail-value">
-                <span class="status-badge ${record.is_contabilized ? 'status-badge-success' : 'status-badge-danger'}">
+                <span class="status-badge ${record.is_contabilized ? 
+                    'status-badge-success' : 'status-badge-danger'}">
                     ${record.is_contabilized ? 'Contabilizado' : 'No Cont.'}
                 </span>
             </div>
@@ -429,6 +838,7 @@ function closeActionMenu() {
     }
     
     isActionMenuOpen = false;
+    actionMenuTarget = null;
     document.removeEventListener('click', closeActionMenuOnOutsideClick);
 }
 
@@ -440,360 +850,6 @@ function closeActionMenuOnOutsideClick(event) {
     if (menu && !menu.contains(event.target) && event.target !== actionMenuTarget) {
         closeActionMenu();
     }
-}
-
-/**
- * Extract entity name from concept text
- */
-function extractEntity(concept) {
-    // This is a simplified example - customize based on your data pattern
-    const parts = concept.split('|');
-    if (parts.length > 1) {
-        return parts[1].trim();
-    }
-    
-    return '';
-}
-
-/**
- * Extract reference number from concept text
- */
-function extractReference(concept) {
-    // This is a simplified example - customize based on your data pattern
-    // Look for patterns like "REF: 123456" or similar
-    const refMatch = concept.match(/REF[:\s]+([A-Z0-9]+)/i);
-    if (refMatch && refMatch[1]) {
-        return refMatch[1];
-    }
-    
-    // Fallback to a generated reference based on date if available
-    if (concept.includes('TRF') || concept.includes('TRANSF')) {
-        const dateMatch = concept.match(/\d{2}\/\d{2}\/\d{4}/);
-        if (dateMatch) {
-            return `TRF/${dateMatch[0].replace(/\//g, '')}`;
-        }
-    }
-    
-    return '';
-}
-
-/**
- * Set up pagination controls
- */
-function setupPagination(totalRecords) {
-    const totalPages = Math.ceil(totalRecords / pageSize) || 1;
-    const paginationControls = document.getElementById('paginationControls');
-    paginationControls.innerHTML = '';
-    
-    // Previous button
-    const prevButton = document.createElement('button');
-    prevButton.textContent = '←';
-    prevButton.className = 'page-btn';
-    prevButton.disabled = currentPage === 1;
-    prevButton.addEventListener('click', () => {
-        if (currentPage > 1) {
-            currentPage--;
-            displayCurrentPage();
-            setupPagination(totalRecords);
-        }
-    });
-    paginationControls.appendChild(prevButton);
-    
-    // Page number buttons (show max 5 pages)
-    const startPage = Math.max(1, currentPage - 2);
-    const endPage = Math.min(startPage + 4, totalPages);
-    
-    for (let i = startPage; i <= endPage; i++) {
-        const pageButton = document.createElement('button');
-        pageButton.textContent = i;
-        pageButton.className = 'page-btn';
-        if (i === currentPage) {
-            pageButton.classList.add('active');
-        }
-        
-        pageButton.addEventListener('click', () => {
-            currentPage = i;
-            displayCurrentPage();
-            setupPagination(totalRecords);
-        });
-        
-        paginationControls.appendChild(pageButton);
-    }
-    
-    // Next button
-    const nextButton = document.createElement('button');
-    nextButton.textContent = '→';
-    nextButton.className = 'page-btn';
-    nextButton.disabled = currentPage === totalPages;
-    nextButton.addEventListener('click', () => {
-        if (currentPage < totalPages) {
-            currentPage++;
-            displayCurrentPage();
-            setupPagination(totalRecords);
-        }
-    });
-    paginationControls.appendChild(nextButton);
-}
-
-/**
- * Set up event listeners
- */
-function setupEventListeners() {
-    // Setup main tab navigation
-    const mainTabItems = document.querySelectorAll('.tab-navigation .tab-item');
-    mainTabItems.forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            const tabId = e.target.getAttribute('data-tab');
-            switchToTab(tabId);
-        });
-    });
-    
-    // Setup search input
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', debounce(() => {
-            applyFilters();
-        }, 300));
-    }
-    
-    // Setup filter field selection
-    const filterField = document.getElementById('filterField');
-    if (filterField) {
-        filterField.addEventListener('change', () => {
-            applyFilters();
-        });
-    }
-    
-    // Handle file selection
-    const selectFileButton = document.getElementById('selectFile');
-    if (selectFileButton) {
-        selectFileButton.addEventListener('click', selectFile);
-    }
-    
-    // Setup clear filters
-    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
-    if (clearFiltersBtn) {
-        clearFiltersBtn.addEventListener('click', () => {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('filterField').value = 'all';
-            applyFilters();
-        });
-    }
-    
-    // Close action menu when clicking elsewhere
-    document.addEventListener('click', (e) => {
-        if (isActionMenuOpen && e.target !== actionMenuTarget) {
-            closeActionMenu();
-        }
-    });
-    
-    // Add keyboard shortcut for search (Ctrl+F)
-    document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.key === 'f') {
-            e.preventDefault();
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) {
-                searchInput.focus();
-            }
-        }
-    });
-    
-    // Register for import events
-    window.electronAPI.onRecordsImported((caja) => {
-        loadRecords(caja);
-    });
-}
-
-/**
- * Switch between main application tabs
- */
-function switchToTab(tabId) {
-    // Update tab buttons
-    document.querySelectorAll('.tab-navigation .tab-item').forEach(tab => {
-        tab.classList.remove('active');
-        if (tab.getAttribute('data-tab') === tabId) {
-            tab.classList.add('active');
-        }
-    });
-
-    // Update tab content visibility
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-        content.style.display = 'none';
-    });
-
-    const activeContent = document.getElementById(tabId + '-content');
-    if (activeContent) {
-        activeContent.classList.add('active');
-        activeContent.style.display = 'block';
-    }
-
-    // Handle specific tab initialization
-    if (tabId === 'treasury') {
-        // Initialize treasury forecast if needed
-        if (typeof initializeTreasuryForecast === 'function') {
-            initializeTreasuryForecast();
-        }
-    }
-}
-
-/**
- * Set up event listeners
- */
-function setupEventListeners_old() {
-    // Setup search input
-    const searchInput = document.getElementById('searchInput');
-    searchInput.addEventListener('input', debounce(() => {
-        applyFilters();
-    }, 300));
-    
-    // Setup filter field selection
-    const filterField = document.getElementById('filterField');
-    filterField.addEventListener('change', () => {
-        applyFilters();
-    });
-    
-    // Handle file selection
-    const selectFileButton = document.getElementById('selectFile');
-    selectFileButton.addEventListener('click', selectFile);
-    
-    // Setup clear filters
-    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
-    if (clearFiltersBtn) {
-        clearFiltersBtn.addEventListener('click', () => {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('filterField').value = 'all';
-            applyFilters();
-        });
-    }
-    
-    // Close action menu when clicking elsewhere
-    document.addEventListener('click', (e) => {
-        if (isActionMenuOpen && e.target !== actionMenuTarget) {
-            closeActionMenu();
-        }
-    });
-    
-    // Add keyboard shortcut for search (Ctrl+F)
-    document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.key === 'f') {
-            e.preventDefault();
-            searchInput.focus();
-        }
-    });
-    
-    // Register for import events
-    window.electronAPI.onRecordsImported((caja) => {
-        loadRecordsForCaja(caja);
-    });
-
-    // Accounting import handling
-    const selectAccountingFileBtn = document.getElementById('selectAccountingFile');
-    if (selectAccountingFileBtn) {
-        selectAccountingFileBtn.addEventListener('click', toggleAccountingImportPanel);
-    }
-    
-    const bankAccountSelect = document.getElementById('bankAccountSelect');
-    if (bankAccountSelect) {
-        bankAccountSelect.addEventListener('change', handleAccountSelection);
-    }
-    
-    const selectAccountingFileBtnInner = document.getElementById('selectAccountingFileBtn');
-    if (selectAccountingFileBtnInner) {
-        selectAccountingFileBtnInner.addEventListener('click', selectAccountingFile);
-    }
-    
-    const selectListFileBtn = document.getElementById('selectListFileBtn');
-    if (selectListFileBtn) {
-        selectListFileBtn.addEventListener('click', selectListFile);
-    }
-    
-    const processAccountingFileBtn = document.getElementById('processAccountingFileBtn');
-    if (processAccountingFileBtn) {
-        processAccountingFileBtn.addEventListener('click', processAccountingFile);
-    }
-    
-    const cancelAccountingImportBtn = document.getElementById('cancelAccountingImportBtn');
-    if (cancelAccountingImportBtn) {
-        cancelAccountingImportBtn.addEventListener('click', toggleAccountingImportPanel);
-    }
-}
-
-/**
- * Setup table sorting
- */
-function setupTableSorting() {
-    document.querySelectorAll('th[data-sort]').forEach(th => {
-        th.style.cursor = 'pointer';
-        th.addEventListener('click', () => {
-            const column = th.getAttribute('data-sort');
-            sortRecords(column);
-        });
-    });
-}
-
-/**
- * Sort records by column
- */
-function sortRecords(column) {
-    // Get current sort direction
-    const currentDir = th.getAttribute('data-direction') || 'asc';
-    const newDir = currentDir === 'asc' ? 'desc' : 'asc';
-    
-    // Reset all columns
-    document.querySelectorAll('th[data-sort]').forEach(header => {
-        header.removeAttribute('data-direction');
-        header.textContent = header.textContent.replace(' ↑', '').replace(' ↓', '');
-    });
-    
-    // Set the new direction
-    th.setAttribute('data-direction', newDir);
-    th.textContent += newDir === 'asc' ? ' ↑' : ' ↓';
-    
-    // Sort the records
-    filteredRecords.sort((a, b) => {
-        let valA = a[column];
-        let valB = b[column];
-        
-        // Handle different data types
-        if (typeof valA === 'string') {
-            valA = valA.toLowerCase();
-            valB = valB.toLowerCase();
-        }
-        
-        if (valA < valB) return newDir === 'asc' ? -1 : 1;
-        if (valA > valB) return newDir === 'asc' ? 1 : -1;
-        return 0;
-    });
-    
-    // Refresh the display
-    displayCurrentPage();
-}
-
-/**
- * Setup search functionality
- */
-function setupSearch() {
-    const searchInput = document.getElementById('searchInput');
-    const filterField = document.getElementById('filterField');
-    
-    // Add keyboard shortcut (Ctrl+F)
-    document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.key === 'f') {
-            e.preventDefault();
-            searchInput.focus();
-        }
-    });
-}
-// Add this to your setupEventListeners function in renderer.js
-const patternManagerBtn = document.getElementById('patternManagerBtn');
-if (patternManagerBtn) {
-    patternManagerBtn.addEventListener('click', openPatternManager);
-}
-
-// Add this function to renderer.js
-function openPatternManager() {
-    window.location.href = 'patternManager.html';
 }
 
 /**
@@ -906,6 +962,41 @@ function parseDate(dateStr) {
 }
 
 /**
+ * Extract entity name from concept text
+ */
+function extractEntity(concept) {
+    // This is a simplified example - customize based on your data pattern
+    const parts = concept.split('|');
+    if (parts.length > 1) {
+        return parts[1].trim();
+    }
+    
+    return '';
+}
+
+/**
+ * Extract reference number from concept text
+ */
+function extractReference(concept) {
+    // This is a simplified example - customize based on your data pattern
+    // Look for patterns like "REF: 123456" or similar
+    const refMatch = concept.match(/REF[:\s]+([A-Z0-9]+)/i);
+    if (refMatch && refMatch[1]) {
+        return refMatch[1];
+    }
+    
+    // Fallback to a generated reference based on date if available
+    if (concept.includes('TRF') || concept.includes('TRANSF')) {
+        const dateMatch = concept.match(/\d{2}\/\d{2}\/\d{4}/);
+        if (dateMatch) {
+            return `TRF/${dateMatch[0].replace(/\//g, '')}`;
+        }
+    }
+    
+    return '';
+}
+
+/**
  * Toggle contabilizado status
  */
 async function toggleContabilizado(id, caja, newState) {
@@ -966,6 +1057,7 @@ async function openContableTaskDialog(id, caja, newState) {
 function showLoading(isLoading) {
     // Update status bar loading indicator
     const statusBar = document.querySelector('.status-bar');
+    if (!statusBar) return;
     
     if (isLoading) {
         statusBar.innerHTML += '<div class="status-item loading-indicator">⌛ Loading...</div>';
@@ -983,10 +1075,15 @@ function showLoading(isLoading) {
  * Update status bar information
  */
 function updateStatusBar(total, filtered, cajaName, timestamp = null) {
-    document.getElementById('statusTotal').textContent = total;
-    document.getElementById('statusFiltered').textContent = filtered;
-    document.getElementById('statusCaja').textContent = cajaName || 'None';
-    document.getElementById('statusTime').textContent = timestamp || new Date().toLocaleTimeString('es-ES');
+    const totalEl = document.getElementById('statusTotal');
+    const filteredEl = document.getElementById('statusFiltered');
+    const cajaEl = document.getElementById('statusCaja');
+    const timeEl = document.getElementById('statusTime');
+    
+    if (totalEl) totalEl.textContent = total;
+    if (filteredEl) filteredEl.textContent = filtered;
+    if (cajaEl) cajaEl.textContent = cajaName || 'None';
+    if (timeEl) timeEl.textContent = timestamp || new Date().toLocaleTimeString('es-ES');
 }
 
 /**
@@ -1021,68 +1118,44 @@ function debounce(func, wait) {
     };
 }
 
-/* Add a small JavaScript snippet to handle the clear button */
-/* Add this to your renderer.js file */
-document.addEventListener('DOMContentLoaded', () => {
-    const srchInput = document.getElementById('searchInput');
-    const clearSearch = document.getElementById('clearSearch');
-    
-    if (clearSearch) {
-        clearSearch.addEventListener('click', () => {
-            searchInput.value = '';
-            searchInput.focus();
-            // Trigger search event to refresh results
-            searchInput.dispatchEvent(new Event('input'));
-        });
-    }
-    // Initialize Treasury Module
-    if (typeof initializeTreasuryModule === 'function') {
-        initializeTreasuryModule();
-    }
-});
-
-const importAccountingBtn = document.getElementById('importAccountingBtn');
-if (importAccountingBtn) {
-  importAccountingBtn.addEventListener('click', () => {
-    window.electronAPI.openAccountingImport();
-  });
+/**
+ * Open pattern manager
+ */
+function openPatternManager() {
+    window.location.href = 'patternManager.html';
 }
 
+// =====================================================
+// ACCOUNTING IMPORT FUNCTIONS
+// =====================================================
 
-document.getElementById('bankAccountSelect').addEventListener('change', function() {
-    const accountNumber = this.value;
-    const account207Options = document.getElementById('account207Options');
-    
-    // Show additional options for account 207
-    if (accountNumber === '207') {
-        account207Options.style.display = 'block';
-    } else {
-        account207Options.style.display = 'none';
-    }
-});
-
-
-// Add these functions to renderer.js
-let accountingFilePath = null;
-let listFilePath = null;
-
+/**
+ * Toggle accounting import panel
+ */
 function toggleAccountingImportPanel() {
     const panel = document.getElementById('accountingImportPanel');
     if (panel) {
-        if (panel.style.display === 'none') {
+        if (panel.style.display === 'none' || panel.style.display === '') {
             panel.style.display = 'block';
         } else {
             panel.style.display = 'none';
             // Reset state
             accountingFilePath = null;
             listFilePath = null;
-            document.getElementById('accountingFilePath').textContent = 'No file selected';
-            document.getElementById('selectedListFile').textContent = 'No file selected';
-            document.getElementById('processAccountingFileBtn').disabled = true;
+            const accountingFilePathEl = document.getElementById('accountingFilePath');
+            const selectedListFileEl = document.getElementById('selectedListFile');
+            const processAccountingFileBtnEl = document.getElementById('processAccountingFileBtn');
+            
+            if (accountingFilePathEl) accountingFilePathEl.textContent = 'No file selected';
+            if (selectedListFileEl) selectedListFileEl.textContent = 'No file selected';
+            if (processAccountingFileBtnEl) processAccountingFileBtnEl.disabled = true;
         }
     }
 }
 
+/**
+ * Handle account selection for import
+ */
 function handleAccountSelection() {
     const bankAccountSelect = document.getElementById('bankAccountSelect');
     const account207Options = document.getElementById('account207Options');
@@ -1092,16 +1165,20 @@ function handleAccountSelection() {
     } else {
         if (account207Options) account207Options.style.display = 'none';
     }
-    
-    updateProcessButtonState();
 }
 
+/**
+ * Select accounting file
+ */
 async function selectAccountingFile() {
     try {
-        const filePath = await window.electronAPI.selectAccountingFile();
+        const filePath = await window.electronAPI.selectFile();
         if (filePath) {
             accountingFilePath = filePath;
-            document.getElementById('accountingFilePath').textContent = filePath;
+            const accountingFilePathEl = document.getElementById('accountingFilePath');
+            if (accountingFilePathEl) {
+                accountingFilePathEl.textContent = filePath.split('/').pop() || filePath.split('\\').pop();
+            }
             updateProcessButtonState();
         }
     } catch (error) {
@@ -1110,20 +1187,18 @@ async function selectAccountingFile() {
     }
 }
 
+/**
+ * Select list file
+ */
 async function selectListFile() {
     try {
-        const filePath = await dialog.showOpenDialog({
-            properties: ['openFile'],
-            filters: [
-                { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
-                { name: 'All Files', extensions: ['*'] }
-            ],
-            title: 'Select List File'
-        });
-        
-        if (!filePath.canceled) {
-            listFilePath = filePath.filePaths[0];
-            document.getElementById('selectedListFile').textContent = listFilePath;
+        const filePath = await window.electronAPI.selectFile();
+        if (filePath) {
+            listFilePath = filePath;
+            const selectedListFileEl = document.getElementById('selectedListFile');
+            if (selectedListFileEl) {
+                selectedListFileEl.textContent = filePath.split('/').pop() || filePath.split('\\').pop();
+            }
             updateProcessButtonState();
         }
     } catch (error) {
@@ -1132,64 +1207,52 @@ async function selectListFile() {
     }
 }
 
+/**
+ * Update process button state
+ */
 function updateProcessButtonState() {
     const processBtn = document.getElementById('processAccountingFileBtn');
-    if (!processBtn) return;
-    
-    const bankAccountSelect = document.getElementById('bankAccountSelect');
-    const accountNumber = bankAccountSelect ? bankAccountSelect.value : '';
-    
-    // Enable the process button only if all required files are selected
-    let canProcess = accountingFilePath !== null;
-    
-    // For account 207, we also need a list file
-    if (accountNumber === '207') {
-        canProcess = canProcess && listFilePath !== null;
+    if (processBtn) {
+        processBtn.disabled = !accountingFilePath || !listFilePath;
     }
-    
-    processBtn.disabled = !canProcess;
 }
 
+/**
+ * Process accounting file
+ */
 async function processAccountingFile() {
-    const bankAccountSelect = document.getElementById('bankAccountSelect');
-    const accountNumber = bankAccountSelect ? bankAccountSelect.value : '';
-    
-    if (!accountingFilePath) {
-        showToast('Please select an accounting file first', true);
+    if (!accountingFilePath || !listFilePath) {
+        showToast('Please select both files', true);
         return;
-    }
-    
-    const options = { bankAccount: accountNumber };
-    
-    // If account 207 and list file selected, include it
-    if (accountNumber === '207') {
-        if (!listFilePath) {
-            showToast('For account 207, please select a list file as well', true);
-            return;
-        }
-        options.listFilePath = listFilePath;
     }
     
     try {
         showLoading(true);
-        const result = await window.electronAPI.processAccountingFile(accountingFilePath, options);
+        
+        const bankAccountSelect = document.getElementById('bankAccountSelect');
+        const accountNumber = bankAccountSelect ? bankAccountSelect.value : '';
+        
+        const result = await window.electronAPI.processAccountingFile({
+            accountingFilePath,
+            listFilePath,
+            accountNumber
+        });
+        
         showLoading(false);
         
-        if (!result.success) {
-            showToast('Error processing file: ' + result.error, true);
-        } else {
-            // Hide the panel after successful processing
+        if (result.success) {
+            showToast('Accounting file processed successfully');
             toggleAccountingImportPanel();
+            // Refresh current data if needed
+            if (currentCaja) {
+                loadRecordsForCaja(currentCaja);
+            }
+        } else {
+            showToast('Error processing accounting file', true);
         }
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error processing accounting file:', error);
         showLoading(false);
-        showToast('Error: ' + error.message, true);
+        showToast('Error processing accounting file', true);
     }
 }
-
-
-// Add event handlers to window object for HTML access
-window.toggleContabilizado = toggleContabilizado;
-window.openContableTaskDialog = openContableTaskDialog;
-window.toggleExpandRow = toggleExpandRow;

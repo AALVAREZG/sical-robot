@@ -194,17 +194,43 @@ const MOCK_METRO_DATA = [
 let currentTreasuryData = [];
 let activeTreasuryStationId = null;
 
-// Treasury initialization
+// Replace the initialization in treasuryForecastRenderer.js
 function initializeTreasuryModule() {
     console.log('🏦 Initializing Treasury Module...');
-    
-    // Set initial data
-    currentTreasuryData = MOCK_METRO_DATA;
     
     // Setup treasury tab event handlers
     setupTreasuryEventHandlers();
     
+    // Load real data instead of mock data
+    loadRealTreasuryData();
+    
     console.log('✅ Treasury Module initialized');
+}
+
+// Update the load function to use real API
+async function loadRealTreasuryData() {
+    try {
+        console.log('🔄 Loading real treasury data...');
+        
+        if (typeof window.electronAPI !== 'undefined' && window.electronAPI.getMetroTreasuryData) {
+            const response = await window.electronAPI.getMetroTreasuryData();
+            if (response.success) {
+                currentTreasuryData = response.data;
+                renderTreasuryStations();
+                renderTreasurySummaryCards();
+                console.log('✅ Real treasury data loaded');
+            } else {
+                console.error('❌ Failed to load treasury data:', response.error);
+                showTreasuryError('Failed to load treasury data from database.');
+            }
+        } else {
+            console.log('⚠️ Treasury API not available, using mock data');
+            currentTreasuryData = MOCK_METRO_DATA; // Fallback
+        }
+    } catch (error) {
+        console.error('❌ Error loading real treasury data:', error);
+        showTreasuryError('Error connecting to treasury database.');
+    }
 }
 
 // Setup event handlers for treasury
