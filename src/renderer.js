@@ -38,11 +38,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Treasury Module if available
     if (typeof initializeTreasuryModule === 'function') {
         initializeTreasuryModule();
+        window.treasuryDataInputIntegration.initialize();
     }
+    
 
     // Setup clear search button
     setupClearSearchButton();
 });
+
+
 
 /**
  * Initialize UI elements

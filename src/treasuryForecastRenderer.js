@@ -822,6 +822,364 @@ Example:
 testExactBalanceCalculation()
 `);
 
+// Add Data Input tab to existing treasury navigation
+function initializeTreasuryDataInputTab() {
+    const treasuryTabContent = document.getElementById('treasury-content');
+    if (!treasuryTabContent) return;
+
+    // Create sub-navigation for treasury features
+    const treasurySubNav = document.createElement('div');
+    treasurySubNav.className = 'treasury-sub-navigation';
+    treasurySubNav.innerHTML = `
+        <div class="treasury-sub-tabs">
+            <button class="treasury-sub-tab active" data-treasury-tab="forecast">
+                📊 Forecast View
+            </button>
+            <button class="treasury-sub-tab" data-treasury-tab="data-input">
+                📝 Data Input
+            </button>
+            <button class="treasury-sub-tab" data-treasury-tab="analytics">
+                📈 Analytics
+            </button>
+        </div>
+    `;
+
+    // Insert sub-navigation after treasury header
+    const treasuryHeader = treasuryTabContent.querySelector('.treasury-header');
+    if (treasuryHeader) {
+        treasuryHeader.after(treasurySubNav);
+    } else {
+        treasuryTabContent.prepend(treasurySubNav);
+    }
+
+    // Create data input tab content
+    const dataInputContent = document.createElement('div');
+    dataInputContent.id = 'treasury-data-input-tab';
+    dataInputContent.className = 'treasury-tab-content';
+    dataInputContent.style.display = 'none';
+    
+    dataInputContent.innerHTML = `
+        <div class="treasury-data-input-container">
+            <div class="treasury-input-header">
+                <h1>Treasury Forecast Data Input</h1>
+                <p>Configure income and expense forecasts with confidence levels and notes</p>
+                
+                <div class="header-controls">
+                    <div class="period-selector">
+                        <label for="periodSelect">Period:</label>
+                        <select id="periodSelect" class="treasury-form-select">
+                            <option value="">Loading periods...</option>
+                        </select>
+                    </div>
+                    
+                    <button id="loadPeriodBtn" class="treasury-btn treasury-btn-secondary">
+                        📊 Load Period Data
+                    </button>
+                    
+                    <button id="addCategoryBtn" class="treasury-btn treasury-btn-secondary">
+                        ➕ Add Category
+                    </button>
+                </div>
+            </div>
+
+            <div class="treasury-form-grid">
+                <!-- Income Section -->
+                <div class="treasury-form-section">
+                    <div class="treasury-section-header">
+                        <span class="treasury-section-icon">💰</span>
+                        <span class="treasury-section-title">Income Forecasts</span>
+                        <span class="treasury-section-total treasury-income-total" id="incomeTotal">€0.00</span>
+                    </div>
+                    
+                    <div id="incomeCategories">
+                        <!-- Income categories will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Expense Section -->
+                <div class="treasury-form-section">
+                    <div class="treasury-section-header">
+                        <span class="treasury-section-icon">💸</span>
+                        <span class="treasury-section-title">Expense Forecasts</span>
+                        <span class="treasury-section-total treasury-expense-total" id="expenseTotal">€0.00</span>
+                    </div>
+                    
+                    <div id="expenseCategories">
+                        <!-- Expense categories will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="treasury-action-buttons">
+                <button id="saveAllBtn" class="treasury-btn treasury-btn-success">
+                    💾 Save All Changes
+                </button>
+                
+                <button id="resetBtn" class="treasury-btn treasury-btn-secondary">
+                    🔄 Reset to Original
+                </button>
+                
+                <button id="copyFromPreviousBtn" class="treasury-btn treasury-btn-secondary">
+                    📋 Copy from Previous Period
+                </button>
+            </div>
+
+            <div id="statusMessage" class="treasury-status-message"></div>
+        </div>
+
+        <div class="treasury-loading-overlay" id="loadingOverlay">
+            <div class="treasury-loading-spinner"></div>
+        </div>
+    `;
+
+    // Add to treasury content
+    treasuryTabContent.appendChild(dataInputContent);
+
+    // Setup sub-tab navigation
+    setupTreasurySubTabs();
+    
+    console.log('✅ Treasury Data Input tab initialized');
+}
+
+// Setup sub-tab navigation within treasury
+function setupTreasurySubTabs() {
+    const subTabs = document.querySelectorAll('.treasury-sub-tab');
+    
+    subTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.dataset.treasuryTab;
+            
+            // Update active tab
+            subTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            // Show/hide content
+            showTreasurySubTab(targetTab);
+        });
+    });
+}
+
+function showTreasurySubTab(tabName) {
+    // Hide all treasury sub-content
+    const allTabContents = document.querySelectorAll('.treasury-tab-content');
+    allTabContents.forEach(content => {
+        content.style.display = 'none';
+    });
+
+    // Show main metro line content for forecast tab
+    const metroContainer = document.querySelector('.treasury-metro-container');
+    if (metroContainer) {
+        metroContainer.style.display = tabName === 'forecast' ? 'block' : 'none';
+    }
+
+    // Show specific tab content
+    switch (tabName) {
+        case 'data-input':
+            const dataInputTab = document.getElementById('treasury-data-input-tab');
+            if (dataInputTab) {
+                dataInputTab.style.display = 'block';
+                // Initialize data input if not already done
+                if (window.treasuryDataInput && !window.treasuryDataInput.isInitialized) {
+                    window.treasuryDataInput.initialize();
+                }
+            }
+            break;
+        case 'analytics':
+            // Future: Show analytics tab
+            showTreasuryAnalyticsPlaceholder();
+            break;
+        case 'forecast':
+        default:
+            // Show main forecast view
+            if (metroContainer) {
+                metroContainer.style.display = 'block';
+            }
+            break;
+    }
+}
+
+function showTreasuryAnalyticsPlaceholder() {
+    let analyticsContent = document.getElementById('treasury-analytics-tab');
+    
+    if (!analyticsContent) {
+        analyticsContent = document.createElement('div');
+        analyticsContent.id = 'treasury-analytics-tab';
+        analyticsContent.className = 'treasury-tab-content';
+        analyticsContent.innerHTML = `
+            <div class="treasury-placeholder">
+                <div class="placeholder-icon">📈</div>
+                <h2>Analytics Dashboard</h2>
+                <p>Advanced treasury analytics and reporting will be available here.</p>
+                <div class="placeholder-features">
+                    <div class="feature-item">📊 Trend Analysis</div>
+                    <div class="feature-item">💡 Forecast Accuracy</div>
+                    <div class="feature-item">⚡ Performance Metrics</div>
+                    <div class="feature-item">📋 Custom Reports</div>
+                </div>
+            </div>
+        `;
+        
+        const treasuryContent = document.getElementById('treasury-content');
+        if (treasuryContent) {
+            treasuryContent.appendChild(analyticsContent);
+        }
+    }
+    
+    analyticsContent.style.display = 'block';
+}
+
+// Enhanced Treasury CSS for sub-navigation
+const treasurySubNavCSS = `
+.treasury-sub-navigation {
+    background: white;
+    border-radius: 8px;
+    padding: 16px 24px;
+    margin: 16px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #dee2e6;
+}
+
+.treasury-sub-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.treasury-sub-tab {
+    padding: 8px 16px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background: #f8f9fa;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.treasury-sub-tab:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.treasury-sub-tab.active {
+    background: #0066cc;
+    color: white;
+    border-color: #0066cc;
+}
+
+.treasury-tab-content {
+    animation: fadeIn 0.3s ease;
+}
+
+.treasury-placeholder {
+    text-align: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #dee2e6;
+}
+
+.placeholder-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+}
+
+.treasury-placeholder h2 {
+    color: #333;
+    margin-bottom: 8px;
+    font-size: 24px;
+}
+
+.treasury-placeholder p {
+    color: #6c757d;
+    margin-bottom: 24px;
+    font-size: 16px;
+}
+
+.placeholder-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.feature-item {
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    color: #495057;
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .treasury-sub-tabs {
+        flex-direction: column;
+    }
+    
+    .treasury-sub-tab {
+        text-align: center;
+    }
+    
+    .placeholder-features {
+        grid-template-columns: 1fr;
+    }
+}
+`;
+
+// Add styles to document
+function addTreasurySubNavStyles() {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = treasurySubNavCSS;
+    document.head.appendChild(styleElement);
+}
+
+// Integration with existing treasury initialization
+function enhanceTreasuryWithDataInput() {
+    // Add CSS
+    addTreasurySubNavStyles();
+    
+    // Initialize data input tab
+    initializeTreasuryDataInputTab();
+    
+    // Load CSS file for data input styles
+    const cssLink = document.createElement('link');
+    cssLink.rel = 'stylesheet';
+    cssLink.href = 'treasuryDataInput.css';
+    document.head.appendChild(cssLink);
+    
+    // Load the data input JavaScript module
+    const scriptElement = document.createElement('script');
+    scriptElement.src = 'treasuryDataInputRenderer.js';
+    scriptElement.onload = () => {
+        console.log('✅ Treasury Data Input module loaded');
+    };
+    document.head.appendChild(scriptElement);
+}
+
+// Call this function after your existing treasury initialization
+// Add this to your existing treasuryForecastRenderer.js initialization
+if (typeof initializeTreasuryModule === 'function') {
+    const originalInit = initializeTreasuryModule;
+    initializeTreasuryModule = function() {
+        originalInit();
+        enhanceTreasuryWithDataInput();
+    };
+} else {
+    // If no existing function, create it
+    window.initializeTreasuryModule = function() {
+        enhanceTreasuryWithDataInput();
+    };
+}
+
+// Export functions for external use
+window.treasuryDataInputIntegration = {
+    initialize: enhanceTreasuryWithDataInput,
+    showTab: showTreasurySubTab,
+    setupSubTabs: setupTreasurySubTabs
+};
+
 window.TreasuryModule = {
     initialize: initializeTreasuryModule,
     switchToTab: switchToTreasuryTab,

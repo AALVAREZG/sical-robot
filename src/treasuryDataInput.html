@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Treasury Data Input</title>
+    <style>
+        :root {
+            --primary-color: #0066cc;
+            --secondary-color: #f8f9fa;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --border-color: #dee2e6;
+            --text-color: #333;
+            --text-muted: #6c757d;
+            --input-bg: #fff;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: var(--input-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .header h1 {
+            color: var(--primary-color);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .period-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .period-selector label {
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-section {
+            background: var(--input-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .section-icon {
+            font-size: 24px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .section-total {
+            margin-left: auto;
+            font-size: 16px;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 6px;
+        }
+
+        .income-total {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .expense-total {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .category-item {
+            margin-bottom: 20px;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .category-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 8px rgba(0,102,204,0.1);
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .category-icon {
+            font-size: 18px;
+        }
+
+        .category-name {
+            font-weight: 500;
+            flex: 1;
+        }
+
+        .category-toggle {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .category-toggle:hover {
+            background-color: var(--border-color);
+        }
+
+        .amount-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .currency-symbol {
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .amount-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        .amount-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0,102,204,0.1);
+        }
+
+        .confidence-group {
+            margin-bottom: 12px;
+        }
+
+        .confidence-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .confidence-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border-color);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .confidence-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+        }
+
+        .confidence-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            border: none;
+        }
+
+        .notes-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
+
+        .notes-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0,102,204,0.1);
+        }
+
+        .expanded-content {
+            display: none;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .expanded-content.show {
+            display: block;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            padding: 24px;
+            background: var(--input-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #c6cbcf;
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+        }
+
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-top: 16px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .form-select {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px;
+            background: var(--input-bg);
+            cursor: pointer;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Treasury Forecast Data Input</h1>
+            <p>Configure income and expense forecasts with confidence levels and notes</p>
+            
+            <div class="header-controls">
+                <div class="period-selector">
+                    <label for="periodSelect">Period:</label>
+                    <select id="periodSelect" class="form-select">
+                        <option value="">Loading periods...</option>
+                    </select>
+                </div>
+                
+                <button id="loadPeriodBtn" class="btn btn-secondary">
+                    📊 Load Period Data
+                </button>
+                
+                <button id="addCategoryBtn" class="btn btn-secondary">
+                    ➕ Add Category
+                </button>
+            </div>
+        </div>
+
+        <div class="form-grid">
+            <!-- Income Section -->
+            <div class="form-section">
+                <div class="section-header">
+                    <span class="section-icon">💰</span>
+                    <span class="section-title">Income Forecasts</span>
+                    <span class="section-total income-total" id="incomeTotal">€0.00</span>
+                </div>
+                
+                <div id="incomeCategories">
+                    <!-- Income categories will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Expense Section -->
+            <div class="form-section">
+                <div class="section-header">
+                    <span class="section-icon">💸</span>
+                    <span class="section-title">Expense Forecasts</span>
+                    <span class="section-total expense-total" id="expenseTotal">€0.00</span>
+                </div>
+                
+                <div id="expenseCategories">
+                    <!-- Expense categories will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button id="saveAllBtn" class="btn btn-success">
+                💾 Save All Changes
+            </button>
+            
+            <button id="resetBtn" class="btn btn-secondary">
+                🔄 Reset to Original
+            </button>
+            
+            <button id="copyFromPreviousBtn" class="btn btn-secondary">
+                📋 Copy from Previous Period
+            </button>
+        </div>
+
+        <div id="statusMessage" class="status-message"></div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <script>
+        // Mock data structure - replace with actual API calls
+        const mockPeriods = [
+            { id: 1, period_display: 'Oct 2024', is_current: true },
+            { id: 2, period_display: 'Nov 2024', is_current: false },
+            { id: 3, period_display: 'Dec 2024', is_current: false },
+            { id: 4, period_display: 'Jan 2025', is_current: false },
+            { id: 5, period_display: 'Feb 2025', is_current: false },
+            { id: 6, period_display: 'Mar 2025', is_current: false }
+        ];
+
+        const mockIncomeCategories = [
+            { id: 1, category_name: 'Primary Salary', category_code: 'SALARY_PRIMARY', icon: '💼', sort_order: 1 },
+            { id: 2, category_name: 'Consulting/Projects', category_code: 'CONSULTING', icon: '🔧', sort_order: 2 },
+            { id: 3, category_name: 'Investments', category_code: 'INVESTMENTS', icon: '📈', sort_order: 3 },
+            { id: 4, category_name: 'Rental Income', category_code: 'RENTAL', icon: '🏠', sort_order: 4 },
+            { id: 5, category_name: 'Other Income', category_code: 'OTHER_INCOME', icon: '💰', sort_order: 5 }
+        ];
+
+        const mockExpenseCategories = [
+            { id: 1, category_name: 'Housing', category_code: 'HOUSING', icon: '🏠', is_fixed: 1, sort_order: 1 },
+            { id: 2, category_name: 'Utilities', category_code: 'UTILITIES', icon: '⚡', is_fixed: 1, sort_order: 2 },
+            { id: 3, category_name: 'Food & Living', category_code: 'FOOD', icon: '🍽️', is_fixed: 0, sort_order: 3 },
+            { id: 4, category_name: 'Transportation', category_code: 'TRANSPORT', icon: '🚗', is_fixed: 0, sort_order: 4 },
+            { id: 5, category_name: 'Insurance', category_code: 'INSURANCE', icon: '🛡️', is_fixed: 1, sort_order: 5 },
+            { id: 6, category_name: 'Taxes', category_code: 'TAXES', icon: '💸', is_fixed: 0, sort_order: 6 },
+            { id: 7, category_name: 'Personal & Entertainment', category_code: 'PERSONAL', icon: '👤', is_fixed: 0, sort_order: 7 }
+        ];
+
+        // Global state
+        let currentPeriodId = null;
+        let originalData = {};
+        let pendingChanges = {};
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeApp();
+        });
+
+        async function initializeApp() {
+            try {
+                await loadPeriods();
+                await loadCategories();
+                setupEventListeners();
+                
+                // Load current period by default
+                const currentPeriod = mockPeriods.find(p => p.is_current);
+                if (currentPeriod) {
+                    document.getElementById('periodSelect').value = currentPeriod.id;
+                    await loadPeriodData(currentPeriod.id);
+                }
+            } catch (error) {
+                showStatus('Error initializing app: ' + error.message, 'error');
+            }
+        }
+
+        async function loadPeriods() {
+            const periodSelect = document.getElementById('periodSelect');
+            periodSelect.innerHTML = '';
+            
+            mockPeriods.forEach(period => {
+                const option = document.createElement('option');
+                option.value = period.id;
+                option.textContent = `${period.period_display}${period.is_current ? ' (Current)' : ''}`;
+                periodSelect.appendChild(option);
+            });
+        }
+
+        async function loadCategories() {
+            renderCategories('incomeCategories', mockIncomeCategories, 'income');
+            renderCategories('expenseCategories', mockExpenseCategories, 'expense');
+        }
+
+        function renderCategories(containerId, categories, type) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            categories.forEach(category => {
+                const categoryItem = createCategoryItem(category, type);
+                container.appendChild(categoryItem);
+            });
+        }
+
+        function createCategoryItem(category, type) {
+            const item = document.createElement('div');
+            item.className = 'category-item';
+            item.dataset.categoryId = category.id;
+            item.dataset.categoryType = type;
+
+            const confidenceValue = 85; // Default confidence
+            const amount = 0; // Default amount
+
+            item.innerHTML = `
+                <div class="category-header">
+                    <span class="category-icon">${category.icon}</span>
+                    <span class="category-name">${category.category_name}</span>
+                    ${category.is_fixed ? '<span style="font-size: 12px; color: #6c757d;">Fixed</span>' : ''}
+                    <button class="category-toggle" onclick="toggleCategoryDetails(this)">
+                        ⚙️
+                    </button>
+                </div>
+
+                <div class="amount-input-group">
+                    <span class="currency-symbol">€</span>
+                    <input 
+                        type="number" 
+                        class="amount-input" 
+                        placeholder="0.00" 
+                        step="0.01"
+                        value="${amount}"
+                        onchange="updateAmount(this)"
+                        oninput="updateAmount(this)"
+                    >
+                </div>
+
+                <div class="expanded-content">
+                    <div class="confidence-group">
+                        <div class="confidence-label">
+                            <span>Confidence Level</span>
+                            <span class="confidence-value">${confidenceValue}%</span>
+                        </div>
+                        <input 
+                            type="range" 
+                            class="confidence-slider" 
+                            min="0" 
+                            max="100" 
+                            value="${confidenceValue}"
+                            onchange="updateConfidence(this)"
+                            oninput="updateConfidence(this)"
+                        >
+                    </div>
+
+                    <textarea 
+                        class="notes-input" 
+                        placeholder="Notes and comments for this forecast..."
+                        onchange="updateNotes(this)"
+                    ></textarea>
+                </div>
+            `;
+
+            return item;
+        }
+
+        function toggleCategoryDetails(button) {
+            const categoryItem = button.closest('.category-item');
+            const expandedContent = categoryItem.querySelector('.expanded-content');
+            
+            expandedContent.classList.toggle('show');
+            button.textContent = expandedContent.classList.contains('show') ? '🔽' : '⚙️';
+        }
+
+        function updateAmount(input) {
+            const value = parseFloat(input.value) || 0;
+            const categoryItem = input.closest('.category-item');
+            const categoryId = categoryItem.dataset.categoryId;
+            const categoryType = categoryItem.dataset.categoryType;
+
+            // Store pending change
+            if (!pendingChanges[currentPeriodId]) {
+                pendingChanges[currentPeriodId] = {};
+            }
+            if (!pendingChanges[currentPeriodId][categoryType]) {
+                pendingChanges[currentPeriodId][categoryType] = {};
+            }
+            
+            pendingChanges[currentPeriodId][categoryType][categoryId] = {
+                ...pendingChanges[currentPeriodId][categoryType][categoryId],
+                amount: value
+            };
+
+            updateTotals();
+            markAsChanged(categoryItem);
+        }
+
+        function updateConfidence(slider) {
+            const value = parseInt(slider.value);
+            const categoryItem = slider.closest('.category-item');
+            const categoryId = categoryItem.dataset.categoryId;
+            const categoryType = categoryItem.dataset.categoryType;
+            
+            // Update display
+            const confidenceValue = categoryItem.querySelector('.confidence-value');
+            confidenceValue.textContent = `${value}%`;
+
+            // Store pending change
+            if (!pendingChanges[currentPeriodId]) {
+                pendingChanges[currentPeriodId] = {};
+            }
+            if (!pendingChanges[currentPeriodId][categoryType]) {
+                pendingChanges[currentPeriodId][categoryType] = {};
+            }
+            
+            pendingChanges[currentPeriodId][categoryType][categoryId] = {
+                ...pendingChanges[currentPeriodId][categoryType][categoryId],
+                confidence: value
+            };
+
+            markAsChanged(categoryItem);
+        }
+
+        function updateNotes(textarea) {
+            const value = textarea.value;
+            const categoryItem = textarea.closest('.category-item');
+            const categoryId = categoryItem.dataset.categoryId;
+            const categoryType = categoryItem.dataset.categoryType;
+
+            // Store pending change
+            if (!pendingChanges[currentPeriodId]) {
+                pendingChanges[currentPeriodId] = {};
+            }
+            if (!pendingChanges[currentPeriodId][categoryType]) {
+                pendingChanges[currentPeriodId][categoryType] = {};
+            }
+            
+            pendingChanges[currentPeriodId][categoryType][categoryId] = {
+                ...pendingChanges[currentPeriodId][categoryType][categoryId],
+                notes: value
+            };
+
+            markAsChanged(categoryItem);
+        }
+
+        function markAsChanged(categoryItem) {
+            categoryItem.style.borderLeftColor = '#ffc107';
+            categoryItem.style.borderLeftWidth = '4px';
+        }
+
+        function clearChangedMark(categoryItem) {
+            categoryItem.style.borderLeftColor = '';
+            categoryItem.style.borderLeftWidth = '';
+        }
+
+        function updateTotals() {
+            let incomeTotal = 0;
+            let expenseTotal = 0;
+
+            // Calculate income total
+            document.querySelectorAll('#incomeCategories .amount-input').forEach(input => {
+                incomeTotal += parseFloat(input.value) || 0;
+            });
+
+            // Calculate expense total
+            document.querySelectorAll('#expenseCategories .amount-input').forEach(input => {
+                expenseTotal += parseFloat(input.value) || 0;
+            });
+
+            document.getElementById('incomeTotal').textContent = formatCurrency(incomeTotal);
+            document.getElementById('expenseTotal').textContent = formatCurrency(expenseTotal);
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-EU', {
+                style: 'currency',
+                currency: 'EUR'
+            }).format(amount);
+        }
+
+        async function loadPeriodData(periodId) {
+            if (!periodId) return;
+
+            showLoading(true);
+            currentPeriodId = periodId;
+
+            try {
+                // Mock API call - replace with actual API
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Mock data loading
+                const mockData = {
+                    income: {
+                        1: { amount: 3500, confidence: 100, notes: 'Monthly salary' },
+                        2: { amount: 1200, confidence: 85, notes: 'Consulting project' },
+                        3: { amount: 450, confidence: 80, notes: 'Investment returns' }
+                    },
+                    expense: {
+                        1: { amount: 1200, confidence: 100, notes: 'Rent payment' },
+                        2: { amount: 350, confidence: 95, notes: 'Electricity, gas, internet' },
+                        3: { amount: 600, confidence: 85, notes: 'Groceries and dining' }
+                    }
+                };
+
+                originalData[periodId] = mockData;
+
+                // Populate form with loaded data
+                populateFormData(mockData);
+                
+                showStatus('Period data loaded successfully', 'success');
+            } catch (error) {
+                showStatus('Error loading period data: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function populateFormData(data) {
+            // Clear all changed marks
+            document.querySelectorAll('.category-item').forEach(clearChangedMark);
+
+            // Populate income data
+            if (data.income) {
+                Object.entries(data.income).forEach(([categoryId, categoryData]) => {
+                    const categoryItem = document.querySelector(`[data-category-id="${categoryId}"][data-category-type="income"]`);
+                    if (categoryItem) {
+                        const amountInput = categoryItem.querySelector('.amount-input');
+                        const confidenceSlider = categoryItem.querySelector('.confidence-slider');
+                        const notesInput = categoryItem.querySelector('.notes-input');
+
+                        if (amountInput) amountInput.value = categoryData.amount || 0;
+                        if (confidenceSlider) {
+                            confidenceSlider.value = categoryData.confidence || 85;
+                            updateConfidenceDisplay(confidenceSlider);
+                        }
+                        if (notesInput) notesInput.value = categoryData.notes || '';
+                    }
+                });
+            }
+
+            // Populate expense data
+            if (data.expense) {
+                Object.entries(data.expense).forEach(([categoryId, categoryData]) => {
+                    const categoryItem = document.querySelector(`[data-category-id="${categoryId}"][data-category-type="expense"]`);
+                    if (categoryItem) {
+                        const amountInput = categoryItem.querySelector('.amount-input');
+                        const confidenceSlider = categoryItem.querySelector('.confidence-slider');
+                        const notesInput = categoryItem.querySelector('.notes-input');
+
+                        if (amountInput) amountInput.value = categoryData.amount || 0;
+                        if (confidenceSlider) {
+                            confidenceSlider.value = categoryData.confidence || 85;
+                            updateConfidenceDisplay(confidenceSlider);
+                        }
+                        if (notesInput) notesInput.value = categoryData.notes || '';
+                    }
+                });
+            }
+
+            updateTotals();
+        }
+
+        function updateConfidenceDisplay(slider) {
+            const categoryItem = slider.closest('.category-item');
+            const confidenceValue = categoryItem.querySelector('.confidence-value');
+            confidenceValue.textContent = `${slider.value}%`;
+        }
+
+        async function saveAllChanges() {
+            if (!currentPeriodId || !pendingChanges[currentPeriodId]) {
+                showStatus('No changes to save', 'error');
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                // Mock API calls - replace with actual API
+                const changes = pendingChanges[currentPeriodId];
+                
+                for (const [categoryType, categories] of Object.entries(changes)) {
+                    for (const [categoryId, data] of Object.entries(categories)) {
+                        // Mock API call
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        console.log(`Saving ${categoryType} category ${categoryId}:`, data);
+                    }
+                }
+
+                // Clear pending changes
+                delete pendingChanges[currentPeriodId];
+                
+                // Clear changed marks
+                document.querySelectorAll('.category-item').forEach(clearChangedMark);
+
+                showStatus('All changes saved successfully!', 'success');
+            } catch (error) {
+                showStatus('Error saving changes: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function resetToOriginal() {
+            if (!currentPeriodId || !originalData[currentPeriodId]) {
+                showStatus('No original data to reset to', 'error');
+                return;
+            }
+
+            populateFormData(originalData[currentPeriodId]);
+            delete pendingChanges[currentPeriodId];
+            showStatus('Form reset to original values', 'success');
+        }
+
+        async function copyFromPrevious() {
+            if (!currentPeriodId) {
+                showStatus('Please select a period first', 'error');
+                return;
+            }
+
+            const currentIndex = mockPeriods.findIndex(p => p.id == currentPeriodId);
+            if (currentIndex <= 0) {
+                showStatus('No previous period available', 'error');
+                return;
+            }
+
+            const previousPeriod = mockPeriods[currentIndex - 1];
+            showLoading(true);
+
+            try {
+                // Mock loading previous period data
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Mock previous period data
+                const previousData = originalData[previousPeriod.id] || {
+                    income: {
+                        1: { amount: 3500, confidence: 100, notes: 'Copied from previous period' },
+                        2: { amount: 1000, confidence: 80, notes: 'Estimated based on previous' }
+                    },
+                    expense: {
+                        1: { amount: 1200, confidence: 100, notes: 'Same as previous month' },
+                        2: { amount: 320, confidence: 90, notes: 'Estimated utilities' }
+                    }
+                };
+
+                populateFormData(previousData);
+                showStatus(`Data copied from ${previousPeriod.period_display}`, 'success');
+            } catch (error) {
+                showStatus('Error copying previous period data: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function setupEventListeners() {
+            document.getElementById('loadPeriodBtn').addEventListener('click', () => {
+                const periodId = document.getElementById('periodSelect').value;
+                if (periodId) {
+                    loadPeriodData(periodId);
+                } else {
+                    showStatus('Please select a period', 'error');
+                }
+            });
+
+            document.getElementById('saveAllBtn').addEventListener('click', saveAllChanges);
+            document.getElementById('resetBtn').addEventListener('click', resetToOriginal);
+            document.getElementById('copyFromPreviousBtn').addEventListener('click', copyFromPrevious);
+
+            document.getElementById('addCategoryBtn').addEventListener('click', () => {
+                showAddCategoryModal();
+            });
+
+            document.getElementById('periodSelect').addEventListener('change', (e) => {
+                if (e.target.value) {
+                    loadPeriodData(e.target.value);
+                }
+            });
+        }
+
+        function showAddCategoryModal() {
+            // Simple prompt for demo - replace with proper modal
+            const categoryName = prompt('Enter new category name:');
+            const categoryType = confirm('Click OK for Income, Cancel for Expense') ? 'income' : 'expense';
+            
+            if (categoryName) {
+                const newCategory = {
+                    id: Date.now(), // Temporary ID
+                    category_name: categoryName,
+                    category_code: categoryName.toUpperCase().replace(/\s+/g, '_'),
+                    icon: categoryType === 'income' ? '💰' : '💸',
+                    is_fixed: 0,
+                    sort_order: 999
+                };
+
+                const containerSelector = categoryType === 'income' ? 'incomeCategories' : 'expenseCategories';
+                const container = document.getElementById(containerSelector);
+                const categoryItem = createCategoryItem(newCategory, categoryType);
+                container.appendChild(categoryItem);
+
+                showStatus(`New ${categoryType} category "${categoryName}" added`, 'success');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusElement = document.getElementById('statusMessage');
+            statusElement.textContent = message;
+            statusElement.className = `status-message status-${type}`;
+            statusElement.style.display = 'block';
+
+            setTimeout(() => {
+                statusElement.style.display = 'none';
+            }, 5000);
+        }
+
+        function showLoading(show) {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.style.display = show ? 'flex' : 'none';
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 's':
+                        e.preventDefault();
+                        saveAllChanges();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        resetToOriginal();
+                        break;
+                }
+            }
+        });
+
+        // Auto-save functionality (optional)
+        let autoSaveTimeout;
+        function scheduleAutoSave() {
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = setTimeout(() => {
+                if (Object.keys(pendingChanges).length > 0) {
+                    console.log('Auto-saving changes...');
+                    // Implement auto-save logic here
+                }
+            }, 30000); // Auto-save after 30 seconds of inactivity
+        }
+
+        // Integration functions for Electron app
+        window.treasuryDataInput = {
+            // Load real data from the treasury database
+            async loadRealData(periodId) {
+                try {
+                    if (window.electronAPI && window.electronAPI.getTreasuryCategories) {
+                        const categoriesResult = await window.electronAPI.getTreasuryCategories();
+                        if (categoriesResult.success) {
+                            const { income, expenses } = categoriesResult.data;
+                            renderCategories('incomeCategories', income, 'income');
+                            renderCategories('expenseCategories', expenses, 'expense');
+                        }
+                    }
+
+                    if (window.electronAPI && window.electronAPI.getTreasuryMetroData) {
+                        const metroResult = await window.electronAPI.getTreasuryMetroData();
+                        if (metroResult.success) {
+                            const periods = metroResult.data;
+                            loadPeriodsFromData(periods);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading real data:', error);
+                    showStatus('Error loading data from database', 'error');
+                }
+            },
+
+            // Save real data to the treasury database
+            async saveRealData(periodId, categoryType, categoryId, amount, confidence, notes) {
+                try {
+                    if (window.electronAPI && window.electronAPI.updateTreasuryForecast) {
+                        const result = await window.electronAPI.updateTreasuryForecast({
+                            periodId,
+                            categoryType,
+                            categoryId,
+                            amount,
+                            notes
+                        });
+
+                        if (result.success) {
+                            return true;
+                        } else {
+                            throw new Error(result.error);
+                        }
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('Error saving real data:', error);
+                    throw error;
+                }
+            }
+        };
+
+        function loadPeriodsFromData(periods) {
+            const periodSelect = document.getElementById('periodSelect');
+            periodSelect.innerHTML = '';
+            
+            periods.forEach(period => {
+                const option = document.createElement('option');
+                option.value = period.id;
+                option.textContent = `${period.period_display}${period.is_current ? ' (Current)' : ''}`;
+                periodSelect.appendChild(option);
+            });
+        }
+    </script>
+</body>
+</html>
