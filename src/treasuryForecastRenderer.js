@@ -194,9 +194,14 @@ const MOCK_METRO_DATA = [
 let currentTreasuryData = [];
 let activeTreasuryStationId = null;
 
-// Replace the initialization in treasuryForecastRenderer.js
+// Fixed: Initialize with real data instead of mock
 function initializeTreasuryModule() {
     console.log('🏦 Initializing Treasury Module...');
+    console.log('🔍 Checking electronAPI availability:', typeof window.electronAPI);
+    console.log('🔍 Checking treasury methods:', {
+        getMetroTreasuryData: typeof window.electronAPI?.getMetroTreasuryData,
+        getCurrentBalance: typeof window.electronAPI?.getCurrentBalance
+    });
     
     // Setup treasury tab event handlers
     setupTreasuryEventHandlers();
@@ -207,28 +212,37 @@ function initializeTreasuryModule() {
     console.log('✅ Treasury Module initialized');
 }
 
-// Update the load function to use real API
+
+
+// Fixed: Load real data with proper error handling
 async function loadRealTreasuryData() {
     try {
         console.log('🔄 Loading real treasury data...');
         
         if (typeof window.electronAPI !== 'undefined' && window.electronAPI.getMetroTreasuryData) {
             const response = await window.electronAPI.getMetroTreasuryData();
-            if (response.success) {
+            if (response.success && response.data && response.data.length > 0) {
                 currentTreasuryData = response.data;
+                
+                // Update current balance from main database
+                await updateTreasuryCurrentBalance();
+                
                 renderTreasuryStations();
                 renderTreasurySummaryCards();
-                console.log('✅ Real treasury data loaded');
+                console.log('✅ Real treasury data loaded:', currentTreasuryData.length, 'periods');
             } else {
-                console.error('❌ Failed to load treasury data:', response.error);
-                showTreasuryError('Failed to load treasury data from database.');
+                console.error('❌ No treasury data available:', response.error);
+                currentTreasuryData = [];
+                showTreasuryError('No treasury data found. Database may need initialization.');
             }
         } else {
-            console.log('⚠️ Treasury API not available, using mock data');
-            currentTreasuryData = MOCK_METRO_DATA; // Fallback
+            console.log('⚠️ Treasury API not available');
+            currentTreasuryData = [];
+            showTreasuryError('Treasury API not available. Please check backend connection.');
         }
     } catch (error) {
         console.error('❌ Error loading real treasury data:', error);
+        currentTreasuryData = [];
         showTreasuryError('Error connecting to treasury database.');
     }
 }
@@ -311,11 +325,24 @@ function switchToTab(tabId) {
     }
 }
 
-// Render treasury stations
 function renderTreasuryStations() {
-    const container = document.getElementById('metroStations');
-    if (!container) return;
+    console.log('🎨 Rendering treasury stations...');
+    console.log('📊 Current treasury data:', {
+        length: currentTreasuryData.length,
+        firstPeriod: currentTreasuryData[0] ? {
+            id: currentTreasuryData[0].id,
+            starting_balance: currentTreasuryData[0].starting_balance,
+            ending_balance: currentTreasuryData[0].ending_balance,
+            net_flow: currentTreasuryData[0].net_flow
+        } : 'No data'
+    });
     
+    const container = document.getElementById('metroStations');
+    if (!container) {
+        console.error('❌ Metro stations container not found');
+        return;
+    }
+       
     container.innerHTML = '';
 
     currentTreasuryData.forEach((period, index) => {
@@ -521,7 +548,7 @@ function renderTreasurySummaryCards() {
     `).join('');
 }
 
-// Refresh treasury data
+// Fixed: Refresh calls real API instead of mock data
 async function refreshTreasuryData() {
     const refreshBtn = document.getElementById('treasuryRefreshBtn');
     const spinner = document.getElementById('treasuryLoadingSpinner');
@@ -534,27 +561,33 @@ async function refreshTreasuryData() {
     spinner.style.display = 'block';
     
     try {
-        // TODO: Replace with actual API call when backend is ready
         console.log('🔄 Refreshing treasury data...');
         
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // For now, simulate data changes
-        currentTreasuryData = MOCK_METRO_DATA.map(period => ({
-            ...period,
-            ending_balance: period.ending_balance + (Math.random() * 2000 - 1000) // Random variation for demo
-        }));
-        
-        // Re-render
-        renderTreasuryStations();
-        renderTreasurySummaryCards();
-        
-        console.log('✅ Treasury data refreshed successfully');
+        // FIXED: Call real API instead of mock data
+        if (typeof window.electronAPI !== 'undefined' && window.electronAPI.getMetroTreasuryData) {
+            const response = await window.electronAPI.getMetroTreasuryData();
+            if (response.success && response.data) {
+                currentTreasuryData = response.data;
+                
+                // Update current balance from main database
+                await updateTreasuryCurrentBalanceExact();
+                
+                // Re-render with updated data
+                renderTreasuryStations();
+                renderTreasurySummaryCards();
+                
+                console.log('✅ Treasury data refreshed successfully');
+            } else {
+                console.error('❌ Failed to refresh treasury data:', response.error);
+                showTreasuryError('Failed to refresh treasury data from database.');
+            }
+        } else {
+            console.log('⚠️ Treasury API not available');
+            showTreasuryError('Treasury API not available. Please check backend connection.');
+        }
         
     } catch (error) {
         console.error('❌ Error refreshing treasury data:', error);
-        // Show error state
         showTreasuryError('Failed to refresh treasury data. Please try again.');
     } finally {
         // Hide loading state
@@ -611,32 +644,188 @@ async function loadRealTreasuryData() {
     }
 }
 
-// Update current balance from main database
-async function updateTreasuryCurrentBalance() {
+// ===============================================
+// UPDATED BALANCE TEST FUNCTIONS
+// Add these to treasuryForecastRenderer.js for testing the new SQL logic
+// ===============================================
+
+// Enhanced test function to verify the exact SQL balance calculation
+window.testExactBalanceCalculation = async function() {
+  console.log('🧪 Testing exact balance calculation with sort_key ordering...');
+  
+  try {
+    // Test the main current balance calculation
+    console.log('1️⃣ Testing main current balance calculation...');
+    const simpleBalance = await window.electronAPI.getCurrentBalance();
+    console.log('📊 Simple balance result:', simpleBalance);
+    
+    // Test detailed current balance with breakdown
+    console.log('2️⃣ Testing detailed current balance with account breakdown...');
+    const detailedBalance = await window.electronAPI.getCurrentBalanceDetailed();
+    console.log('📊 Detailed balance result:', detailedBalance);
+    
+    if (detailedBalance.success) {
+      console.log('📋 Account breakdown:');
+      detailedBalance.data.accounts.forEach(account => {
+        console.log(`  - ${account.caja}: ${account.balance} (sort_key: ${account.sort_key}, date: ${account.last_date})`);
+      });
+      console.log(`💰 Grand Total: ${detailedBalance.data.balance} from ${detailedBalance.data.total_accounts} accounts`);
+      console.log(`📅 Latest update: ${detailedBalance.data.last_update} (sort_key: ${detailedBalance.data.latest_sort_key})`);
+    }
+    
+    // Test account balances summary
+    console.log('3️⃣ Testing account balances summary...');
+    const accountBalances = await window.electronAPI.getAccountBalances();
+    console.log('📊 Account balances summary:', accountBalances);
+    
+    if (accountBalances.success) {
+      console.log('🔍 Verification:');
+      let manualSum = 0;
+      accountBalances.data.accounts.forEach(account => {
+        manualSum += account.balance;
+        console.log(`  - ${account.account}: ${account.balance} (${account.total_movements} movements)`);
+      });
+      console.log(`✓ Manual sum: ${manualSum}`);
+      console.log(`✓ Database total: ${accountBalances.data.total_balance}`);
+      console.log(`✓ Match: ${manualSum === accountBalances.data.total_balance ? '✅ YES' : '❌ NO'}`);
+    }
+    
+    return {
+      simple: simpleBalance,
+      detailed: detailedBalance,
+      accounts: accountBalances,
+      verification: 'Check console for detailed breakdown'
+    };
+    
+  } catch (error) {
+    console.error('❌ Balance test failed:', error);
+    return { error: error.message };
+  }
+};
+
+// Test function to debug the step-by-step calculation
+window.testBalanceCalculationSteps = async function() {
+  console.log('🔍 Testing balance calculation step by step...');
+  
+  try {
+    // This requires adding the debug handler to main.js
+    const debugResult = await window.electronAPI.getBalanceCalculationDebug();
+    
+    if (debugResult.success) {
+      console.log('📊 Step-by-step balance calculation:');
+      
+      console.log('🔸 Step 1: All movements with ranking:');
+      debugResult.data.step1_all_movements.slice(0, 10).forEach(mov => {
+        console.log(`  ${mov.caja} | ${mov.saldo} | ${mov.sort_key} | rn:${mov.rn} | ${mov.fecha}`);
+      });
+      console.log(`  ... (showing first 10 of ${debugResult.data.step1_all_movements.length} total)`);
+      
+      console.log('🔸 Step 2: Latest movement per account (rn=1):');
+      debugResult.data.step2_latest_per_account.forEach(acc => {
+        console.log(`  ${acc.caja}: ${acc.saldo}`);
+      });
+      
+      console.log('🔸 Step 3: Sum per account:');
+      debugResult.data.step3_sum_per_account.forEach(acc => {
+        console.log(`  ${acc.caja}: ${acc.total_saldo}`);
+      });
+      
+      console.log(`🔸 Final Total: ${debugResult.data.final_total}`);
+    }
+    
+    return debugResult;
+  } catch (error) {
+    console.error('❌ Debug test failed:', error);
+    return { error: error.message };
+  }
+};
+
+// Test specific account with sort_key details
+window.testAccountBalanceWithSortKey = async function(accountName) {
+  console.log(`🧪 Testing balance for account: ${accountName} with sort_key details`);
+  
+  try {
+    const result = await window.electronAPI.getCurrentBalanceForAccount(accountName);
+    console.log(`📊 Balance for ${accountName}:`, result);
+    
+    if (result.success) {
+      console.log(`💰 Balance: ${result.data.balance}`);
+      console.log(`📅 Date: ${result.data.date}`);
+      console.log(`🔑 Sort Key: ${result.data.sort_key}`);
+      console.log(`📝 Concept: ${result.data.concept}`);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error(`❌ Error testing balance for ${accountName}:`, error);
+    return { error: error.message };
+  }
+};
+
+// Enhanced treasury balance update with exact SQL logic
+async function updateTreasuryCurrentBalanceExact() {
     try {
-        if (typeof window.electronAPI !== 'undefined' && window.electronAPI.getCurrentBalance) {
-            const response = await window.electronAPI.getCurrentBalance();
+        console.log('🏦 Updating treasury with exact SQL balance calculation...');
+        
+        if (typeof window.electronAPI !== 'undefined' && window.electronAPI.getCurrentBalanceDetailed) {
+            const response = await window.electronAPI.getCurrentBalanceDetailed();
             if (response.success) {
-                // Update current period with real balance
-                const currentPeriod = currentTreasuryData.find(p => p.is_current);
-                if (currentPeriod) {
-                    currentPeriod.ending_balance = response.data;
-                    renderTreasuryStations();
-                    renderTreasurySummaryCards();
-                    console.log('✅ Current balance updated:', response.data);
+                const totalBalance = response.data.balance;
+                console.log('🏦 Exact balance data:', {
+                    total: totalBalance,
+                    accounts: response.data.accounts.length,
+                    latest_sort_key: response.data.latest_sort_key,
+                    last_update: response.data.last_update,
+                    breakdown: response.data.accounts.map(acc => `${acc.caja}: ${acc.balance}`)
+                });
+                
+                // Update the first period's starting balance
+                if (currentTreasuryData.length > 0) {
+                    const firstPeriod = currentTreasuryData[0];
+                    const oldBalance = firstPeriod.starting_balance;
+                    firstPeriod.starting_balance = totalBalance;
+                    
+                    // Recalculate ending balance based on net flow
+                    firstPeriod.ending_balance = totalBalance + (firstPeriod.net_flow || 0);
+                    
+                    // Update subsequent periods in cascade
+                    for (let i = 1; i < currentTreasuryData.length; i++) {
+                        const prevPeriod = currentTreasuryData[i - 1];
+                        const currentPeriod = currentTreasuryData[i];
+                        
+                        currentPeriod.starting_balance = prevPeriod.ending_balance;
+                        currentPeriod.ending_balance = currentPeriod.starting_balance + (currentPeriod.net_flow || 0);
+                    }
+                    
+                    console.log(`✅ Balance updated from ${oldBalance} to ${totalBalance}`);
+                    console.log(`📊 First period ending: ${firstPeriod.ending_balance}`);
+                    console.log(`📊 Account details: ${response.data.accounts.length} accounts contributing to total`);
                 }
+            } else {
+                console.error('❌ Failed to get exact current balance:', response.error);
             }
         }
     } catch (error) {
-        console.error('❌ Error getting current balance:', error);
+        console.error('❌ Error updating exact current balance:', error);
     }
 }
 
-// Export treasury module functions
+// Usage examples:
+console.log(`
+🧪 Available test functions:
+- testExactBalanceCalculation()           // Main test with verification
+- testAccountBalanceWithSortKey('ACCOUNT_NAME')  // Test specific account
+- testBalanceCalculationSteps()           // Debug step-by-step (requires debug handler)
+- updateTreasuryCurrentBalanceExact()     // Update treasury with exact calculation
+
+Example:
+testExactBalanceCalculation()
+`);
+
 window.TreasuryModule = {
     initialize: initializeTreasuryModule,
     switchToTab: switchToTreasuryTab,
     refresh: refreshTreasuryData,
     loadRealData: loadRealTreasuryData,
-    updateCurrentBalance: updateTreasuryCurrentBalance
+    updateCurrentBalance: updateTreasuryCurrentBalanceExact
 };

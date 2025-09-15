@@ -225,27 +225,18 @@ class TreasuryDatabase {
     await this.insertSampleForecasts();
   }
 
-// Add to treasuryForecastDatabase.js
-  async getStartingBalanceFromBankMovements() {
-    try {
-      // You'll need to pass the main database instance or create a connection
-      // This is a bridge method to get current balance from main database
-      const Database = require('./database.js');
-      const mainDB = new Database('./src/data/db/database.sqlite');
-      
-      const result = await mainDB.get(`
-        SELECT saldo as current_balance
-        FROM movimientos_bancarios 
-        ORDER BY normalized_date DESC, id DESC
-        LIMIT 1
-      `);
-      
-      return result ? result.current_balance || 0 : 0;
-    } catch (error) {
-      console.error('Error getting starting balance:', error);
-      return 0;
-    }
+// Fixed: Remove database connection issue
+async getStartingBalanceFromBankMovements() {
+  try {
+    // This method will be called from main.js where both databases are available
+    // Return 0 here and handle balance update through IPC
+    console.log('⚠️ Starting balance will be updated via IPC from main database');
+    return 0;
+  } catch (error) {
+    console.error('Error getting starting balance:', error);
+    return 0;
   }
+}
 
   async insertSampleForecasts() {
     console.log('📊 Inserting sample forecast data...');
@@ -361,110 +352,114 @@ class TreasuryDatabase {
     });
   }
 
-  // Get metro line data (main method for the UI)
-  async getMetroLineData() {
-    try {
-      console.log('🚇 Getting metro line data...');
+  // Fixed: Metro line data with proper starting balances
+async getMetroLineData() {
+  try {
+    console.log('🚇 Getting metro line data...');
+    
+    const periods = await this.all(`
+      SELECT * FROM treasury_periods 
+      WHERE config_id = 1
+      ORDER BY period_date ASC
+    `);
+
+    const metroLineData = [];
+
+    for (const period of periods) {
+      // Get income breakdown
+      const incomeData = await this.all(`
+        SELECT 
+          c.category_name as name,
+          c.icon,
+          c.color,
+          COALESCE(f.forecasted_amount, 0) as amount,
+          f.actual_amount,
+          COALESCE(f.confidence_level, 85) as confidence_level
+        FROM income_categories c
+        LEFT JOIN income_forecasts f ON (f.category_id = c.id AND f.period_id = ?)
+        WHERE c.is_active = 1
+        ORDER BY c.sort_order ASC
+      `, [period.id]);
+
+      // Get expense breakdown
+      const expenseData = await this.all(`
+        SELECT 
+          c.category_name as name,
+          c.icon,
+          c.color,
+          c.is_fixed,
+          COALESCE(f.forecasted_amount, 0) as amount,
+          f.actual_amount,
+          COALESCE(f.confidence_level, 85) as confidence_level
+        FROM expense_categories c
+        LEFT JOIN expense_forecasts f ON (f.category_id = c.id AND f.period_id = ?)
+        WHERE c.is_active = 1
+        ORDER BY c.sort_order ASC
+      `, [period.id]);
+
+      // Get reserve breakdown
+      const reserveData = await this.all(`
+        SELECT 
+          reserve_type as name,
+          target_amount,
+          current_amount,
+          description
+        FROM treasury_reserves
+        WHERE period_id = ?
+      `, [period.id]);
+
+      // Calculate totals
+      const totalIncome = incomeData.reduce((sum, item) => sum + (item.amount || 0), 0);
+      const totalExpenses = expenseData.reduce((sum, item) => sum + (item.amount || 0), 0);
+      const totalReserves = reserveData.reduce((sum, item) => sum + (item.current_amount || 0), 0);
+      const netFlow = totalIncome - totalExpenses;
+
+      // Starting balance will be 0 initially, updated via IPC
+      const startingBalance = period.starting_balance || 0;
+      const endingBalance = startingBalance + netFlow;
+
+      // Calculate health indicator
+      const healthIndicator = this.calculateHealthIndicator(netFlow, endingBalance, totalExpenses);
       
-      const periods = await this.all(`
-        SELECT * FROM treasury_periods 
-        WHERE config_id = 1
-        ORDER BY period_date ASC
-      `);
+      // Calculate days covered
+      const daysCovered = totalExpenses > 0 ? Math.floor((endingBalance / totalExpenses) * 30) : 999;
 
-      const metroLineData = [];
-
-      for (const period of periods) {
-        // Get income breakdown
-        const incomeData = await this.all(`
-          SELECT 
-            c.category_name as name,
-            c.icon,
-            c.color,
-            f.forecasted_amount as amount,
-            f.actual_amount,
-            f.confidence_level
-          FROM income_forecasts f
-          JOIN income_categories c ON f.category_id = c.id
-          WHERE f.period_id = ? AND c.is_active = 1
-          ORDER BY c.sort_order ASC
-        `, [period.id]);
-
-        // Get expense breakdown
-        const expenseData = await this.all(`
-          SELECT 
-            c.category_name as name,
-            c.icon,
-            c.color,
-            c.is_fixed,
-            f.forecasted_amount as amount,
-            f.actual_amount,
-            f.confidence_level
-          FROM expense_forecasts f
-          JOIN expense_categories c ON f.category_id = c.id
-          WHERE f.period_id = ? AND c.is_active = 1
-          ORDER BY c.sort_order ASC
-        `, [period.id]);
-
-        // Get reserve breakdown
-        const reserveData = await this.all(`
-          SELECT 
-            reserve_type as name,
-            target_amount,
-            current_amount,
-            description
-          FROM treasury_reserves
-          WHERE period_id = ?
-        `, [period.id]);
-
-        // Calculate totals
-        const totalIncome = incomeData.reduce((sum, item) => sum + (item.amount || 0), 0);
-        const totalExpenses = expenseData.reduce((sum, item) => sum + (item.amount || 0), 0);
-        const totalReserves = reserveData.reduce((sum, item) => sum + (item.current_amount || 0), 0);
-        const netFlow = totalIncome - totalExpenses;
-
-        // Calculate health indicator
-        const healthIndicator = this.calculateHealthIndicator(netFlow, totalReserves, totalExpenses);
-        
-        // Calculate days covered
-        const daysCovered = totalExpenses > 0 ? Math.floor((totalReserves / totalExpenses) * 30) : 999;
-
-        metroLineData.push({
-          id: period.id,
-          period_date: period.period_date,
-          period_display: period.period_display,
-          is_current: period.is_current === 1,
-          is_forecast: period.is_forecast === 1,
-          starting_balance: period.starting_balance || 0,
-          ending_balance: period.ending_balance || 0,
-          net_flow: netFlow,
-          breakdown: {
-            income: {
-              total: totalIncome,
-              items: incomeData
-            },
-            expenses: {
-              total: totalExpenses,
-              items: expenseData
-            },
-            reserves: {
-              total: totalReserves,
-              items: reserveData
-            }
+      metroLineData.push({
+        id: period.id,
+        period_date: period.period_date,
+        period_display: period.period_display,
+        is_current: period.is_current === 1,
+        is_forecast: period.is_forecast === 1,
+        starting_balance: startingBalance,
+        ending_balance: endingBalance,
+        net_flow: netFlow,
+        breakdown: {
+          income: {
+            total: totalIncome,
+            items: incomeData
           },
-          health_indicator: healthIndicator,
-          days_covered: daysCovered
-        });
-      }
-
-      console.log(`✅ Retrieved ${metroLineData.length} periods for metro line`);
-      return metroLineData;
-      
-    } catch (error) {
-      console.error('Error getting metro line data:', error);
-      throw error;
+          expenses: {
+            total: totalExpenses,
+            items: expenseData
+          },
+          reserves: {
+            total: totalReserves,
+            items: reserveData
+          }
+        },
+        health_indicator: healthIndicator,
+        days_covered: daysCovered
+      });
     }
+
+    console.log(`✅ Retrieved ${metroLineData.length} periods for metro line`);
+    return metroLineData;
+    
+  } catch (error) {
+    console.error('Error getting metro line data:', error);
+    throw error;
   }
+}
 
   // Helper methods
   formatPeriodDisplay(date) {
@@ -521,7 +516,7 @@ async updateForecast(periodId, categoryType, categoryId, amount, notes = null) {
   }
 }
 
-// Calculate period totals
+// Fixed: Proper period balance calculation
 async recalculatePeriodTotals(periodId) {
   try {
     // Get total income
@@ -542,11 +537,24 @@ async recalculatePeriodTotals(periodId) {
     const totalExpenses = expenseResult?.total || 0;
     const netFlow = totalIncome - totalExpenses;
     
-    // Get previous period ending balance (or starting balance)
-    const previousBalance = await this.getPreviousPeriodBalance(periodId);
+    // Get previous period ending balance OR starting balance for first period
+    let previousBalance;
+    const isFirstPeriod = await this.isFirstPeriod(periodId);
+    
+    if (isFirstPeriod) {
+      // For the first period, starting balance will be updated via IPC
+      // For now, use 0 and it will be corrected by the renderer
+      previousBalance = 0;
+    } else {
+      previousBalance = await this.getPreviousPeriodBalance(periodId);
+    }
+    
     const endingBalance = previousBalance + netFlow;
     
-    // Update period
+    // Calculate health indicator with correct parameters
+    const healthIndicator = this.calculateHealthIndicator(netFlow, endingBalance, totalExpenses);
+    
+    // Update period with correct values
     await this.run(`
       UPDATE treasury_periods 
       SET starting_balance = ?, 
@@ -555,11 +563,31 @@ async recalculatePeriodTotals(periodId) {
           health_indicator = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `, [previousBalance, endingBalance, netFlow, this.calculateHealthIndicator(endingBalance, netFlow), periodId]);
+    `, [previousBalance, endingBalance, netFlow, healthIndicator, periodId]);
+    
+    console.log(`✅ Period ${periodId} totals recalculated: Income ${totalIncome}, Expenses ${totalExpenses}, Net ${netFlow}`);
     
   } catch (error) {
     console.error('Error recalculating period totals:', error);
     throw error;
+  }
+}
+
+// New: Check if period is first
+async isFirstPeriod(periodId) {
+  try {
+    const result = await this.get(`
+      SELECT COUNT(*) as count 
+      FROM treasury_periods 
+      WHERE config_id = 1 AND period_date < (
+        SELECT period_date FROM treasury_periods WHERE id = ?
+      )
+    `, [periodId]);
+    
+    return (result?.count || 0) === 0;
+  } catch (error) {
+    console.error('Error checking if first period:', error);
+    return false;
   }
 }
 
@@ -583,13 +611,19 @@ async getPreviousPeriodBalance(periodId) {
   }
 }
 
-// Calculate health indicator
-calculateHealthIndicator(endingBalance, netFlow) {
-  if (endingBalance < 0) return 'critical';
-  if (endingBalance < 1000) return 'warning';
-  if (netFlow < -500) return 'negative';
-  if (netFlow > 500) return 'positive';
-  return 'neutral';
+// Fixed: Correct health indicator calculation
+calculateHealthIndicator(netFlow, currentBalance, totalExpenses) {
+  // Calculate reserve ratio based on current balance vs monthly expenses
+  const reserveRatio = totalExpenses > 0 ? currentBalance / totalExpenses : 1;
+  
+  // Positive net flow and good reserves
+  if (netFlow > 0 && reserveRatio >= 1) return 'positive';
+  
+  // Neutral or slightly positive with adequate reserves
+  if (netFlow >= 0 && reserveRatio >= 0.5) return 'warning';
+  
+  // Negative flow or low reserves
+  return 'negative';
 }
 
   // Close database connection

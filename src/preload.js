@@ -49,11 +49,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     hasAccountingTasks: (bankMovementId) => ipcRenderer.invoke('has-accounting-tasks', bankMovementId),
     deleteAccountingTasks: (bankMovementId) => ipcRenderer.invoke('delete-accounting-tasks', bankMovementId),
 
-    // Treasury methods (NEW)
+    // Treasury and Balance methods (Enhanced)
     getMetroTreasuryData: () => ipcRenderer.invoke('get-metro-treasury-data'),
     updateTreasuryForecast: (data) => ipcRenderer.invoke('update-treasury-forecast', data),
     getTreasuryCategories: () => ipcRenderer.invoke('get-treasury-categories'),
+
+    // Balance methods - multiple options for different use cases
     getCurrentBalance: () => ipcRenderer.invoke('get-current-balance'),
+    getCurrentBalanceDetailed: () => ipcRenderer.invoke('get-current-balance-detailed'),
+    getCurrentBalanceForAccount: (caja) => ipcRenderer.invoke('get-current-balance-for-account', caja),
+    getAccountBalances: () => ipcRenderer.invoke('get-account-balances'),
+    getBalanceProgression: (days = 30) => ipcRenderer.invoke('get-balance-progression', days),
+
+    // Legacy methods for backward compatibility
+    getBalanceHistory: (limit = 10) => ipcRenderer.invoke('get-balance-history', limit),
+    getBalanceForDate: (targetDate) => ipcRenderer.invoke('get-balance-for-date', targetDate),
+
+    // Debug method for balance calculation analysis
+    getBalanceCalculationDebug: () => ipcRenderer.invoke('get-balance-calculation-debug'),
 });
 
 contextBridge.exposeInMainWorld('versions', {

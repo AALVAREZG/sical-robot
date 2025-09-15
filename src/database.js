@@ -717,6 +717,365 @@ async deleteAccountingTasks(bankMovementId) {
     throw err;
   }
  }
+ // ===============================================
+// CORRECTED getCurrentBalance() WITH EXACT SQL
+// Replace this method in database.js
+// ===============================================
+
+/**
+ * Get the current total balance using the exact SQL provided
+ * @returns {Promise<Object>} Result with total balance information
+ */
+async getCurrentBalance() {
+  try {
+    console.log('🏦 Calculating current total balance using sort_key ordering...');
+    
+    // Use the exact SQL provided for correct balance calculation
+    const totalBalanceResult = await this.get(`
+      SELECT SUM(total_saldo) as grand_total 
+      FROM ( 
+        SELECT caja, SUM(saldo) as total_saldo 
+        FROM ( 
+          SELECT caja, saldo, ROW_NUMBER() OVER (PARTITION BY caja ORDER BY sort_key DESC) as rn 
+          FROM movimientos_bancarios 
+        ) ranked 
+        WHERE rn = 1 
+        GROUP BY caja 
+      ) totals
+    `);
+    
+    if (!totalBalanceResult) {
+      console.log('⚠️ No balance result returned from database');
+      return { 
+        success: true, 
+        data: {
+          balance: 0,
+          accounts: [],
+          total_accounts: 0,
+          last_update: null
+        }
+      };
+    }
+    
+    const totalBalance = totalBalanceResult.grand_total || 0;
+    
+    // Also get the breakdown by account for detailed information
+    const accountBreakdown = await this.all(`
+      SELECT 
+        caja,
+        saldo as last_balance,
+        fecha as last_date,
+        concepto as last_concept,
+        sort_key
+      FROM ( 
+        SELECT 
+          caja, 
+          saldo, 
+          fecha, 
+          concepto, 
+          sort_key,
+          ROW_NUMBER() OVER (PARTITION BY caja ORDER BY sort_key DESC) as rn 
+        FROM movimientos_bancarios 
+      ) ranked 
+      WHERE rn = 1 
+      ORDER BY caja
+    `);
+    
+    // Find the most recent sort_key across all accounts for last_update
+    const mostRecentMovement = await this.get(`
+      SELECT MAX(sort_key) as latest_sort_key, fecha as latest_date
+      FROM movimientos_bancarios
+      WHERE sort_key = (SELECT MAX(sort_key) FROM movimientos_bancarios)
+    `);
+    
+    console.log(`✅ Current total balance calculated: ${totalBalance} from ${accountBreakdown.length} accounts`);
+    console.log('📊 Account breakdown:', accountBreakdown.map(acc => 
+      `${acc.caja}: ${acc.last_balance}`
+    ).join(', '));
+    
+    return { 
+      success: true, 
+      data: {
+        balance: totalBalance,
+        accounts: accountBreakdown.map(acc => ({
+          caja: acc.caja,
+          balance: acc.last_balance,
+          last_date: acc.last_date,
+          last_concept: acc.last_concept,
+          sort_key: acc.sort_key
+        })),
+        total_accounts: accountBreakdown.length,
+        last_update: mostRecentMovement?.latest_date || null,
+        latest_sort_key: mostRecentMovement?.latest_sort_key || null
+      }
+    };
+  } catch (error) {
+    console.error('❌ Error calculating current balance:', error);
+    return { 
+      success: false, 
+      error: error.message 
+    };
+  }
+}
+
+/**
+ * Get current balance for a specific account using sort_key ordering
+ * @param {string} caja - Account name
+ * @returns {Promise<Object>} Result with account balance
+ */
+async getCurrentBalanceForAccount(caja) {
+  try {
+    console.log(`🏦 Getting current balance for account: ${caja} using sort_key`);
+    
+    const balanceResult = await this.get(`
+      SELECT 
+        caja,
+        saldo as current_balance, 
+        fecha, 
+        concepto,
+        sort_key
+      FROM ( 
+        SELECT 
+          caja, 
+          saldo, 
+          fecha, 
+          concepto, 
+          sort_key,
+          ROW_NUMBER() OVER (PARTITION BY caja ORDER BY sort_key DESC) as rn 
+        FROM movimientos_bancarios 
+        WHERE caja = ?
+      ) ranked 
+      WHERE rn = 1
+    `, [caja]);
+    
+    if (!balanceResult) {
+      console.log(`⚠️ No movements found for account: ${caja}`);
+      return { 
+        success: true, 
+        data: {
+          balance: 0,
+          date: null,
+          concept: `No movements found for ${caja}`,
+          account: caja,
+          sort_key: null
+        }
+      };
+    }
+    
+    const currentBalance = balanceResult.current_balance || 0;
+    console.log(`✅ Balance for ${caja}: ${currentBalance} (from ${balanceResult.fecha}, sort_key: ${balanceResult.sort_key})`);
+    
+    return { 
+      success: true, 
+      data: {
+        balance: currentBalance,
+        date: balanceResult.fecha,
+        concept: balanceResult.concepto,
+        account: balanceResult.caja,
+        sort_key: balanceResult.sort_key
+      }
+    };
+  } catch (error) {
+    console.error(`❌ Error getting balance for account ${caja}:`, error);
+    return { 
+      success: false, 
+      error: error.message 
+    };
+  }
+}
+
+/**
+ * Get account summary with latest balance per account using sort_key
+ * @returns {Promise<Object>} Result with balance per account
+ */
+async getAccountBalances() {
+  try {
+    console.log('🏦 Getting balances for all accounts using sort_key ordering...');
+    
+    const accountBalances = await this.all(`
+      SELECT 
+        caja as account,
+        saldo as balance,
+        fecha as last_movement_date,
+        concepto as last_concept,
+        sort_key,
+        (SELECT COUNT(*) FROM movimientos_bancarios m2 WHERE m2.caja = ranked.caja) as total_movements
+      FROM ( 
+        SELECT 
+          caja, 
+          saldo, 
+          fecha, 
+          concepto, 
+          sort_key,
+          ROW_NUMBER() OVER (PARTITION BY caja ORDER BY sort_key DESC) as rn 
+        FROM movimientos_bancarios 
+      ) ranked 
+      WHERE rn = 1 
+      ORDER BY caja
+    `);
+    
+    // Calculate total balance using the same logic
+    const totalBalanceResult = await this.get(`
+      SELECT SUM(total_saldo) as grand_total 
+      FROM ( 
+        SELECT caja, SUM(saldo) as total_saldo 
+        FROM ( 
+          SELECT caja, saldo, ROW_NUMBER() OVER (PARTITION BY caja ORDER BY sort_key DESC) as rn 
+          FROM movimientos_bancarios 
+        ) ranked 
+        WHERE rn = 1 
+        GROUP BY caja 
+      ) totals
+    `);
+    
+    const totalBalance = totalBalanceResult?.grand_total || 0;
+    
+    console.log(`✅ Retrieved balances for ${accountBalances.length} accounts. Total: ${totalBalance}`);
+    
+    return { 
+      success: true, 
+      data: {
+        accounts: accountBalances || [],
+        total_balance: totalBalance,
+        total_accounts: accountBalances.length
+      }
+    };
+  } catch (error) {
+    console.error('❌ Error getting account balances:', error);
+    return { 
+      success: false, 
+      error: error.message 
+    };
+  }
+}
+
+/**
+ * Verify the balance calculation with debug information
+ * @returns {Promise<Object>} Debug information about balance calculation
+ */
+async getBalanceCalculationDebug() {
+  try {
+    console.log('🔍 Running balance calculation debug...');
+    
+    // Get the step-by-step breakdown
+    const step1 = await this.all(`
+      SELECT caja, saldo, sort_key, fecha, concepto,
+             ROW_NUMBER() OVER (PARTITION BY caja ORDER BY sort_key DESC) as rn 
+      FROM movimientos_bancarios 
+      ORDER BY caja, sort_key DESC
+    `);
+    
+    const step2 = await this.all(`
+      SELECT caja, saldo
+      FROM ( 
+        SELECT caja, saldo, ROW_NUMBER() OVER (PARTITION BY caja ORDER BY sort_key DESC) as rn 
+        FROM movimientos_bancarios 
+      ) ranked 
+      WHERE rn = 1 
+      ORDER BY caja
+    `);
+    
+    const step3 = await this.all(`
+      SELECT caja, SUM(saldo) as total_saldo 
+      FROM ( 
+        SELECT caja, saldo, ROW_NUMBER() OVER (PARTITION BY caja ORDER BY sort_key DESC) as rn 
+        FROM movimientos_bancarios 
+      ) ranked 
+      WHERE rn = 1 
+      GROUP BY caja
+    `);
+    
+    const finalTotal = await this.get(`
+      SELECT SUM(total_saldo) as grand_total 
+      FROM ( 
+        SELECT caja, SUM(saldo) as total_saldo 
+        FROM ( 
+          SELECT caja, saldo, ROW_NUMBER() OVER (PARTITION BY caja ORDER BY sort_key DESC) as rn 
+          FROM movimientos_bancarios 
+        ) ranked 
+        WHERE rn = 1 
+        GROUP BY caja 
+      ) totals
+    `);
+    
+    return {
+      success: true,
+      data: {
+        step1_all_movements: step1,
+        step2_latest_per_account: step2,
+        step3_sum_per_account: step3,
+        final_total: finalTotal?.grand_total || 0
+      }
+    };
+  } catch (error) {
+    console.error('❌ Error in balance calculation debug:', error);
+    return { 
+      success: false, 
+      error: error.message 
+    };
+  }
+}
+// ===============================================
+// DATABASE.JS - ESSENTIAL WRAPPER METHODS
+// Add these methods to the Database class in database.js
+// ===============================================
+
+/**
+ * Wrapper method for db.get() - Returns a single row
+ * @param {string} sql - SQL query
+ * @param {Array} params - Query parameters
+ * @returns {Promise<Object>} Single row result
+ */
+get(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    this.db.get(sql, params, (err, row) => {
+      if (err) {
+        console.error('Database Get Error:', err.message);
+        reject(err);
+      } else {
+        resolve(row);
+      }
+    });
+  });
+}
+
+/**
+ * Wrapper method for db.all() - Returns all rows
+ * @param {string} sql - SQL query
+ * @param {Array} params - Query parameters
+ * @returns {Promise<Array>} Array of rows
+ */
+all(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    this.db.all(sql, params, (err, rows) => {
+      if (err) {
+        console.error('Database All Error:', err.message);
+        reject(err);
+      } else {
+        resolve(rows || []);
+      }
+    });
+  });
+}
+
+/**
+ * Wrapper method for db.run() - Executes a query
+ * @param {string} sql - SQL query
+ * @param {Array} params - Query parameters
+ * @returns {Promise<Object>} Result with changes info
+ */
+run(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    this.db.run(sql, params, function(err) {
+      if (err) {
+        console.error('Database Run Error:', err.message);
+        reject(err);
+      } else {
+        resolve(this); // this contains lastID, changes, etc.
+      }
+    });
+  });
+}
 }
 
 module.exports = Database;

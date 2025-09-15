@@ -38,7 +38,7 @@ const {
 
 let transactionPatterns = [];
 let mainWindow;
-const db = new Database('./src/data/db/prueba05.sqlite');
+//const db = new Database('./src/data/db/prueba05.sqlite');
 // Add treasury database initialization
 let treasuryDB;
 // Function to load patterns
@@ -92,24 +92,54 @@ function createWindow() {
   mainWindow.loadFile('src/index.html');
 }
 
-app.whenReady().then(createWindow);
-// Initialize when the app starts
+// Improved: Treasury database initialization with proper waiting
 app.whenReady().then(async () => {
-  // Your existing code...
-  console.log("async loads and initializations .....")
-  // Initialize treasury database (NEW)
+  createWindow();
+  
+  // Initialize main database first
+  try {
+    db = new Database('./src/data/db/prueba05.sqlite');
+    console.log('✅ Main database initialized');
+  } catch (error) {
+    console.error('❌ Error initializing main database:', error);
+  }
+  
+  // Initialize treasury database with better error handling
   try {
     treasuryDB = new TreasuryForecastDatabase('./src/data/db/treasuryForecast.sqlite');
-    console.log('✅ Treasury database initialized');
+    
+    // Wait for proper initialization
+    await new Promise((resolve, reject) => {
+      let attempts = 0;
+      const maxAttempts = 50; // 5 seconds max
+      
+      const checkInit = () => {
+        attempts++;
+        if (treasuryDB && treasuryDB.db) {
+          console.log('✅ Treasury database initialized successfully');
+          resolve();
+        } else if (attempts >= maxAttempts) {
+          reject(new Error('Treasury database initialization timeout'));
+        } else {
+          setTimeout(checkInit, 100);
+        }
+      };
+      
+      checkInit();
+    });
+    
   } catch (error) {
     console.error('❌ Error initializing treasury database:', error);
+    treasuryDB = null; // Set to null to indicate failure
   }
-  // Load the simplified model (no TensorFlow)
-  // Load patterns on startup
+  
+  // Load patterns and other initializations
   await loadPatternsFromFile();
   await initializePatterns();
-  // Continue with your app initialization...
+  
+  console.log('🚀 Application initialization complete');
 });
+
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -797,51 +827,193 @@ ipcMain.handle('delete-accounting-tasks', async (event, bankMovementId) => {
   }
 });
 
-// Add these NEW IPC handlers for treasury forecasting:
+
+// ===============================================
+// UPDATED IPC HANDLERS FOR BALANCE CALCULATION
+// Replace these handlers in main.js
+// ===============================================
+
+// Current total balance (sum of all accounts)
+ipcMain.handle('get-current-balance', async () => {
+  try {
+    if (!db) {
+      console.error('❌ Main database not available');
+      return { success: false, error: 'Database not available' };
+    }
+    
+    const result = await db.getCurrentBalance();
+    
+    if (result.success) {
+      // Return just the balance number for treasury compatibility
+      console.log(`💰 Total current balance: ${result.data.balance} (from ${result.data.total_accounts} accounts)`);
+      return { success: true, data: result.data.balance };
+    } else {
+      return result;
+    }
+  } catch (error) {
+    console.error('❌ Error in get-current-balance handler:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Detailed current balance with account breakdown
+ipcMain.handle('get-current-balance-detailed', async () => {
+  try {
+    if (!db) {
+      return { success: false, error: 'Database not available' };
+    }
+    
+    return await db.getCurrentBalance();
+  } catch (error) {
+    console.error('❌ Error getting detailed current balance:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Current balance for specific account
+ipcMain.handle('get-current-balance-for-account', async (event, caja) => {
+  try {
+    if (!db) {
+      return { success: false, error: 'Database not available' };
+    }
+    
+    if (!caja) {
+      return { success: false, error: 'Account name required' };
+    }
+    
+    return await db.getCurrentBalanceForAccount(caja);
+  } catch (error) {
+    console.error('❌ Error getting balance for account:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// All account balances with summary
+ipcMain.handle('get-account-balances', async () => {
+  try {
+    if (!db) {
+      return { success: false, error: 'Database not available' };
+    }
+    
+    return await db.getAccountBalances();
+  } catch (error) {
+    console.error('❌ Error getting account balances:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Balance progression over time
+ipcMain.handle('get-balance-progression', async (event, days = 30) => {
+  try {
+    if (!db) {
+      return { success: false, error: 'Database not available' };
+    }
+    
+    return await db.getBalanceProgression(days);
+  } catch (error) {
+    console.error('❌ Error getting balance progression:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Enhanced treasury data handler that uses correct balance calculation
 ipcMain.handle('get-metro-treasury-data', async () => {
   try {
+    if (!treasuryDB) {
+      console.error('❌ Treasury database not initialized');
+      return { success: false, error: 'Treasury database not initialized' };
+    }
+    
+    console.log('🔄 Getting metro treasury data...');
+    
+    // Get treasury data
     const metroData = await treasuryDB.getMetroLineData();
+    
+    if (!metroData || metroData.length === 0) {
+      console.log('⚠️ No treasury data found, may need initialization');
+      return { success: false, error: 'No treasury data found. Database may need initialization.' };
+    }
+    
+    // Get current total balance from main database
+    const currentBalanceResult = await db.getCurrentBalance();
+    
+    if (currentBalanceResult.success && metroData.length > 0) {
+      // Update the first period with the real current balance
+      const currentTotalBalance = currentBalanceResult.data.balance;
+      const firstPeriod = metroData[0];
+      
+      console.log(`🔄 Updating first period starting balance from ${firstPeriod.starting_balance} to ${currentTotalBalance}`);
+      
+      firstPeriod.starting_balance = currentTotalBalance;
+      firstPeriod.ending_balance = currentTotalBalance + firstPeriod.net_flow;
+      
+      // Cascade the balance update through subsequent periods
+      for (let i = 1; i < metroData.length; i++) {
+        const prevPeriod = metroData[i - 1];
+        const currentPeriod = metroData[i];
+        
+        currentPeriod.starting_balance = prevPeriod.ending_balance;
+        currentPeriod.ending_balance = currentPeriod.starting_balance + currentPeriod.net_flow;
+      }
+    }
+    
+    console.log(`✅ Retrieved ${metroData.length} treasury periods with updated balances`);
     return { success: true, data: metroData };
   } catch (error) {
-    console.error('Error getting metro treasury data:', error);
+    console.error('❌ Error getting metro treasury data:', error);
     return { success: false, error: error.message };
   }
 });
-
+// Treasury forecast update handler
 ipcMain.handle('update-treasury-forecast', async (event, { periodId, categoryType, categoryId, amount, notes }) => {
   try {
+    if (!treasuryDB) {
+      return { success: false, error: 'Treasury database not available' };
+    }
+    
+    // Validate inputs
+    if (!periodId || !categoryType || !categoryId || amount === undefined) {
+      return { success: false, error: 'Invalid parameters' };
+    }
+    
+    console.log(`🔄 Updating treasury forecast: Period ${periodId}, ${categoryType}, Amount ${amount}`);
+    
     await treasuryDB.updateForecast(periodId, categoryType, categoryId, amount, notes);
+    
+    console.log('✅ Treasury forecast updated successfully');
     return { success: true };
   } catch (error) {
-    console.error('Error updating treasury forecast:', error);
+    console.error('❌ Error updating treasury forecast:', error);
     return { success: false, error: error.message };
   }
 });
 
+// Treasury categories handler
 ipcMain.handle('get-treasury-categories', async () => {
   try {
+    if (!treasuryDB) {
+      return { success: false, error: 'Treasury database not available' };
+    }
+    
     const categories = await treasuryDB.getCategories();
     return { success: true, data: categories };
   } catch (error) {
-    console.error('Error getting treasury categories:', error);
+    console.error('❌ Error getting treasury categories:', error);
     return { success: false, error: error.message };
   }
 });
 
-// Bridge method to get current balance from main database
-ipcMain.handle('get-current-balance', async () => {
+// Debug handler for balance calculation step-by-step analysis
+ipcMain.handle('get-balance-calculation-debug', async () => {
   try {
-    const balanceResult = await db.get(`
-      SELECT saldo as current_balance
-      FROM movimientos_bancarios 
-      ORDER BY normalized_date DESC, id DESC
-      LIMIT 1
-    `);
+    if (!db) {
+      return { success: false, error: 'Database not available' };
+    }
     
-    const currentBalance = balanceResult ? balanceResult.current_balance || 0 : 0;
-    return { success: true, data: currentBalance };
+    console.log('🔍 Running balance calculation debug analysis...');
+    return await db.getBalanceCalculationDebug();
   } catch (error) {
-    console.error('Error getting current balance:', error);
+    console.error('❌ Error in balance calculation debug:', error);
     return { success: false, error: error.message };
   }
 });
