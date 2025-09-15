@@ -99,7 +99,7 @@ app.whenReady().then(async () => {
   console.log("async loads and initializations .....")
   // Initialize treasury database (NEW)
   try {
-    treasuryDB = new TreasuryForecastDatabase('./src/data/db/treasury.sqlite');
+    treasuryDB = new TreasuryForecastDatabase('./src/data/db/treasuryForecast.sqlite');
     console.log('✅ Treasury database initialized');
   } catch (error) {
     console.error('❌ Error initializing treasury database:', error);

@@ -7,7 +7,7 @@ const sqlite3 = require('sqlite3');
 const path = require('path');
 
 class TreasuryDatabase {
-  constructor(dbFilePath = './src/data/db/treasury.sqlite') {
+  constructor(dbFilePath = './src/data/db/treasuryForecast.sqlite') {
     this.dbPath = dbFilePath;
     
     // Ensure directory exists
@@ -191,38 +191,39 @@ class TreasuryDatabase {
     // Generate initial periods (current + 5 forecast months)
     await this.generateInitialPeriods();
 
-    console.log('✅ Default treasury data inserted');
-  }
+      console.log('✅ Default treasury data inserted');
+    }
 
-  async generateInitialPeriods() {
-    const configId = 1;
-    const currentDate = new Date();
-    
-    // First period is current month
-    const currentPeriodDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-01`;
-    const currentPeriodDisplay = this.formatPeriodDisplay(currentDate);
-    
-    await this.run(`
-      INSERT OR IGNORE INTO treasury_periods 
-      (config_id, period_date, period_display, is_current, is_forecast)
-      VALUES (?, ?, ?, 1, 0)
-    `, [configId, currentPeriodDate, currentPeriodDisplay]);
-
-    // Generate 5 forecast periods
-    for (let i = 1; i <= 5; i++) {
-      const forecastDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
-      const forecastPeriodDate = `${forecastDate.getFullYear()}-${String(forecastDate.getMonth() + 1).padStart(2, '0')}-01`;
-      const forecastPeriodDisplay = this.formatPeriodDisplay(forecastDate);
+    async generateInitialPeriods() {
+      const configId = 1;
+      const currentDate = new Date();
+      
+      // First period represents "end of current month" as a forecast
+      const currentMonthEndDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0); // Last day of current month
+      const currentPeriodDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-01`;
+      const currentPeriodDisplay = this.formatPeriodDisplay(currentDate) + ' (End)';
       
       await this.run(`
         INSERT OR IGNORE INTO treasury_periods 
         (config_id, period_date, period_display, is_current, is_forecast)
         VALUES (?, ?, ?, 0, 1)
-      `, [configId, forecastPeriodDate, forecastPeriodDisplay]);
-    }
+      `, [configId, currentPeriodDate, currentPeriodDisplay]);
 
-    // Insert sample forecast data for demonstration
-    await this.insertSampleForecasts();
+      // Generate 5 additional forecast periods (next months)
+      for (let i = 1; i <= 4; i++) {
+        const forecastDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
+        const forecastPeriodDate = `${forecastDate.getFullYear()}-${String(forecastDate.getMonth() + 1).padStart(2, '0')}-01`;
+        const forecastPeriodDisplay = this.formatPeriodDisplay(forecastDate);
+        
+        await this.run(`
+          INSERT OR IGNORE INTO treasury_periods 
+          (config_id, period_date, period_display, is_current, is_forecast)
+          VALUES (?, ?, ?, 0, 1)
+        `, [configId, forecastPeriodDate, forecastPeriodDisplay]);
+      }
+
+      // Insert sample forecast data for demonstration
+      await this.insertSampleForecasts();
   }
 
   async insertSampleForecasts() {

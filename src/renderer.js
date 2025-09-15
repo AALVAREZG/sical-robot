@@ -539,6 +539,108 @@ function setupPagination(totalRecords) {
  * Set up event listeners
  */
 function setupEventListeners() {
+    // Setup main tab navigation
+    const mainTabItems = document.querySelectorAll('.tab-navigation .tab-item');
+    mainTabItems.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            const tabId = e.target.getAttribute('data-tab');
+            switchToTab(tabId);
+        });
+    });
+    
+    // Setup search input
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(() => {
+            applyFilters();
+        }, 300));
+    }
+    
+    // Setup filter field selection
+    const filterField = document.getElementById('filterField');
+    if (filterField) {
+        filterField.addEventListener('change', () => {
+            applyFilters();
+        });
+    }
+    
+    // Handle file selection
+    const selectFileButton = document.getElementById('selectFile');
+    if (selectFileButton) {
+        selectFileButton.addEventListener('click', selectFile);
+    }
+    
+    // Setup clear filters
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', () => {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterField').value = 'all';
+            applyFilters();
+        });
+    }
+    
+    // Close action menu when clicking elsewhere
+    document.addEventListener('click', (e) => {
+        if (isActionMenuOpen && e.target !== actionMenuTarget) {
+            closeActionMenu();
+        }
+    });
+    
+    // Add keyboard shortcut for search (Ctrl+F)
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.focus();
+            }
+        }
+    });
+    
+    // Register for import events
+    window.electronAPI.onRecordsImported((caja) => {
+        loadRecords(caja);
+    });
+}
+
+/**
+ * Switch between main application tabs
+ */
+function switchToTab(tabId) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-navigation .tab-item').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.getAttribute('data-tab') === tabId) {
+            tab.classList.add('active');
+        }
+    });
+
+    // Update tab content visibility
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+        content.style.display = 'none';
+    });
+
+    const activeContent = document.getElementById(tabId + '-content');
+    if (activeContent) {
+        activeContent.classList.add('active');
+        activeContent.style.display = 'block';
+    }
+
+    // Handle specific tab initialization
+    if (tabId === 'treasury') {
+        // Initialize treasury forecast if needed
+        if (typeof initializeTreasuryForecast === 'function') {
+            initializeTreasuryForecast();
+        }
+    }
+}
+
+/**
+ * Set up event listeners
+ */
+function setupEventListeners_old() {
     // Setup search input
     const searchInput = document.getElementById('searchInput');
     searchInput.addEventListener('input', debounce(() => {
