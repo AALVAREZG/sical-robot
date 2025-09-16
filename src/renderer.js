@@ -35,13 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("Error reloading patterns:", error);
     });
 
-    // Initialize Treasury Module if available
+    // Replace existing treasury initialization with:
     if (typeof initializeTreasuryModule === 'function') {
         initializeTreasuryModule();
-        window.treasuryDataInputIntegration.initialize();
     }
     
-
     // Setup clear search button
     setupClearSearchButton();
 });
