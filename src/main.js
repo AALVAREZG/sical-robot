@@ -1017,3 +1017,127 @@ ipcMain.handle('get-balance-calculation-debug', async () => {
     return { success: false, error: error.message };
   }
 });
+
+// ===============================================
+// INTEGRATION WITH MAIN.JS
+// Add these IPC handlers to main.js
+// ===============================================
+
+// Dynamic category management
+ipcMain.handle('add-treasury-category', async (event, { type, name, icon, periodIds }) => {
+    try {
+        if (!treasuryDB) {
+            return { success: false, error: 'Treasury database not available' };
+        }
+        
+        return await treasuryDB.addDynamicCategory(type, name, icon, periodIds);
+    } catch (error) {
+        console.error('Error adding treasury category:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('update-category-name', async (event, { type, categoryId, newName }) => {
+    try {
+        if (!treasuryDB) {
+            return { success: false, error: 'Treasury database not available' };
+        }
+        
+        return await treasuryDB.updateCategoryName(type, categoryId, newName);
+    } catch (error) {
+        console.error('Error updating category name:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('toggle-category-fixed', async (event, { categoryId, isFixed }) => {
+    try {
+        if (!treasuryDB) {
+            return { success: false, error: 'Treasury database not available' };
+        }
+        
+        return await treasuryDB.toggleCategoryFixed(categoryId, isFixed);
+    } catch (error) {
+        console.error('Error toggling category fixed status:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('get-period-categories', async (event, periodId) => {
+    try {
+        if (!treasuryDB) {
+            return { success: false, error: 'Treasury database not available' };
+        }
+        
+        return await treasuryDB.getPeriodCategories(periodId);
+    } catch (error) {
+        console.error('Error getting period categories:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('batch-update-forecasts', async (event, updates) => {
+    try {
+        if (!treasuryDB) {
+            return { success: false, error: 'Treasury database not available' };
+        }
+        
+        return await treasuryDB.batchUpdateForecasts(updates);
+    } catch (error) {
+        console.error('Error batch updating forecasts:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('update-reserve', async (event, { periodId, reserveType, currentAmount, targetAmount }) => {
+    try {
+        if (!treasuryDB) {
+            return { success: false, error: 'Treasury database not available' };
+        }
+        
+        return await treasuryDB.updateReserve(periodId, reserveType, currentAmount, targetAmount);
+    } catch (error) {
+        console.error('Error updating reserve:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('get-financial-insights', async (event, periodId) => {
+    try {
+        if (!treasuryDB) {
+            return { success: false, error: 'Treasury database not available' };
+        }
+        
+        return await treasuryDB.getFinancialInsights(periodId);
+    } catch (error) {
+        console.error('Error getting financial insights:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('export-treasury-data', async () => {
+    try {
+        if (!treasuryDB) {
+            return { success: false, error: 'Treasury database not available' };
+        }
+        
+        return await treasuryDB.exportTreasuryData();
+    } catch (error) {
+        console.error('Error exporting treasury data:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('import-treasury-data', async (event, { data, overwrite }) => {
+    try {
+        if (!treasuryDB) {
+            return { success: false, error: 'Treasury database not available' };
+        }
+        
+        return await treasuryDB.importTreasuryData(data, overwrite);
+    } catch (error) {
+        console.error('Error importing treasury data:', error);
+        return { success: false, error: error.message };
+    }
+});
+

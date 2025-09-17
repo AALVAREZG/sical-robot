@@ -67,7 +67,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Debug method for balance calculation analysis
     getBalanceCalculationDebug: () => ipcRenderer.invoke('get-balance-calculation-debug'),
+    // New methods for dynamic categories
+    addTreasuryCategory: (data) => ipcRenderer.invoke('add-treasury-category', data),
+    updateCategoryName: (data) => ipcRenderer.invoke('update-category-name', data),
+    toggleCategoryFixed: (data) => ipcRenderer.invoke('toggle-category-fixed', data),
+    getPeriodCategories: (periodId) => ipcRenderer.invoke('get-period-categories', periodId),
+    batchUpdateForecasts: (updates) => ipcRenderer.invoke('batch-update-forecasts', updates),
+    updateReserve: (data) => ipcRenderer.invoke('update-reserve', data),
+    getFinancialInsights: (periodId) => ipcRenderer.invoke('get-financial-insights', periodId),
+    exportTreasuryData: () => ipcRenderer.invoke('export-treasury-data'),
+    importTreasuryData: (data) => ipcRenderer.invoke('import-treasury-data', data)
 });
+
 
 contextBridge.exposeInMainWorld('versions', {
     node: () => process.versions.node,
