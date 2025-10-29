@@ -198,6 +198,7 @@ class TreasuryForecastManager {
     // ===============================================
     
     async loadInitialData() {
+        console.log('//////////////////////', 'lOAD INITIAL DATA.....');
         try {
             // Check if API is available
             if (!window.electronAPI || !window.electronAPI.getMetroTreasuryData) {
@@ -216,7 +217,8 @@ class TreasuryForecastManager {
                 this.loadMockData();
                 return;
             }
-
+            console.log('//////////////////////', 'lOAD INITIAL DATA.....');
+            console.log('Treasury data received:', this.treasuryData);
             // Load categories
             const categoriesResult = await window.electronAPI.getTreasuryCategories();
             if (categoriesResult && categoriesResult.success) {

@@ -142,7 +142,7 @@ class TreasuryDatabase {
     console.log('✅ Treasury tables initialized successfully');
     
     // Insert default data
-    await this.insertDefaultData();
+    // await this.insertDefaultData();
   }
 
   async insertDefaultData() {
@@ -424,11 +424,6 @@ async getMetroLineData() {
       // Calculate days covered
       const daysCovered = totalExpenses > 0 ? Math.floor((endingBalance / totalExpenses) * 30) : 999;
       
-      console.log("Starting balance; ");
-      console.log(startingBalance);
-      console.log("ending balance")
-      console.log(endingBalance);
-
       metroLineData.push({
         id: period.id,
         period_date: period.period_date,
