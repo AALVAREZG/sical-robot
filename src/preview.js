@@ -91,9 +91,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const groups = {};
         const nonGroupedRecords = [];
 
-        records.forEach(record => {
+        // First pass: separate grouped and non-grouped records
+        for (const record of records) {
             const match = record.concepto.match(/TRANSFERENCIAS \| ([A-Za-z0-9]{6,9}) 41016796-E\.I\. CASAR \|/);
-            
+
             if (match) {
                 const dateKey = record.normalized_date;
                 if (!groups[dateKey]) {
@@ -105,11 +106,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 groups[dateKey].records.push(record);
                 groups[dateKey].total += record.importe;
             } else {
+                // Check if non-grouped record already exists in database
+                const hash = await window.electronAPI.generateHash(record);
+                const exists = await window.electronAPI.checkRecordExists(hash);
+
                 nonGroupedRecords.push({
                     ...record,
-                    is_grouped: false});
+                    is_grouped: false,
+                    alreadyInDatabase: exists
+                });
             }
-        });
+        }
 
        // Create and check grouped records
     const groupedRecords = [];

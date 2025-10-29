@@ -286,7 +286,6 @@ button {
 table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed;
 }
 
 th {
@@ -298,26 +297,31 @@ th {
     border-bottom: 1px solid var(--border-color);
 }
 
-/* Column width specifications */
-th:nth-child(1), td:nth-child(1) { width: 12%; } /* FECHA */
-th:nth-child(2), td:nth-child(2) { width: 40%; } /* CONCEPTO */
-th:nth-child(3), td:nth-child(3) { width: 15%; text-align: right; } /* IMPORTE */
-th:nth-child(4), td:nth-child(4) { width: 18%; text-align: right; } /* SALDO */
-th:nth-child(5), td:nth-child(5) { width: 5%; text-align: center; }  /* CONT */
-th:nth-child(6), td:nth-child(6) {
-    width: 10%;
-    text-align: center;
-    white-space: nowrap;
-} /* ACTIONS */
-
 td {
     padding: 15px;
     border-bottom: 1px solid var(--border-color);
     vertical-align: middle;
 }
 
-/* Actions column - force horizontal layout */
-td:nth-child(6) {
+/* Main records table specific styles */
+#records {
+    table-layout: fixed;
+}
+
+/* Column width specifications for main records table only */
+#records th:nth-child(1), #records td:nth-child(1) { width: 12%; } /* FECHA */
+#records th:nth-child(2), #records td:nth-child(2) { width: 40%; } /* CONCEPTO */
+#records th:nth-child(3), #records td:nth-child(3) { width: 15%; text-align: right; } /* IMPORTE */
+#records th:nth-child(4), #records td:nth-child(4) { width: 18%; text-align: right; } /* SALDO */
+#records th:nth-child(5), #records td:nth-child(5) { width: 5%; text-align: center; }  /* CONT */
+#records th:nth-child(6), #records td:nth-child(6) {
+    width: 10%;
+    text-align: center;
+    white-space: nowrap;
+} /* ACTIONS */
+
+/* Actions column - force horizontal layout (main table only) */
+#records td:nth-child(6) {
     padding: 8px;
     white-space: nowrap;
 }
