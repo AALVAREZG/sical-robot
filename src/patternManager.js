@@ -4,6 +4,7 @@ let currentPatternIndex = null;
 let matcherEditor = null;
 let generatorEditor = null;
 let hasUnsavedChanges = false;
+let isProgrammaticChange = false; // FIX: Flag to track programmatic vs user changes
 
 
 // Initialize the application when the DOM is fully loaded
@@ -26,7 +27,11 @@ function initMonacoEditor() {
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
             fontSize: 14,
-            renderLineHighlight: 'all'
+            renderLineHighlight: 'all',
+            // FIX: Add these options to prevent focus issues
+            contextmenu: false,
+            quickSuggestions: false,
+            parameterHints: { enabled: false }
         });
 
         // Create generator editor
@@ -37,12 +42,92 @@ function initMonacoEditor() {
             automaticLayout: true,
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
-            fontSize: 14
+            fontSize: 14,
+            // FIX: Add these options to prevent focus issues
+            contextmenu: false,
+            quickSuggestions: false,
+            parameterHints: { enabled: false }
         });
 
-        // Add change handlers to track unsaved changes
-        matcherEditor.onDidChangeModelContent(() => { hasUnsavedChanges = true; });
-        generatorEditor.onDidChangeModelContent(() => { hasUnsavedChanges = true; });
+        // FIX: Add change handlers that ignore programmatic changes
+        // We use a flag to distinguish between user edits and programmatic setValue() calls
+        matcherEditor.onDidChangeModelContent(() => {
+            if (!isProgrammaticChange) {
+                hasUnsavedChanges = true;
+            }
+        });
+
+        generatorEditor.onDidChangeModelContent(() => {
+            if (!isProgrammaticChange) {
+                hasUnsavedChanges = true;
+            }
+        });
+
+        // FIX: Add focus recovery mechanism
+        setupFocusRecovery();
+    });
+}
+
+// FIX: Focus recovery mechanism to prevent keyboard blocking
+function setupFocusRecovery() {
+    let lastFocusTime = Date.now();
+
+    // Monitor window focus events
+    window.addEventListener('focus', () => {
+        lastFocusTime = Date.now();
+        // Force editors to release and reacquire focus properly
+        if (matcherEditor) {
+            setTimeout(() => matcherEditor.layout(), 0);
+        }
+        if (generatorEditor) {
+            setTimeout(() => generatorEditor.layout(), 0);
+        }
+    });
+
+    // Monitor editor focus events
+    if (matcherEditor) {
+        matcherEditor.onDidFocusEditorText(() => {
+            lastFocusTime = Date.now();
+        });
+    }
+    if (generatorEditor) {
+        generatorEditor.onDidFocusEditorText(() => {
+            lastFocusTime = Date.now();
+        });
+    }
+
+    // Periodic check for stuck focus (every 2 seconds)
+    setInterval(() => {
+        const timeSinceLastFocus = Date.now() - lastFocusTime;
+
+        // If no focus events in 30 seconds and editors exist, force refresh
+        if (timeSinceLastFocus > 30000) {
+            console.log('Focus recovery: Refreshing editors');
+            if (matcherEditor && matcherEditor.hasTextFocus()) {
+                matcherEditor.layout();
+            }
+            if (generatorEditor && generatorEditor.hasTextFocus()) {
+                generatorEditor.layout();
+            }
+            lastFocusTime = Date.now();
+        }
+    }, 2000);
+
+    // FIX: Add escape hatch - Ctrl+Shift+R to force refresh editors
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+            e.preventDefault();
+            console.log('Manual focus recovery triggered');
+            if (matcherEditor) {
+                matcherEditor.focus();
+                matcherEditor.layout();
+            }
+            if (generatorEditor) {
+                generatorEditor.focus();
+                generatorEditor.layout();
+            }
+            showToast('Editors refreshed', 'success');
+        }
     });
 }
 
@@ -170,10 +255,26 @@ function selectPattern(index) {
             return;
         }
     }
-    
+
+    // FIX: Blur editors before switching to prevent focus trap
+    if (matcherEditor) {
+        try {
+            matcherEditor.trigger('keyboard', 'editor.action.blur');
+        } catch (e) {
+            console.log('Could not blur matcher editor:', e);
+        }
+    }
+    if (generatorEditor) {
+        try {
+            generatorEditor.trigger('keyboard', 'editor.action.blur');
+        } catch (e) {
+            console.log('Could not blur generator editor:', e);
+        }
+    }
+
     currentPatternIndex = index;
     hasUnsavedChanges = false;
-    
+
     // Update pattern list UI
     document.querySelectorAll('.pattern-item').forEach(item => {
         item.classList.remove('active');
@@ -181,29 +282,55 @@ function selectPattern(index) {
             item.classList.add('active');
         }
     });
-    
+
     // Get the current pattern
     const pattern = patterns[index];
-    
+
     // Show editor container, hide placeholder
     document.getElementById('editorPlaceholder').style.display = 'none';
     document.getElementById('patternEditorContainer').style.display = 'flex';
-    
+
     // Update editor fields
     document.getElementById('patternDescription').value = pattern.description || '';
-    
+
     // Update Monaco editors if initialized
     if (matcherEditor && generatorEditor) {
+        // FIX: Set flag before programmatic changes to prevent false "unsaved changes" detection
+        isProgrammaticChange = true;
+
         matcherEditor.setValue(pattern.matcherFunction || '');
         generatorEditor.setValue(pattern.generatorFunction || '');
+
+        // FIX: Reset flag after a short delay to allow change events to fire
+        setTimeout(() => {
+            isProgrammaticChange = false;
+        }, 50);
+
+        // FIX: Force layout refresh after setting value to prevent focus issues
+        setTimeout(() => {
+            if (matcherEditor) matcherEditor.layout();
+            if (generatorEditor) generatorEditor.layout();
+        }, 100);
     }
-    
+
     // Activate the first tab
     activateTab('matcher');
 }
 
 // Activate a tab
 function activateTab(tabId) {
+    // FIX: Blur current editor before switching tabs
+    if (matcherEditor) {
+        try {
+            matcherEditor.trigger('keyboard', 'editor.action.blur');
+        } catch (e) {}
+    }
+    if (generatorEditor) {
+        try {
+            generatorEditor.trigger('keyboard', 'editor.action.blur');
+        } catch (e) {}
+    }
+
     // Update tab buttons
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.classList.remove('active');
@@ -211,13 +338,22 @@ function activateTab(tabId) {
             btn.classList.add('active');
         }
     });
-    
+
     // Update panels
     document.querySelectorAll('.editor-panel').forEach(panel => {
         panel.classList.remove('active');
     });
     document.getElementById(`${tabId}Panel`).classList.add('active');
-    
+
+    // FIX: Force layout after tab switch
+    setTimeout(() => {
+        if (tabId === 'matcher' && matcherEditor) {
+            matcherEditor.layout();
+        } else if (tabId === 'generator' && generatorEditor) {
+            generatorEditor.layout();
+        }
+    }, 100);
+
     // If the tab is 'test', make sure we update the test panel
     if (tabId === 'test') {
         updateTestPanel();
