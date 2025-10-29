@@ -8,6 +8,18 @@
     overflow: hidden;
 }
 
+/* Movement filter tabs (sub-tabs for filtering movements) */
+.movement-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 20px;
+    background-color: #f9fafb;
+    border-radius: 4px 4px 0 0;
+    overflow: hidden;
+    padding: 8px 12px;
+    gap: 8px;
+}
+
 .tab-item {
     padding: 12px 24px;
     font-size: 14px;

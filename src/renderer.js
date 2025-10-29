@@ -67,17 +67,24 @@ async function loadCajas() {
         const result = await window.electronAPI.getCajas();
         console.log("get-cajas result:", result);
         const cajasDiv = document.getElementById('cajas');
-        
+
         if (!cajasDiv) {
             console.error("Element 'cajas' not found");
             return;
         }
-        
+
         cajasDiv.innerHTML = ''; // Clear existing buttons
-        
-        result.data.forEach(caja => {
+
+        result.data.forEach((caja, index) => {
             const accountCard = createAccountCard(caja);
             cajasDiv.appendChild(accountCard);
+
+            // Auto-select the first account on app load
+            if (index === 0) {
+                setTimeout(() => {
+                    accountCard.click();
+                }, 100);
+            }
         });
     } catch (error) {
         console.error("Error in loadCajas:", error);
@@ -117,18 +124,24 @@ async function loadRecordsForCaja(caja) {
     try {
         showLoading(true);
         currentCaja = caja;
-        
+
         // Update UI to show currently selected caja (with safety checks)
         const currentCajaTitleEl = document.getElementById('currentCajaTitle');
         if (currentCajaTitleEl) {
             currentCajaTitleEl.textContent = caja;
         }
-        
+
         const statusCajaEl = document.getElementById('statusCaja');
         if (statusCajaEl) {
             statusCajaEl.textContent = caja;
         }
-        
+
+        // Update account badge
+        const accountBadgeTextEl = document.getElementById('accountBadgeText');
+        if (accountBadgeTextEl) {
+            accountBadgeTextEl.textContent = caja;
+        }
+
         const result = await window.electronAPI.getLast100Records(caja);
         currentRecords = result.data;
         currentPage = 1;

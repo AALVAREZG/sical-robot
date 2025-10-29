@@ -46,7 +46,20 @@
 
             <!-- Movimientos Tab Content (EXISTING CONTENT WRAPPED) -->
             <div id="movimientos-content" class="tab-content active">
-                
+
+                <!-- Movement Filter Tabs -->
+                <div class="movement-tabs">
+                    <button class="tab-item active" data-filter="all">
+                        Todos <span class="tab-counter">0</span>
+                    </button>
+                    <button class="tab-item" data-filter="contabilized">
+                        Contabilizado <span class="tab-counter">0</span>
+                    </button>
+                    <button class="tab-item" data-filter="not_contabilized">
+                        No Contabilizado <span class="tab-counter">0</span>
+                    </button>
+                </div>
+
                 <!-- Page Header (EXISTING) -->
                 <div class="page-header">
                     <h1 class="page-title">Movimientos - <span id="currentCajaTitle">Seleccione cuenta</span></h1>
@@ -79,22 +92,26 @@
 
                 <!-- Search and Filter Section (EXISTING) -->
                 <div class="search-filter-section">
-                    <div class="search-container">
-                        <input type="text" id="searchInput" placeholder="Search movements..." />
-                        <div class="filter-dropdown-container">
-                            <select id="filterDropdown" class="filter-dropdown">
-                                <option value="">All Records</option>
-                                <option value="contabilized">Contabilized</option>
-                                <option value="not-contabilized">Not Contabilized</option>
-                            </select>
-                            <span class="dropdown-arrow">▾</span>
-                        </div>
-                    </div>
-                    
-                    <div class="account-badge" id="accountBadge" style="display: none;">
-                        <span class="account-icon">🏦</span>
+                    <div class="account-badge" id="accountBadge">
+                        <span class="account-icon">📁</span>
                         <span class="account-info-label">Account:</span>
                         <span class="account-info-value" id="accountBadgeText">None Selected</span>
+                    </div>
+
+                    <div class="search-container">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchInput" placeholder="Search records..." />
+                    </div>
+
+                    <div class="filter-field-container">
+                        <select id="filterField" class="filter-field-dropdown">
+                            <option value="all">All Fields</option>
+                            <option value="fecha">Fecha</option>
+                            <option value="concepto">Concepto</option>
+                            <option value="importe">Importe</option>
+                            <option value="saldo">Saldo</option>
+                        </select>
+                        <span class="dropdown-arrow">▾</span>
                     </div>
                 </div>
 
