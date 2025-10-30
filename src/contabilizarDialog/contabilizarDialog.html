@@ -67,8 +67,25 @@
         
         <div class="accounting-tasks">
             <h3>Tareas Contables</h3>
+
+            <!-- Balance Validation Section -->
+            <div id="balanceValidation" class="balance-validation hidden">
+                <div class="balance-item">
+                    <span class="balance-label">Importe Operación:</span>
+                    <span id="operationAmount" class="balance-amount">0.00 €</span>
+                </div>
+                <div class="balance-item">
+                    <span class="balance-label">Total Asignado:</span>
+                    <span id="totalAssigned" class="balance-amount">0.00 €</span>
+                </div>
+                <div class="balance-item balance-difference">
+                    <span class="balance-label">DIFERENCIA:</span>
+                    <span id="balanceDifference" class="balance-amount-difference">0.00 €</span>
+                </div>
+            </div>
+
             <div id="taskContainer"></div>
-            
+
             <button id="addTaskBtn" class="task-add-btn">Añadir Tarea</button>
         </div>
         

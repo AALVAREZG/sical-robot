@@ -94,6 +94,27 @@ this.db.run(`CREATE TABLE IF NOT EXISTS accounting_tasks (
   this.db.run(`CREATE INDEX IF NOT EXISTS idx_accounting_date ON accounting_entries(entry_date)`);
   this.db.run(`CREATE INDEX IF NOT EXISTS idx_accounting_amount ON accounting_entries(amount)`);
 
+  // Create contabilidad mappings table for partidas/cuentas PGP
+  console.log('CREATE TABLE IF NOT EXISTS contabilidad_mappings');
+  this.db.run(`CREATE TABLE IF NOT EXISTS contabilidad_mappings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mapping_type TEXT NOT NULL,
+    code TEXT NOT NULL,
+    cuenta_pgp TEXT,
+    description TEXT NOT NULL,
+    source TEXT DEFAULT 'manual',
+    usage_count INTEGER DEFAULT 0,
+    last_used TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(mapping_type, code)
+  )`);
+
+  // Create indexes for contabilidad mappings
+  this.db.run(`CREATE INDEX IF NOT EXISTS idx_mappings_type ON contabilidad_mappings(mapping_type)`);
+  this.db.run(`CREATE INDEX IF NOT EXISTS idx_mappings_code ON contabilidad_mappings(code)`);
+  this.db.run(`CREATE INDEX IF NOT EXISTS idx_mappings_cuenta ON contabilidad_mappings(cuenta_pgp)`);
+
 }
 
   generateHash(record) {

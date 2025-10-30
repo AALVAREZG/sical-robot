@@ -20,6 +20,7 @@ const bankTranslator = require('./bank-translator');
 const { json } = require('stream/consumers');
 const fileImportService = require('./services/fileImport');
 const TreasuryForecastDatabase = require('./treasuryForecastDatabase.js');
+const ContabilidadMappingsService = require('./services/contabilidadMappings.js');
 
 // Extract functions and variables from bank-translator.js
 const { 
@@ -38,9 +39,11 @@ const {
 
 let transactionPatterns = [];
 let mainWindow;
+let db; // Main database instance
 //const db = new Database('./src/data/db/prueba05.sqlite');
 // Add treasury database initialization
 let treasuryDB;
+let contabilidadMappings; // Contabilidad mappings service
 // Function to load patterns
 async function loadPatternsFromFile() {
   try {
@@ -132,11 +135,21 @@ app.whenReady().then(async () => {
     console.error('❌ Error initializing treasury database:', error);
     treasuryDB = null; // Set to null to indicate failure
   }
-  
+
+  // Initialize contabilidad mappings service
+  try {
+    contabilidadMappings = new ContabilidadMappingsService(db);
+    await contabilidadMappings.initialize();
+    console.log('✅ Contabilidad mappings service initialized');
+  } catch (error) {
+    console.error('❌ Error initializing contabilidad mappings:', error);
+    contabilidadMappings = null;
+  }
+
   // Load patterns and other initializations
   await loadPatternsFromFile();
   await initializePatterns();
-  
+
   console.log('🚀 Application initialization complete');
 });
 
@@ -274,12 +287,20 @@ ipcMain.handle('open-contabilizar-dialog', async (event, { operationId, operatio
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      enableRemoteModule: true
+      enableRemoteModule: true,
+      cache: false  // Disable caching for development
     }
   });
 
   contabilizarWindow.loadFile(path.join(__dirname, 'contabilizarDialog/contabilizarDialog.html'), {
     query: { id: operationId }
+  });
+
+  // CRITICAL FIX: Force window focus when content is loaded to enable keyboard input
+  contabilizarWindow.webContents.on('did-finish-load', () => {
+    contabilizarWindow.focus();
+    contabilizarWindow.webContents.focus();
+    console.log('Contabilizar window focused');
   });
 
   // For debugging
@@ -823,6 +844,139 @@ ipcMain.handle('delete-accounting-tasks', async (event, bankMovementId) => {
     return result;
   } catch (error) {
     console.error('Error deleting accounting tasks:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get all cajas for lookup
+ipcMain.handle('get-all-cajas', async () => {
+  try {
+    const result = await db.getExistingCajas();
+    return result;
+  } catch (error) {
+    console.error('Error getting cajas:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get tercero denomination from CSV
+ipcMain.handle('get-tercero-denomination', async (event, terceroCode) => {
+  try {
+    const csvPath = path.join(__dirname, 'data', 'records', 'terceros.csv');
+    const fileContent = await fs.readFile(csvPath, 'latin1'); // Use latin1 encoding for special characters
+    const lines = fileContent.split('\n');
+
+    // Skip header and find the tercero
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+
+      const columns = line.split(',');
+      const code = columns[1]?.trim(); // Column 2: PROVEEDOR code
+      const denomination = columns[3]?.trim(); // Column 4: DENOMINACIÓN (corrected from column 5)
+
+      if (code === terceroCode) {
+        return { success: true, denomination: denomination || 'Unknown' };
+      }
+    }
+
+    return { success: true, denomination: 'Unknown' };
+  } catch (error) {
+    console.error('Error reading terceros CSV:', error);
+    return { success: false, error: error.message, denomination: 'Unknown' };
+  }
+});
+
+// ===============================================
+// CONTABILIDAD MAPPINGS IPC HANDLERS
+// ===============================================
+
+// Get mapping info (partida/económica/funcional/proyecto)
+ipcMain.handle('get-mapping-info', async (event, mappingType, code) => {
+  try {
+    if (!contabilidadMappings) {
+      return { success: false, error: 'Mappings service not available' };
+    }
+
+    const info = await contabilidadMappings.getMappingInfo(mappingType, code);
+    return { success: true, data: info };
+  } catch (error) {
+    console.error('Error getting mapping info:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Search mappings by partial code or description
+ipcMain.handle('search-mappings', async (event, mappingType, searchTerm) => {
+  try {
+    if (!contabilidadMappings) {
+      return { success: false, error: 'Mappings service not available' };
+    }
+
+    const results = await contabilidadMappings.searchMappings(mappingType, searchTerm);
+    return { success: true, data: results };
+  } catch (error) {
+    console.error('Error searching mappings:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Add or update a mapping
+ipcMain.handle('upsert-mapping', async (event, mappingType, code, cuentaPGP, description) => {
+  try {
+    if (!contabilidadMappings) {
+      return { success: false, error: 'Mappings service not available' };
+    }
+
+    const result = await contabilidadMappings.upsertMapping(mappingType, code, cuentaPGP, description);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error upserting mapping:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get all mappings by type
+ipcMain.handle('get-mappings-by-type', async (event, mappingType) => {
+  try {
+    if (!contabilidadMappings) {
+      return { success: false, error: 'Mappings service not available' };
+    }
+
+    const mappings = await contabilidadMappings.getMappingsByType(mappingType);
+    return { success: true, data: mappings };
+  } catch (error) {
+    console.error('Error getting mappings:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get most used mappings (for autocomplete suggestions)
+ipcMain.handle('get-most-used-mappings', async (event, mappingType, limit = 10) => {
+  try {
+    if (!contabilidadMappings) {
+      return { success: false, error: 'Mappings service not available' };
+    }
+
+    const mappings = await contabilidadMappings.getMostUsed(mappingType, limit);
+    return { success: true, data: mappings };
+  } catch (error) {
+    console.error('Error getting most used mappings:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Export mappings to JSON (for backup)
+ipcMain.handle('export-mappings', async (event, mappingType) => {
+  try {
+    if (!contabilidadMappings) {
+      return { success: false, error: 'Mappings service not available' };
+    }
+
+    const json = await contabilidadMappings.exportToJSON(mappingType);
+    return { success: true, data: json };
+  } catch (error) {
+    console.error('Error exporting mappings:', error);
     return { success: false, error: error.message };
   }
 });

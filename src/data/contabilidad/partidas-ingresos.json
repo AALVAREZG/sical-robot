@@ -1,0 +1,63 @@
+{
+  "130": {
+    "cuenta_pgp": "727",
+    "description": "IAE"
+  },
+  "300": {
+    "cuenta_pgp": "740",
+    "description": "SERVICIO ABAST AGUA"
+  },
+  "302": {
+    "cuenta_pgp": "740",
+    "description": "SERVICIO DE BASURAS"
+  },
+  "32900": {
+    "cuenta_pgp": "740",
+    "description": "TASAS CEMENTERIO"
+  },
+  "32901": {
+    "cuenta_pgp": "740",
+    "description": "PISCINA MUNICIPAL"
+  },
+  "32905": {
+    "cuenta_pgp": "740",
+    "description": "TASAS GIMNASIO MUNICIPAL"
+  },
+  "325": {
+    "cuenta_pgp": "740",
+    "description": "TASAS EXPED. DOCUMENTOS"
+  },
+  "332": {
+    "cuenta_pgp": "742",
+    "description": "TOPV EMPRESAS SUMINISTRADORAS"
+  },
+  "389": {
+    "cuenta_pgp": "775",
+    "description": "REINTEGROS"
+  },
+  "399": {
+    "cuenta_pgp": "777",
+    "description": "OTROS INGRESOS DIVERSOS"
+  },
+  "42000": {
+    "cuenta_pgp": "7501",
+    "description": "PIE. PARTICIP TRIB ESTADO"
+  },
+  "45000": {
+    "cuenta_pgp": "7501",
+    "description": "PATRICA"
+  },
+  "45002": {
+    "cuenta_pgp": "9411",
+    "cuenta_pgp_alt": "24000014",
+    "description": "SUBVENCION GUARDERIA MUNICIPAL"
+  },
+  "290": {
+    "cuenta_pgp": "733",
+    "description": "ICIO OBRAS"
+  },
+  "549": {
+    "cuenta_pgp": "776",
+    "description": "OTRAS RENTAS DE BIENES INMUEBLES"
+  }
+}

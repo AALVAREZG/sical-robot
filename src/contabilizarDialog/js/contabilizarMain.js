@@ -32,6 +32,8 @@ let aiSuggestionCount, selectedPattern, taskModal, modalTitle, taskType;
 let dynamicFormFields, closeModalBtn, saveModalBtn, cancelModalBtn;
 let addTaskBtn, confirmBtn, cancelBtn, acceptAllBtn, rejectAllBtn;
 let trainAIBtn, saveBtn;
+// Balance validation elements
+let balanceValidation, operationAmount, totalAssigned, balanceDifference;
 
 // Pattern management variables
 let availablePatterns = [];
@@ -68,6 +70,12 @@ function initializeDOMElements() {
     rejectAllBtn = document.getElementById('rejectAllBtn');
     trainAIBtn = document.getElementById('trainAIBtn');
     saveBtn = document.getElementById('saveBtn');
+
+    // Balance validation elements
+    balanceValidation = document.getElementById('balanceValidation');
+    operationAmount = document.getElementById('operationAmount');
+    totalAssigned = document.getElementById('totalAssigned');
+    balanceDifference = document.getElementById('balanceDifference');
 }
 
 /**
@@ -165,19 +173,90 @@ function updateAISuggestionInfo(aiSuggestion) {
 /**
  * Render all tasks
  */
-function renderTasks() {
+async function renderTasks() {
     console.log('Rendering tasks:', tasksData.operaciones.length);
-    
+
     if (!taskContainer) return;
-    
+
     // Clear the container
     taskContainer.innerHTML = '';
-    
-    // Render each task
-    tasksData.operaciones.forEach((task, index) => {
-        const taskCard = TaskRenderers.renderTaskCard(task, index, openEditModal, deleteTask);
+
+    // Render each task (now async)
+    for (let i = 0; i < tasksData.operaciones.length; i++) {
+        const task = tasksData.operaciones[i];
+        const taskCard = await TaskRenderers.renderTaskCard(task, i, openEditModal, deleteTask);
         taskContainer.appendChild(taskCard);
-    });
+    }
+
+    // Update balance validation after rendering tasks
+    updateBalanceValidation();
+}
+
+/**
+ * Calculate and display balance validation
+ */
+function updateBalanceValidation() {
+    if (!balanceValidation || !operationAmount || !totalAssigned || !balanceDifference) {
+        return;
+    }
+
+    // Get bank operation amount
+    const bankOperationAmount = parseFloat(bankData[3]) || 0;
+
+    // Calculate total from all tasks
+    let total = 0;
+
+    for (const task of tasksData.operaciones) {
+        const detalle = task.detalle;
+
+        // For Arqueo tasks - sum partidas (positive)
+        if (task.tipo === 'arqueo' && detalle.final) {
+            for (const partida of detalle.final) {
+                total += parseFloat(partida.IMPORTE_PARTIDA) || 0;
+            }
+        }
+
+        // For ADO tasks - sum aplicaciones (negative)
+        if (task.tipo === 'ado220' && detalle.aplicaciones) {
+            for (const aplicacion of detalle.aplicaciones) {
+                total -= parseFloat(aplicacion.importe) || 0;
+            }
+        }
+
+        // For PMP tasks (future) - sum aplicaciones (negative)
+        if (task.tipo === 'pmp' && detalle.aplicaciones) {
+            for (const aplicacion of detalle.aplicaciones) {
+                total -= parseFloat(aplicacion.importe) || 0;
+            }
+        }
+    }
+
+    // Calculate difference
+    const difference = bankOperationAmount - total;
+
+    // Update UI
+    operationAmount.textContent = formatCurrency(bankOperationAmount);
+    totalAssigned.textContent = formatCurrency(total);
+    balanceDifference.textContent = formatCurrency(Math.abs(difference));
+
+    // Update status class
+    balanceValidation.classList.remove('balanced', 'unbalanced');
+
+    if (Math.abs(difference) < 0.01) {
+        // Balanced (within 1 cent tolerance)
+        balanceValidation.classList.add('balanced');
+    } else {
+        // Unbalanced
+        balanceValidation.classList.add('unbalanced');
+
+        // Add warning sign to difference
+        if (difference !== 0) {
+            balanceDifference.textContent = `¡ ${formatCurrency(Math.abs(difference))} !`;
+        }
+    }
+
+    // Show validation section
+    balanceValidation.classList.remove('hidden');
 }
 
 /**
@@ -229,6 +308,19 @@ function openEditModal(index) {
     
     // Show the modal
     taskModal.style.display = 'block';
+
+    // CRITICAL FIX: Force window focus to enable keyboard input
+    // This fixes the issue where keyboard input is blocked when editing existing tasks
+    // Opening DevTools forces focus, so we do it programmatically here
+    setTimeout(() => {
+        window.focus();
+
+        // Also try to focus the first input field
+        const firstInput = dynamicFormFields.querySelector('input, textarea, select');
+        if (firstInput) {
+            firstInput.focus();
+        }
+    }, 100);
 }
 
 /**

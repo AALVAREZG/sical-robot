@@ -56,5 +56,11 @@ Thumbs.db
 
 # Bak and Temp files
 *.bak*
-*.tmp   
+*.tmp
+
+# Claude AI files
+*.md 
+test-*
+
+
 

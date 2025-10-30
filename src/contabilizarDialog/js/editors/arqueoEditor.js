@@ -1,3 +1,6 @@
+// Get ipcRenderer for IPC communication
+const { ipcRenderer } = require('electron');
+
 /**
  * Modified PartidasManager to support contraido field for naturaleza type 5
  */
@@ -75,28 +78,8 @@ constructor(container, initialPartidas = [], onUpdate = null, naturaleza = "") {
     render() {
         // Clear the container
         this.container.innerHTML = '';
-        
-        // Add header with appropriate columns based on naturaleza
-        const headerContainer = document.createElement('div');
-        headerContainer.className = 'partidas-header';
-        
-        const headerContent = this._isContraidoRequired() ? 
-            `<div class="partidas-row header">
-                <div class="partida-col">Partida</div>
-                <div class="importe-col">Importe</div>
-                <div class="contraido-col">Contraído</div>
-                <div class="actions-col">Acciones</div>
-            </div>` : 
-            `<div class="partidas-row header">
-                <div class="partida-col">Partida</div>
-                <div class="importe-col">Importe</div>
-                <div class="actions-col">Acciones</div>
-            </div>`;
-        
-        headerContainer.innerHTML = headerContent;
-        this.container.appendChild(headerContainer);
-        
-        // Add each partida
+
+        // Add each partida (no header - cleaner UI)
         const partidasContainer = document.createElement('div');
         partidasContainer.className = 'partidas-items-container';
         this.partidas.forEach((partida, index) => {
@@ -109,7 +92,7 @@ constructor(container, initialPartidas = [], onUpdate = null, naturaleza = "") {
         addButtonContainer.className = 'partidas-add-button-container';
         const addButton = document.createElement('button');
         addButton.type = 'button';
-        addButton.className = 'add-partida-btn';
+        addButton.className = 'btn-add-partida';
         addButton.innerHTML = '<i class="fas fa-plus"></i> Añadir Partida';
         addButton.addEventListener('click', () => this.addPartida());
         addButtonContainer.appendChild(addButton);
@@ -353,10 +336,23 @@ constructor(container, initialPartidas = [], onUpdate = null, naturaleza = "") {
         partidaInput.value = partida.partida || '';
         partidaInput.placeholder = 'Código partida';
         partidaInput.id = `partida-${partida._id}`;
-        partidaInput.addEventListener('change', (e) => {
+        // Add partida description display
+        const partidaDescDisplay = document.createElement('div');
+        partidaDescDisplay.className = 'partida-description';
+        partidaDescDisplay.id = `partida-desc-${partida._id}`;
+        partidaCol.appendChild(partidaDescDisplay);
+
+        partidaInput.addEventListener('change', async (e) => {
             this.updatePartida(partida._id, { partida: e.target.value });
+            // Update description - pass element directly!
+            await this._updatePartidaDescriptionDirectly(e.target.value, partidaDescDisplay);
         });
         partidaCol.appendChild(partidaInput);
+
+        // Load initial description if partida exists
+        if (partida.partida) {
+            this._updatePartidaDescriptionDirectly(partida.partida, partidaDescDisplay);
+        }
         
         // Importe input
         const importeCol = document.createElement('div');
@@ -686,6 +682,91 @@ constructor(container, initialPartidas = [], onUpdate = null, naturaleza = "") {
     }
     
     /**
+     * Update partida description directly into provided element
+     * @param {string} partidaCode - The partida code to lookup
+     * @param {HTMLElement} displayElement - The element to update
+     */
+    async _updatePartidaDescriptionDirectly(partidaCode, displayElement) {
+        if (!displayElement) {
+            console.log('[PartidasManager] description element not provided!');
+            return;
+        }
+
+        console.log('[PartidasManager] Loading partida description for:', partidaCode);
+
+        if (!partidaCode || partidaCode.trim() === '') {
+            displayElement.textContent = '';
+            return;
+        }
+
+        try {
+            // Try 'ingreso' first, then 'gasto', then 'no_presupuestaria' as fallback
+            let mappingInfo = await ipcRenderer.invoke('get-mapping-info', 'ingreso', partidaCode.trim());
+            let partidaData = mappingInfo.success ? mappingInfo.data : null;
+
+            if (!partidaData || !partidaData.found) {
+                mappingInfo = await ipcRenderer.invoke('get-mapping-info', 'gasto', partidaCode.trim());
+                partidaData = mappingInfo.success ? mappingInfo.data : null;
+            }
+
+            if (!partidaData || !partidaData.found) {
+                mappingInfo = await ipcRenderer.invoke('get-mapping-info', 'no_presupuestaria', partidaCode.trim());
+                partidaData = mappingInfo.success ? mappingInfo.data : null;
+            }
+
+            if (partidaData && partidaData.found && partidaData.description) {
+                displayElement.textContent = partidaData.description;
+                console.log('[PartidasManager] ✅ Set partida description:', partidaData.description);
+            } else {
+                displayElement.textContent = 'Sin descripción';
+            }
+        } catch (error) {
+            console.error('[PartidasManager] Error loading partida description:', error);
+            displayElement.textContent = '';
+        }
+    }
+
+    /**
+     * Update partida description display (OLD METHOD using getElementById)
+     * @param {string} partidaId - The partida unique ID
+     * @param {string} partidaCode - The partida code to lookup
+     */
+    async _updatePartidaDescription(partidaId, partidaCode) {
+        const displayElement = document.getElementById(`partida-desc-${partidaId}`);
+        if (!displayElement) return;
+
+        if (!partidaCode || partidaCode.trim() === '') {
+            displayElement.textContent = '';
+            return;
+        }
+
+        try {
+            // Try 'ingreso' first, then 'gasto', then 'no_presupuestaria' as fallback
+            let mappingInfo = await ipcRenderer.invoke('get-mapping-info', 'ingreso', partidaCode.trim());
+            let partidaData = mappingInfo.success ? mappingInfo.data : null;
+
+            if (!partidaData || !partidaData.found) {
+                mappingInfo = await ipcRenderer.invoke('get-mapping-info', 'gasto', partidaCode.trim());
+                partidaData = mappingInfo.success ? mappingInfo.data : null;
+            }
+
+            if (!partidaData || !partidaData.found) {
+                mappingInfo = await ipcRenderer.invoke('get-mapping-info', 'no_presupuestaria', partidaCode.trim());
+                partidaData = mappingInfo.success ? mappingInfo.data : null;
+            }
+
+            if (partidaData && partidaData.found && partidaData.description) {
+                displayElement.textContent = partidaData.description;
+            } else {
+                displayElement.textContent = 'Sin descripción';
+            }
+        } catch (error) {
+            console.error('Error loading partida description:', error);
+            displayElement.textContent = '';
+        }
+    }
+
+    /**
      * Validate all partida entries
      * @returns {boolean} True if all valid
      */
@@ -787,13 +868,23 @@ class ArqueoEditor {
         if (naturalezaSelect) {
             naturalezaSelect.addEventListener('change', (e) => {
                 this.naturaleza = e.target.value;
-                
+
                 if (this.partidasManager) {
                     console.log('Updating PartidaManager naturaleza to:', this.naturaleza);
                     this.partidasManager.setNaturaleza(this.naturaleza);
                 }
             });
         }
+
+        // CRITICAL FIX: Force focus on first input to enable keyboard input
+        // This fixes the issue where keyboard is blocked when editing existing tasks
+        setTimeout(() => {
+            const firstInput = this.container.querySelector('input, textarea, select');
+            if (firstInput) {
+                firstInput.focus();
+                console.log('ArqueoEditor: Focused first input');
+            }
+        }, 150);
     }
     
     /**
@@ -813,7 +904,42 @@ class ArqueoEditor {
         
         // Add basic fields
         grid.appendChild(this._createFormField('fecha', 'Fecha', this.task.detalle.fecha || '', 'date'));
-        grid.appendChild(this._createFormField('caja', 'Caja', this.task.detalle.caja || '', 'text'));
+
+        // Create caja field with name display
+        const cajaContainer = document.createElement('div');
+        cajaContainer.className = 'form-field caja-field';
+
+        const cajaLabel = document.createElement('label');
+        cajaLabel.htmlFor = 'caja';
+        cajaLabel.textContent = 'Caja';
+
+        const cajaInput = document.createElement('input');
+        cajaInput.type = 'text';
+        cajaInput.id = 'caja';
+        cajaInput.name = 'caja';
+        cajaInput.value = this.task.detalle.caja || '';
+        cajaInput.title = 'Código de caja'; // Tooltip
+
+        cajaContainer.appendChild(cajaLabel);
+        cajaContainer.appendChild(cajaInput);
+
+        // Add caja name display BELOW input (like ADO editor)
+        const cajaNameDisplay = document.createElement('div');
+        cajaNameDisplay.className = 'caja-name-display';
+        cajaNameDisplay.id = 'caja-name-arqueo';
+        cajaContainer.appendChild(cajaNameDisplay);
+
+        grid.appendChild(cajaContainer);
+
+        // Load caja name immediately - pass the display element directly!
+        if (this.task.detalle.caja) {
+            this._loadCajaNameDirectly(this.task.detalle.caja, cajaNameDisplay);
+        }
+
+        // Add event listener to update name when caja changes
+        cajaInput.addEventListener('blur', (e) => {
+            this._loadCajaNameDirectly(e.target.value, cajaNameDisplay);
+        });
         
         // Create tercero field with search button
         const terceroContainer = document.createElement('div');
@@ -844,11 +970,29 @@ class ArqueoEditor {
         
         terceroInputContainer.appendChild(terceroInput);
         terceroInputContainer.appendChild(searchButton);
+
         
+
+        // Add tercero denomination display
+        const terceroDenomDisplay = document.createElement('div');
+        terceroDenomDisplay.className = 'tercero-denomination-display';
+        terceroDenomDisplay.id = 'tercero-denomination';
+
         terceroContainer.appendChild(terceroLabel);
         terceroContainer.appendChild(terceroInputContainer);
-        
+        terceroContainer.appendChild(terceroDenomDisplay);
+
         grid.appendChild(terceroContainer);
+
+        // Load tercero denomination - pass element directly!
+        if (this.task.detalle.tercero) {
+            this._loadTerceroDenominationDirectly(this.task.detalle.tercero, terceroDenomDisplay);
+        }
+
+        // Add event listener to update denomination when tercero changes
+        terceroInput.addEventListener('blur', (e) => {
+            this._loadTerceroDenominationDirectly(e.target.value, terceroDenomDisplay);
+        });
         
         grid.appendChild(this._createFormField('naturaleza', 'Naturaleza', this.task.detalle.naturaleza || '', 'text'));
         
@@ -1093,15 +1237,58 @@ class ArqueoEditor {
         tcargoLabel.htmlFor = 'tcargo';
         tcargoLabel.textContent = 'Texto SICAL';
         
+        // Create container for button + textarea
+        const inputContainer = document.createElement('div');
+        inputContainer.style.display = 'flex';
+        inputContainer.style.gap = '8px';
+        inputContainer.style.alignItems = 'flex-start';
+
+        // Create _FIN button
+        const finButton = document.createElement('button');
+        finButton.type = 'button';
+        finButton.textContent = '_FIN';
+        finButton.className = 'btn-add-fin';
+        finButton.style.padding = '8px 12px';
+        finButton.style.backgroundColor = '#FF9800';
+        finButton.style.color = 'white';
+        finButton.style.border = 'none';
+        finButton.style.borderRadius = '4px';
+        finButton.style.cursor = 'pointer';
+        finButton.style.fontWeight = 'bold';
+        finButton.style.fontSize = '0.85em';
+        finButton.style.whiteSpace = 'nowrap';
+        finButton.style.height = 'fit-content';
+
         const tcargoInput = document.createElement('textarea');
         tcargoInput.id = 'tcargo';
         tcargoInput.name = 'tcargo';
         tcargoInput.value = textoSical.tcargo || '';
         tcargoInput.rows = 3;
         tcargoInput.placeholder = 'Introduzca el texto SICAL';
-        
+        tcargoInput.style.textTransform = 'uppercase';
+        tcargoInput.style.flexGrow = '1';
+
+        // Force uppercase on input
+        tcargoInput.addEventListener('input', (e) => {
+            const start = e.target.selectionStart;
+            const end = e.target.selectionEnd;
+            e.target.value = e.target.value.toUpperCase();
+            e.target.setSelectionRange(start, end);
+        });
+
+        // Add _FIN to the end of the text
+        finButton.addEventListener('click', () => {
+            const currentValue = tcargoInput.value.trim();
+            if (!currentValue.endsWith('_FIN')) {
+                tcargoInput.value = currentValue + ' _FIN';
+            }
+        });
+
+        inputContainer.appendChild(finButton);
+        inputContainer.appendChild(tcargoInput);
+
         tcargoField.appendChild(tcargoLabel);
-        tcargoField.appendChild(tcargoInput);
+        tcargoField.appendChild(inputContainer);
         
         textoContainer.appendChild(tcargoField);
         section.appendChild(textoContainer);
@@ -1320,6 +1507,195 @@ class ArqueoEditor {
         
         
         return true;
+    }
+
+    /**
+     * Load and display tercero denomination directly into provided element
+     * @param {string} terceroCode - The tercero code to lookup
+     * @param {HTMLElement} displayElement - The element to update
+     */
+    async _loadTerceroDenominationDirectly(terceroCode, displayElement) {
+        if (!displayElement) {
+            console.log('[ArqueoEditor] tercero display element not provided!');
+            return;
+        }
+
+        console.log('[ArqueoEditor] Loading tercero denomination for:', terceroCode);
+
+        if (!terceroCode || terceroCode.trim() === '') {
+            displayElement.textContent = '';
+            return;
+        }
+
+        try {
+            const result = await ipcRenderer.invoke('get-tercero-denomination', terceroCode.trim());
+            if (result.success && result.denomination && result.denomination !== 'Unknown') {
+                displayElement.textContent = result.denomination;
+                console.log('[ArqueoEditor] ✅ Set tercero denomination:', result.denomination);
+            } else {
+                displayElement.textContent = 'Tercero no encontrado';
+            }
+        } catch (error) {
+            console.error('[ArqueoEditor] Error loading tercero denomination:', error);
+            displayElement.textContent = '';
+        }
+    }
+
+    /**
+     * Load and display tercero denomination (OLD METHOD using getElementById)
+     * @param {string} terceroCode - The tercero code to lookup
+     */
+    async _loadTerceroDenomination(terceroCode) {
+        console.log('[ArqueoEditor] _loadTerceroDenomination called with:', terceroCode);
+        const displayElement = document.getElementById('tercero-denomination');
+        console.log('[ArqueoEditor] Display element found:', !!displayElement);
+        if (!displayElement) return;
+
+        if (!terceroCode || terceroCode.trim() === '') {
+            displayElement.textContent = '';
+            return;
+        }
+
+        try {
+            console.log('[ArqueoEditor] Invoking get-tercero-denomination for:', terceroCode.trim());
+            const result = await ipcRenderer.invoke('get-tercero-denomination', terceroCode.trim());
+            console.log('[ArqueoEditor] Result:', result);
+            if (result.success && result.denomination && result.denomination !== 'Unknown') {
+                displayElement.textContent = result.denomination;
+                console.log('[ArqueoEditor] Set denomination:', result.denomination);
+            } else {
+                displayElement.textContent = 'Tercero no encontrado';
+                console.log('[ArqueoEditor] Tercero not found');
+            }
+        } catch (error) {
+            console.error('[ArqueoEditor] Error loading tercero denomination:', error);
+            displayElement.textContent = '';
+        }
+    }
+
+    /**
+     * Load and display caja name directly into provided span element
+     * @param {string} cajaCode - The caja code to lookup
+     * @param {HTMLElement} spanElement - The span element to update
+     */
+    async _loadCajaNameDirectly(cajaCode, displayElement) {
+        if (!displayElement) {
+            console.log('[ArqueoEditor] display element not provided!');
+            return;
+        }
+
+        console.log('[ArqueoEditor] Loading caja name for:', cajaCode);
+
+        if (!cajaCode || cajaCode.trim() === '') {
+            displayElement.textContent = '';
+            return;
+        }
+
+        try {
+            const result = await ipcRenderer.invoke('get-all-cajas');
+            if (result.status === 'success' && result.data) {
+                const matchingCaja = result.data.find(c => {
+                    const cajaField = c.caja || '';
+                    return cajaField === cajaCode || cajaField.includes(cajaCode);
+                });
+
+                if (matchingCaja && matchingCaja.caja) {
+                    displayElement.textContent = matchingCaja.caja;
+                    console.log('[ArqueoEditor] ✅ Set caja name:', matchingCaja.caja);
+                } else {
+                    displayElement.textContent = 'Caja no encontrada';
+                }
+            } else {
+                displayElement.textContent = '';
+            }
+        } catch (error) {
+            console.error('[ArqueoEditor] Error loading caja name:', error);
+            displayElement.textContent = '';
+        }
+    }
+
+    /**
+     * Load and display caja name in label span (OLD METHOD using getElementById)
+     * @param {string} cajaCode - The caja code to lookup
+     */
+    async _loadCajaNameToLabel(cajaCode) {
+        const labelSpan = document.getElementById('caja-name-label');
+        if (!labelSpan) {
+            console.log('[ArqueoEditor] caja-name-label span NOT FOUND!');
+            return;
+        }
+
+        console.log('[ArqueoEditor] caja-name-label span FOUND!');
+
+        if (!cajaCode || cajaCode.trim() === '') {
+            labelSpan.textContent = '';
+            return;
+        }
+
+        try {
+            const result = await ipcRenderer.invoke('get-all-cajas');
+            if (result.status === 'success' && result.data) {
+                const matchingCaja = result.data.find(c => {
+                    const cajaField = c.caja || '';
+                    return cajaField === cajaCode || cajaField.includes(cajaCode);
+                });
+
+                if (matchingCaja && matchingCaja.caja) {
+                    if (matchingCaja.caja !== cajaCode && matchingCaja.caja.includes('_')) {
+                        labelSpan.textContent = `(${matchingCaja.caja})`;
+                        console.log('[ArqueoEditor] Set caja name to label:', matchingCaja.caja);
+                    } else {
+                        labelSpan.textContent = '';
+                    }
+                } else {
+                    labelSpan.textContent = '';
+                }
+            }
+        } catch (error) {
+            console.error('[ArqueoEditor] Error loading caja name:', error);
+            labelSpan.textContent = '';
+        }
+    }
+
+    /**
+     * Load and display caja name (OLD METHOD - kept for compatibility)
+     * @param {string} cajaCode - The caja code to lookup
+     */
+    async _loadCajaName(cajaCode) {
+        const displayElement = document.getElementById('caja-name');
+        if (!displayElement) return;
+
+        if (!cajaCode || cajaCode.trim() === '') {
+            displayElement.textContent = '';
+            return;
+        }
+
+        try {
+            // Get all cajas to find the matching one
+            const result = await ipcRenderer.invoke('get-all-cajas');
+            if (result.status === 'success' && result.data) {
+                // Find caja that matches the code
+                const matchingCaja = result.data.find(c => {
+                    const cajaField = c.caja || '';
+                    // Check if it's an exact match or if the code is part of the caja name
+                    return cajaField === cajaCode || cajaField.includes(cajaCode);
+                });
+
+                if (matchingCaja && matchingCaja.caja) {
+                    // If the caja already contains the full name, show it
+                    if (matchingCaja.caja !== cajaCode && matchingCaja.caja.includes('_')) {
+                        displayElement.textContent = matchingCaja.caja;
+                    } else {
+                        displayElement.textContent = '';
+                    }
+                } else {
+                    displayElement.textContent = '';
+                }
+            }
+        } catch (error) {
+            console.error('Error loading caja name:', error);
+            displayElement.textContent = '';
+        }
     }
 
     _showTerceroSearchDialog() {

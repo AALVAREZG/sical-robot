@@ -1,20 +1,32 @@
 /**
  * EditorFactory - Creates the appropriate editor based on task type
  */
+
+// CACHE BUSTER: Delete cached modules to force reload
+const path = require('path');
+const arqueoPath = path.resolve(__dirname, './arqueoEditor.js');
+const adoPath = path.resolve(__dirname, './adoEditor.js');
+
+// Clear the module cache for these files
+delete require.cache[arqueoPath];
+delete require.cache[adoPath];
+
+console.log('[EditorFactory] Cache cleared - loading fresh editors');
+
 const ArqueoEditor = require('./arqueoEditor');
 const AdoEditor = require('./adoEditor');
 
 class EditorFactory {
     /**
      * Create an editor instance based on the task type
-     * 
+     *
      * @param {string} taskType - The type of task ('arqueo', 'ado220', etc.)
      * @param {HTMLElement} container - The container element for the editor
      * @param {Object} task - The task data (optional)
      * @returns {Object} The appropriate editor instance
      */
     static createEditor(taskType, container, task = null) {
-        console.log(`Creating editor for task type: ${taskType}`);
+        console.log(`Creating editor for task type: ${taskType} - CACHE BUSTED VERSION`);
         
         switch (taskType) {
             case 'arqueo':

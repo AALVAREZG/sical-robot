@@ -1,0 +1,14 @@
+{
+  "20104": {
+    "cuenta_pgp": "561",
+    "description": "FIANZA OBRAS"
+  },
+  "30012": {
+    "cuenta_pgp": "554",
+    "description": "INGRESOS CTAS OP PEND APLICACION"
+  },
+  "30016": {
+    "cuenta_pgp": "554",
+    "description": "INGRESOS AGENTES RECAUDADORES PEND APLICACION"
+  }
+}

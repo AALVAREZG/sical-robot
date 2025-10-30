@@ -133,10 +133,32 @@ function setupFocusRecovery() {
 
 // Set up event listeners
 function setupEventListeners() {
-    // Pattern list actions
-    // Pattern list actions
-    document.getElementById('addPatternBtn').addEventListener('click', addNewPattern);
-    
+    // Pattern list actions - template dropdown
+    const addPatternBtn = document.getElementById('addPatternBtn');
+    const templateDropdown = document.getElementById('templateDropdown');
+
+    addPatternBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = templateDropdown.style.display === 'block';
+        templateDropdown.style.display = isVisible ? 'none' : 'block';
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.add-pattern-menu')) {
+            templateDropdown.style.display = 'none';
+        }
+    });
+
+    // Handle template selection
+    document.querySelectorAll('.template-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            const templateType = e.target.dataset.template;
+            addNewPatternFromTemplate(templateType);
+            templateDropdown.style.display = 'none';
+        });
+    });
+
     // Make sure the search input works
     const searchInput = document.getElementById('patternSearch');
     if (searchInput) {
@@ -184,12 +206,30 @@ async function loadPatterns() {
         // For this example, we'll simulate the loading
         const result = await window.electronAPI.getPatterns();
         patterns = result || [];
+
+        // Migrate existing patterns to include new metadata fields
+        patterns = patterns.map(pattern => {
+            if (!pattern.hasOwnProperty('isFavorite')) {
+                pattern.isFavorite = false;
+            }
+            if (!pattern.hasOwnProperty('lastUsed')) {
+                pattern.lastUsed = null;
+            }
+            if (!pattern.hasOwnProperty('matchCount')) {
+                pattern.matchCount = 0;
+            }
+            if (!pattern.hasOwnProperty('createdAt')) {
+                pattern.createdAt = new Date().toISOString();
+            }
+            return pattern;
+        });
+
         renderPatternList();
-        
+
         if (patterns.length > 0) {
             selectPattern(0);
         }
-        
+
         showToast('Patterns loaded successfully', 'success');
     } catch (error) {
         console.error('Error loading patterns:', error);
@@ -201,27 +241,96 @@ async function loadPatterns() {
 function renderPatternList() {
     const patternList = document.getElementById('patternList');
     patternList.innerHTML = '';
-    
-    patterns.forEach((pattern, index) => {
+
+    // Sort patterns: favorites first, then by lastUsed or matchCount
+    const sortedPatterns = [...patterns].map((pattern, originalIndex) => ({
+        pattern,
+        originalIndex
+    })).sort((a, b) => {
+        // Favorites always come first
+        if (a.pattern.isFavorite && !b.pattern.isFavorite) return -1;
+        if (!a.pattern.isFavorite && b.pattern.isFavorite) return 1;
+
+        // Within favorites or non-favorites, sort by lastUsed (most recent first)
+        if (a.pattern.lastUsed && b.pattern.lastUsed) {
+            return new Date(b.pattern.lastUsed) - new Date(a.pattern.lastUsed);
+        }
+        if (a.pattern.lastUsed) return -1;
+        if (b.pattern.lastUsed) return 1;
+
+        // If no lastUsed, sort by matchCount (highest first)
+        return (b.pattern.matchCount || 0) - (a.pattern.matchCount || 0);
+    });
+
+    sortedPatterns.forEach(({ pattern, originalIndex }) => {
         const patternItem = document.createElement('div');
         patternItem.className = 'pattern-item';
-        patternItem.dataset.index = index;
-        
-        if (currentPatternIndex === index) {
+        patternItem.dataset.index = originalIndex;
+
+        if (currentPatternIndex === originalIndex) {
             patternItem.classList.add('active');
         }
-        
+
+        // Build statistics HTML
+        const stats = [];
+
+        // Show last used or created date
+        if (pattern.lastUsed) {
+            const daysAgo = Math.floor((Date.now() - new Date(pattern.lastUsed)) / (1000 * 60 * 60 * 24));
+            const timeText = daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : `${daysAgo}d ago`;
+            stats.push(`<span class="pattern-stat">Used ${timeText}</span>`);
+        } else if (pattern.createdAt) {
+            const daysAgo = Math.floor((Date.now() - new Date(pattern.createdAt)) / (1000 * 60 * 60 * 24));
+            const timeText = daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : `${daysAgo}d ago`;
+            stats.push(`<span class="pattern-stat">Created ${timeText}</span>`);
+        }
+
+        // Show match count if > 0, otherwise show "Never used"
+        if (pattern.matchCount > 0) {
+            stats.push(`<span class="pattern-stat">${pattern.matchCount} matches</span>`);
+        } else if (!pattern.lastUsed) {
+            stats.push(`<span class="pattern-stat">Never used</span>`);
+        }
+
+        const statsHtml = stats.length > 0 ? `<div class="pattern-item-stats">${stats.join('')}</div>` : '';
+
         patternItem.innerHTML = `
-            <div class="pattern-item-title">${pattern.description || 'Unnamed Pattern'}</div>
+            <div class="pattern-item-title">
+                <span class="pattern-item-title-text">${pattern.description || 'Unnamed Pattern'}</span>
+                <span class="pattern-star ${pattern.isFavorite ? 'favorite' : ''}" data-index="${originalIndex}"></span>
+            </div>
             <div class="pattern-item-desc">${getPatternShortDescription(pattern.matcherFunction)}</div>
+            ${statsHtml}
         `;
-        
-        patternItem.addEventListener('click', () => {
-            selectPattern(index);
+
+        // Handle pattern selection (but not on star click)
+        patternItem.addEventListener('click', (e) => {
+            // Don't select if clicking the star
+            if (!e.target.classList.contains('pattern-star')) {
+                selectPattern(originalIndex);
+            }
         });
-        
+
+        // Handle star toggle
+        const star = patternItem.querySelector('.pattern-star');
+        star.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent pattern selection
+            togglePatternFavorite(originalIndex);
+        });
+
         patternList.appendChild(patternItem);
     });
+}
+
+// Toggle pattern favorite status
+function togglePatternFavorite(index) {
+    patterns[index].isFavorite = !patterns[index].isFavorite;
+    hasUnsavedChanges = true;
+    renderPatternList();
+
+    // Show toast
+    const status = patterns[index].isFavorite ? 'added to' : 'removed from';
+    showToast(`Pattern ${status} favorites`, 'success');
 }
 
 // Get a short description of the pattern from the matcher function
@@ -459,14 +568,14 @@ function runPatternTest() {
 }
 
 // Add a new pattern
-function addNewPattern() {
-    // Create a new pattern with default values
-    const newPattern = {
+// Pattern templates for quick creation
+const patternTemplates = {
+    'blank': {
         description: 'New Pattern',
         matcherFunction: `(data) => {
   // Pattern for matching transactions
   const [caja, fecha, concepto, importe] = data;
-  
+
   // Add your matching conditions here
   // Return true if the transaction matches this pattern
   return false;
@@ -475,7 +584,191 @@ function addNewPattern() {
   // Generate output for matched transactions
   const [caja, fecha, concepto, importe] = data;
   const dateISOString = new Date().toISOString();
-  
+
+  // Return template for transaction operations
+  return {
+    id_task: caja + '_' + fecha + '_' + String(importe),
+    num_operaciones: 1,
+    creation_date: dateISOString,
+    liquido_operaciones: importe,
+    operaciones: []
+  };
+}`
+    },
+    'simple-match': {
+        description: 'Simple Text Match Pattern',
+        matcherFunction: `(data) => {
+  const [caja, fecha, concepto, importe] = data;
+
+  // Check if concepto contains specific text
+  return concepto.includes('YOUR_TEXT_HERE');
+}`,
+        generatorFunction: `(data) => {
+  const [caja, fecha, concepto, importe] = data;
+  const dateISOString = new Date().toISOString();
+
+  return {
+    id_task: caja + '_' + fecha + '_' + String(importe),
+    num_operaciones: 1,
+    creation_date: dateISOString,
+    liquido_operaciones: importe,
+    operaciones: [
+      {
+        tipo: "arqueo",
+        detalle: {
+          fecha: fecha,
+          caja: caja,
+          tercero: "43000000M",
+          naturaleza: "4",
+          final: [
+            { partida: "399", IMPORTE_PARTIDA: importe },
+            { partida: "Total", IMPORTE_PARTIDA: 0.0 }
+          ],
+          texto_sical: [{
+            tcargo: \`TRANSF N/F \${concepto}\`,
+            ado: ""
+          }]
+        }
+      }
+    ]
+  };
+}`
+    },
+    'regex-match': {
+        description: 'Regex Match Pattern',
+        matcherFunction: `(data) => {
+  const [caja, fecha, concepto, importe] = data;
+
+  // Use regex to match pattern
+  const pattern = /YOUR_REGEX_PATTERN/i;
+  return pattern.test(concepto);
+}`,
+        generatorFunction: `(data) => {
+  const [caja, fecha, concepto, importe] = data;
+  const dateISOString = new Date().toISOString();
+
+  // Extract data from regex match
+  const pattern = /YOUR_REGEX_PATTERN/i;
+  const match = concepto.match(pattern);
+
+  return {
+    id_task: caja + '_' + fecha + '_' + String(importe),
+    num_operaciones: 1,
+    creation_date: dateISOString,
+    liquido_operaciones: importe,
+    operaciones: []
+  };
+}`
+    },
+    'amount-range': {
+        description: 'Amount Range Pattern',
+        matcherFunction: `(data) => {
+  const [caja, fecha, concepto, importe] = data;
+
+  // Match transactions within amount range
+  const MIN_AMOUNT = 0;
+  const MAX_AMOUNT = 1000;
+
+  return importe >= MIN_AMOUNT && importe <= MAX_AMOUNT;
+}`,
+        generatorFunction: `(data) => {
+  const [caja, fecha, concepto, importe] = data;
+  const dateISOString = new Date().toISOString();
+
+  return {
+    id_task: caja + '_' + fecha + '_' + String(importe),
+    num_operaciones: 1,
+    creation_date: dateISOString,
+    liquido_operaciones: importe,
+    operaciones: []
+  };
+}`
+    },
+    'date-range': {
+        description: 'Date Range Pattern',
+        matcherFunction: `(data) => {
+  const [caja, fecha, concepto, importe] = data;
+
+  // Match transactions within date range
+  // fecha format is typically DDMMYYYY
+  const START_DATE = '01012024'; // DDMMYYYY
+  const END_DATE = '31122024';
+
+  return fecha >= START_DATE && fecha <= END_DATE;
+}`,
+        generatorFunction: `(data) => {
+  const [caja, fecha, concepto, importe] = data;
+  const dateISOString = new Date().toISOString();
+
+  return {
+    id_task: caja + '_' + fecha + '_' + String(importe),
+    num_operaciones: 1,
+    creation_date: dateISOString,
+    liquido_operaciones: importe,
+    operaciones: []
+  };
+}`
+    }
+};
+
+// Add new pattern from template
+function addNewPatternFromTemplate(templateType) {
+    const template = patternTemplates[templateType];
+    if (!template) {
+        console.error('Unknown template type:', templateType);
+        return;
+    }
+
+    const newPattern = {
+        description: template.description,
+        isFavorite: false,
+        lastUsed: null,
+        matchCount: 0,
+        createdAt: new Date().toISOString(),
+        matcherFunction: template.matcherFunction,
+        generatorFunction: template.generatorFunction
+    };
+
+    // Add the new pattern to the array
+    patterns.push(newPattern);
+
+    // Render the pattern list
+    renderPatternList();
+
+    // Select the new pattern
+    selectPattern(patterns.length - 1);
+
+    // Show success toast
+    showToast(`Pattern created from ${templateType} template`, 'success');
+
+    // Set focus to the description field
+    setTimeout(() => {
+        document.getElementById('patternDescription').focus();
+        document.getElementById('patternDescription').select();
+    }, 100);
+}
+
+function addNewPattern() {
+    // Create a new pattern with default values
+    const newPattern = {
+        description: 'New Pattern',
+        isFavorite: false, // NEW: Favorite flag
+        lastUsed: null, // NEW: Last used timestamp
+        matchCount: 0, // NEW: Number of times matched
+        createdAt: new Date().toISOString(), // NEW: Creation timestamp
+        matcherFunction: `(data) => {
+  // Pattern for matching transactions
+  const [caja, fecha, concepto, importe] = data;
+
+  // Add your matching conditions here
+  // Return true if the transaction matches this pattern
+  return false;
+}`,
+        generatorFunction: `(data) => {
+  // Generate output for matched transactions
+  const [caja, fecha, concepto, importe] = data;
+  const dateISOString = new Date().toISOString();
+
   // Return template for transaction operations
   return {
     id_task: caja + '_' + fecha + '_' + String(importe),
@@ -494,9 +787,9 @@ function addNewPattern() {
             { partida: "399", IMPORTE_PARTIDA: importe },
             { partida: "Total", IMPORTE_PARTIDA: 0.0 }
           ],
-          texto_sical: [{ 
-            tcargo: \`TRANSF N/F \${concepto}\`, 
-            ado: "" 
+          texto_sical: [{
+            tcargo: \`TRANSF N/F \${concepto}\`,
+            ado: ""
           }]
         }
       }
@@ -524,28 +817,39 @@ function addNewPattern() {
 // Duplicate the current pattern
 function duplicateCurrentPattern() {
     if (currentPatternIndex === null) return;
-    
+
     // Get the current pattern
     const currentPattern = patterns[currentPatternIndex];
-    
-    // Create a copy with a modified description
+
+    // Create a copy with a modified description and reset metadata
     const newPattern = {
         description: `Copy of ${currentPattern.description}`,
+        isFavorite: false, // Reset favorite status for copy
+        lastUsed: null,
+        matchCount: 0,
+        createdAt: new Date().toISOString(),
         matcherFunction: currentPattern.matcherFunction,
         generatorFunction: currentPattern.generatorFunction
     };
-    
+
     // Add the new pattern to the array
     patterns.push(newPattern);
-    
+
     // Render the pattern list
     renderPatternList();
-    
+
     // Select the new pattern
     selectPattern(patterns.length - 1);
-    
+
     // Show success toast
     showToast('Pattern duplicated', 'success');
+
+    // Auto-focus description field for quick editing
+    setTimeout(() => {
+        const descField = document.getElementById('patternDescription');
+        descField.focus();
+        descField.select(); // Select all text for easy replacement
+    }, 100);
 }
 
 // Delete the current pattern

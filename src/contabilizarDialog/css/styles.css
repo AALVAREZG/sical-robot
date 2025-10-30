@@ -162,6 +162,223 @@ button.delete:hover {
     font-weight: 500;
 }
 
+/* New Table-Based Task Card Styles - COMPACT */
+.task-card-table {
+    background-color: white;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.2s ease-in-out;
+}
+
+.task-card-table:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.task-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.task-type-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.task-type-badge.arqueo {
+    background-color: #E8F5E9;
+    color: #2E7D32;
+}
+
+.task-type-badge.ado220 {
+    background-color: #FFF8E1;
+    color: #F57F17;
+}
+
+.task-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.task-btn-edit {
+    padding: 4px 12px;
+    background-color: #4285F4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.task-btn-edit:hover {
+    background-color: #357AE8;
+}
+
+.task-btn-delete {
+    padding: 4px 10px;
+    background-color: #F44336;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    transition: background-color 0.2s;
+}
+
+.task-btn-delete:hover {
+    background-color: #D32F2F;
+}
+
+.task-table-container {
+    padding: 10px;
+}
+
+.task-details-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+.task-details-table thead th {
+    background-color: #f5f5f5;
+    padding: 6px 8px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    color: #555;
+    border-bottom: 2px solid #e0e0e0;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.task-details-table tbody td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    color: #333;
+    font-size: 12px;
+}
+
+.task-details-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.info-label {
+    padding: 6px 0;
+    font-size: 12px;
+    color: #444;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.info-label:last-child {
+    border-bottom: none;
+}
+
+.info-label strong {
+    color: #555;
+    font-weight: 600;
+    margin-right: 6px;
+}
+
+/* Single line info layout for caja and tercero */
+.info-line-single {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #e8e8e8;
+    flex-wrap: wrap;
+}
+
+.info-code {
+    font-size: 15px;
+    font-weight: 700;
+    color: #2c3e50;
+    background-color: #e3f2fd;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+}
+
+.info-separator {
+    color: #999;
+    font-size: 14px;
+    font-weight: 300;
+}
+
+.info-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #34495e;
+}
+
+.info-tercero {
+    font-size: 14px;
+    font-weight: 500;
+    color: #555;
+    font-style: italic;
+}
+
+/* Compact label style for caja and tercero (legacy) */
+.info-label-compact {
+    padding: 4px 0;
+    font-size: 11px;
+    color: #666;
+    line-height: 1.4;
+}
+
+.info-label-compact strong {
+    color: #444;
+    font-weight: 600;
+    margin-right: 4px;
+}
+
+.info-section {
+    padding: 8px 0;
+    border-top: 1px solid #f0f0f0;
+    margin-top: 6px;
+}
+
+.info-section:first-child {
+    border-top: none;
+    margin-top: 0;
+}
+
+.info-section strong {
+    display: block;
+    color: #555;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+}
+
+.info-content {
+    padding: 6px 8px;
+    background-color: #f9f9f9;
+    border-radius: 3px;
+    font-size: 12px;
+    color: #333;
+    line-height: 1.4;
+}
+
 /* Button Styles */
 button {
     padding: 8px 15px;
@@ -459,5 +676,484 @@ button.secondary:hover {
         width: 100%;
         right: 0;
     }
+}
+
+/* ========================================
+   COMPACT TASK CARD DESIGN
+   ======================================== */
+
+.task-compact-card {
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+}
+
+/* Task lines (3 lines per task) */
+.task-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 0;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.task-line-header {
+    background-color: #f9fafb;
+    padding: 8px 12px;
+    margin: -12px -16px 8px -16px;
+    border-bottom: 1px solid #e5e7eb;
+    border-radius: 6px 6px 0 0;
+}
+
+.task-line-details {
+    border-bottom: 1px solid #f3f4f6;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+}
+
+.task-line-aplicaciones {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+/* Task line elements */
+.task-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.task-value {
+    font-size: 12px;
+    font-weight: 500;
+    color: #111827;
+}
+
+.task-value-secondary {
+    font-size: 11px;
+    color: #6b7280;
+    font-style: italic;
+}
+
+.task-separator {
+    color: #d1d5db;
+    font-weight: 300;
+}
+
+.task-texto {
+    flex: 1;
+    min-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Naturaleza badge (1-5) */
+.naturaleza-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 700;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+}
+
+.naturaleza-1 { background-color: #dbeafe; color: #1e40af; }
+.naturaleza-2 { background-color: #d1fae5; color: #065f46; }
+.naturaleza-3 { background-color: #fef3c7; color: #92400e; }
+.naturaleza-4 { background-color: #fed7aa; color: #9a3412; }
+.naturaleza-5 { background-color: #fecaca; color: #991b1b; }
+
+/* Aplicaciones list */
+.aplicaciones-label {
+    font-weight: 600;
+    font-size: 11px;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+.aplicaciones-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+
+.aplicacion-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: #f9fafb;
+    border-radius: 4px;
+    border-left: 3px solid #3b82f6;
+    font-size: 12px;
+}
+
+.aplicacion-item:hover {
+    background-color: #f3f4f6;
+}
+
+/* Aplicacion elements */
+.aplic-partida,
+.aplic-funcional,
+.aplic-economica {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background-color: #e0e7ff;
+    color: #3730a3;
+}
+
+.aplic-separator {
+    color: #9ca3af;
+    font-weight: 300;
+}
+
+.aplic-desc {
+    flex: 1;
+    font-weight: 500;
+    color: #374151;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.aplic-arrow {
+    color: #3b82f6;
+    font-weight: 700;
+}
+
+.aplic-cuenta {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.aplic-proyecto {
+    font-size: 10px;
+    color: #059669;
+    font-style: italic;
+    font-weight: 600;
+}
+
+.aplic-importe {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 12px;
+    color: #059669;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .task-compact-card {
+        padding: 10px 12px;
+    }
+
+    .task-line {
+        font-size: 11px;
+    }
+
+    .task-texto {
+        min-width: 150px;
+    }
+
+    .aplicacion-item {
+        flex-wrap: wrap;
+    }
+}
+
+/* ========================================
+   BALANCE VALIDATION SECTION
+   ======================================== */
+
+.balance-validation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.balance-validation.hidden {
+    display: none;
+}
+
+.balance-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.balance-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.balance-amount {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    color: #1e293b;
+}
+
+.balance-difference {
+    padding: 8px 16px;
+    background-color: #ffffff;
+    border-radius: 6px;
+    border: 2px solid #e2e8f0;
+}
+
+.balance-amount-difference {
+    font-size: 18px;
+    font-weight: 900;
+    font-family: 'Courier New', monospace;
+}
+
+/* Status colors for difference */
+.balance-validation.balanced .balance-difference {
+    background-color: #f0fdf4;
+    border-color: #86efac;
+}
+
+.balance-validation.balanced .balance-amount-difference {
+    color: #15803d;
+}
+
+.balance-validation.unbalanced .balance-difference {
+    background-color: #fef2f2;
+    border-color: #fca5a5;
+}
+
+.balance-validation.unbalanced .balance-amount-difference {
+    color: #dc2626;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .balance-validation {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+    }
+
+    .balance-item {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+}
+
+/* ============================================
+   PROFESSIONAL EDITOR IMPROVEMENTS
+   ============================================ */
+
+/* Description Badge Styles - More professional than gray italic */
+.description-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    background-color: #E3F2FD;
+    color: #1976D2;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 500;
+    margin-top: 4px;
+    border: 1px solid #BBDEFB;
+}
+
+.tercero-denomination-display,
+.caja-name-display {
+    padding: 6px 10px;
+    background-color: #E8F5E9;
+    color: #2E7D32;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 500;
+    margin-top: 5px;
+    border-left: 3px solid #4CAF50;
+}
+
+.partida-description {
+    padding: 4px 8px;
+    background-color: #FFF3E0;
+    color: #E65100;
+    border-radius: 3px;
+    font-size: 0.75em;
+    font-weight: 500;
+    margin-top: 4px;
+    font-style: normal !important;
+    border-left: 2px solid #FF9800;
+}
+
+/* Section Headers */
+.editor-section h3 {
+    color: #1976D2;
+    font-weight: 600;
+    font-size: 1.1em;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #E3F2FD;
+}
+
+/* Form Grid Improvements */
+.form-grid {
+    gap: 16px !important;
+}
+
+.form-field label {
+    font-weight: 600;
+    color: #424242;
+    font-size: 0.9em;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+    border: 1px solid #BDBDBD;
+    border-radius: 4px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+    border-color: #4C9AFF;
+    box-shadow: 0 0 0 3px rgba(76, 154, 255, 0.1);
+    outline: none;
+}
+
+/* Button Improvements - Consistent Blue Theme */
+.btn-add-partida,
+.btn-add-aplicacion {
+    background-color: #4C9AFF !important;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.btn-add-partida:hover,
+.btn-add-aplicacion:hover {
+    background-color: #357AE8 !important;
+    transform: translateY(-1px);
+}
+
+/* Tercero Search Button */
+.btn-tercero-search {
+    background-color: #4C9AFF;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 0.9em;
+}
+
+.btn-tercero-search:hover {
+    background-color: #357AE8;
+}
+
+/* Total Display Box */
+.total-display-box {
+    background-color: #F5F5F5;
+    border: 2px solid #4C9AFF;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-top: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.total-display-box .total-label {
+    font-weight: 600;
+    color: #424242;
+    font-size: 1em;
+}
+
+.total-display-box .total-amount {
+    font-weight: 700;
+    color: #1976D2;
+    font-size: 1.2em;
+}
+
+/* Aplicaciones Section Improvements */
+.aplicaciones-header {
+    background-color: #F5F5F5;
+    padding: 10px 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: #424242;
+}
+
+/* Partidas Section Improvements */
+.partidas-section {
+    background-color: #FAFAFA;
+    padding: 16px;
+    border-radius: 6px;
+    border: 1px solid #E0E0E0;
+}
+
+.partidas-header {
+    display: grid;
+    grid-template-columns: 2fr 2fr 1fr 80px;
+    gap: 12px;
+    padding: 8px 12px;
+    background-color: #E3F2FD;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: #1976D2;
+    font-size: 0.85em;
+}
+
+/* Individual Partida Row */
+.partida-row {
+    background-color: white;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    border: 1px solid #E0E0E0;
+}
+
+/* Mapping Description Styles (Funcional, Económica) */
+.mapping-description {
+    padding: 4px 8px;
+    background-color: #F3E5F5;
+    color: #6A1B9A;
+    border-radius: 3px;
+    font-size: 0.75em;
+    font-weight: 500;
+    margin-top: 4px;
+    font-style: normal !important;
+    border-left: 2px solid #9C27B0;
 }
 

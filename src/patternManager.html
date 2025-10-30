@@ -24,7 +24,16 @@
         <div class="pattern-sidebar">
             <div class="sidebar-header">
                 <h3>Patterns</h3>
-                <button id="addPatternBtn" class="btn-icon" title="Add New Pattern">+</button>
+                <div class="add-pattern-menu">
+                    <button id="addPatternBtn" class="btn-icon" title="Add New Pattern">+</button>
+                    <div id="templateDropdown" class="template-dropdown" style="display: none;">
+                        <div class="template-item" data-template="blank">Blank Pattern</div>
+                        <div class="template-item" data-template="simple-match">Simple Text Match</div>
+                        <div class="template-item" data-template="regex-match">Regex Match</div>
+                        <div class="template-item" data-template="amount-range">Amount Range</div>
+                        <div class="template-item" data-template="date-range">Date Range</div>
+                    </div>
+                </div>
             </div>
             <!-- Update the pattern search input field -->
             <div class="pattern-search">

@@ -76,7 +76,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateReserve: (data) => ipcRenderer.invoke('update-reserve', data),
     getFinancialInsights: (periodId) => ipcRenderer.invoke('get-financial-insights', periodId),
     exportTreasuryData: () => ipcRenderer.invoke('export-treasury-data'),
-    importTreasuryData: (data) => ipcRenderer.invoke('import-treasury-data', data)
+    importTreasuryData: (data) => ipcRenderer.invoke('import-treasury-data', data),
+
+    // Contabilidad Mappings methods
+    getMappingInfo: (mappingType, code) => ipcRenderer.invoke('get-mapping-info', mappingType, code),
+    searchMappings: (mappingType, searchTerm) => ipcRenderer.invoke('search-mappings', mappingType, searchTerm),
+    upsertMapping: (mappingType, code, cuentaPGP, description) => ipcRenderer.invoke('upsert-mapping', mappingType, code, cuentaPGP, description),
+    getMappingsByType: (mappingType) => ipcRenderer.invoke('get-mappings-by-type', mappingType),
+    getMostUsedMappings: (mappingType, limit) => ipcRenderer.invoke('get-most-used-mappings', mappingType, limit),
+    exportMappings: (mappingType) => ipcRenderer.invoke('export-mappings', mappingType)
 });
 
 

@@ -38,6 +38,42 @@
     font-weight: 600;
 }
 
+.add-pattern-menu {
+    position: relative;
+}
+
+.template-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 5px;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    min-width: 180px;
+    z-index: 1000;
+}
+
+.template-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.template-item:hover {
+    background-color: #f0f2f5;
+}
+
+.template-item:first-child {
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.template-item:last-child {
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+}
+
 .btn-icon {
     background: var(--primary);
     color: white;
@@ -100,6 +136,45 @@
     font-weight: 500;
     margin-bottom: 4px;
     font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pattern-item-title-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pattern-star {
+    cursor: pointer;
+    padding: 4px 8px;
+    margin-left: 8px;
+    border-radius: 3px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    position: relative;
+    border: 2px solid #ccc;
+}
+
+.pattern-star:hover {
+    background-color: rgba(255, 193, 7, 0.1);
+    transform: scale(1.15);
+    border-color: #FFD700;
+}
+
+.pattern-star.favorite {
+    background-color: #FFD700;
+    border-color: #FFD700;
+}
+
+.pattern-star:not(.favorite) {
+    background-color: transparent;
+    border-color: #ccc;
 }
 
 .pattern-item-desc {
@@ -108,6 +183,26 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.pattern-item-stats {
+    display: flex;
+    gap: 12px;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.pattern-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pattern-stat:not(:last-child)::after {
+    content: '|';
+    margin-left: 12px;
+    color: #ddd;
 }
 
 /* Pattern Editor */
