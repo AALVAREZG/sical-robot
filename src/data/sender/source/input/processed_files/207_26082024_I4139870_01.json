@@ -1,0 +1,17 @@
+{
+    "num_operaciones": 1,
+    "liquido_operaciones": 101147.30,
+    "operaciones": [
+        {
+            "tipo": "arqueo",
+            "detalle": {"fecha": "26-08-2024", 
+                "caja": "207", 
+                "tercero": "43000000M", 
+                "naturaleza": "5", 
+                "final": [{"partida": "30016", "IMPORTE_PARTIDA": 101147.30}, 
+                          {"partida": "Total", "IMPORTE_PARTIDA": 0.0}], 
+                "texto_sical": [{"tcargo": 
+                "OPAEF, A/C RECAUDACION TRIBUTOS VARIOS. AGOSTO/2024", "ado": ""}]}
+        }
+    ]
+}

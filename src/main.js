@@ -790,24 +790,55 @@ ipcMain.handle('import-accounting-records', async (event, records) => {
 ipcMain.handle('save-accounting-tasks', async (event, { bankMovementId, tasksData }) => {
   try {
     console.log('Saving accounting tasks for bank movement:', bankMovementId);
-    const result = await db.saveAccountingTasks(bankMovementId, tasksData);
-    
-    // Still save to JSON file for Python service if needed
-    const taskDataJson = JSON.stringify(tasksData, null, 2);
+
+    // ===== NEW: Fetch bank movement data to enrich JSON =====
+    const bankMovement = await db.getRecord(bankMovementId);
+
+    if (!bankMovement) {
+      console.error('Bank movement not found:', bankMovementId);
+      return { success: false, error: 'Bank movement not found' };
+    }
+
+    console.log('Bank movement found:', bankMovement.concepto);
+
+    // ===== NEW: Enrich tasksData with bank movement info =====
+    const enrichedTaskData = {
+      ...tasksData,
+      bank_movement: {
+        id: bankMovement.id,
+        caja: bankMovement.caja,
+        fecha: bankMovement.fecha,
+        normalized_date: bankMovement.normalized_date,
+        concepto: bankMovement.concepto,
+        importe: bankMovement.importe,
+        saldo: bankMovement.saldo,
+        id_apunte_banco: bankMovement.id_apunte_banco,
+        insertion_date: bankMovement.insertion_date,
+        is_contabilized: bankMovement.is_contabilized,
+        id_apunte_contable: bankMovement.id_apunte_contable
+      }
+    };
+
+    // Save to database (with enriched data)
+    const result = await db.saveAccountingTasks(bankMovementId, enrichedTaskData);
+
+    // ===== Modified: Save enriched data to JSON file =====
+    const taskDataJson = JSON.stringify(enrichedTaskData, null, 2);
     const filePath = path.join(__dirname, 'data', 'sender', 'input', 'pending_files', `task-${tasksData.id_task}.json`);
-    
+
     try {
       await fs.writeFile(filePath, taskDataJson);
       console.log('JSON file created successfully at:', filePath);
-      
+      console.log('Bank movement data included in JSON');
+
       // Run Python service
       const pythonResult = await runPythonService();
       console.log("Result of contabilizar:", pythonResult);
-      
+
     } catch (fileError) {
       console.error('Error writing JSON file:', fileError);
     }
-    
+
     return result;
   } catch (error) {
     console.error('Error saving accounting tasks:', error);
@@ -845,6 +876,134 @@ ipcMain.handle('delete-accounting-tasks', async (event, bankMovementId) => {
   } catch (error) {
     console.error('Error deleting accounting tasks:', error);
     return { success: false, error: error.message };
+  }
+});
+
+// ===== NEW IPC HANDLERS FOR PHASE 2: Operation-Level Tracking =====
+
+// Sync task results from Python service
+ipcMain.handle('sync-task-results', async (event, { taskId }) => {
+  try {
+    console.log('Syncing task results for:', taskId);
+
+    // Look for results file in partial/, processed_files/, or failed/
+    const possibleLocations = [
+      path.join(__dirname, 'data', 'sender', 'input', 'partial'),
+      path.join(__dirname, 'data', 'sender', 'input', 'processed_files'),
+      path.join(__dirname, 'data', 'sender', 'input', 'failed')
+    ];
+
+    let resultsData = null;
+    let resultsPath = null;
+
+    for (const location of possibleLocations) {
+      const testPath = path.join(location, `task-${taskId}_results.json`);
+      try {
+        await fs.access(testPath);
+        resultsPath = testPath;
+        const content = await fs.readFile(testPath, 'utf-8');
+        resultsData = JSON.parse(content);
+        console.log('Found results file at:', resultsPath);
+        break;
+      } catch (err) {
+        // File doesn't exist in this location, try next
+      }
+    }
+
+    if (!resultsData) {
+      return { success: false, error: 'Results file not found' };
+    }
+
+    // Update database with individual operation statuses
+    let updatedCount = 0;
+    for (const opResult of resultsData.operation_results) {
+      await db.updateOperationStatus({
+        taskId: taskId,
+        operationIndex: opResult.index,
+        status: opResult.status.toLowerCase(),
+        sicalResponse: JSON.stringify(opResult.response),
+        errorMessage: opResult.error,
+        processedAt: resultsData.processed_at
+      });
+      updatedCount++;
+    }
+
+    // Update overall task status
+    await db.updateTaskOverallStatus(taskId, resultsData.overall_status.toLowerCase());
+
+    console.log(`Synced ${updatedCount} operation statuses for task ${taskId}`);
+
+    return {
+      success: true,
+      overallStatus: resultsData.overall_status,
+      succeeded: resultsData.succeeded_count,
+      failed: resultsData.failed_count,
+      total: resultsData.total_operations
+    };
+
+  } catch (error) {
+    console.error('Error syncing task results:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get task with operation-level breakdown
+ipcMain.handle('get-task-details', async (event, { taskId }) => {
+  try {
+    const operations = await db.getTaskWithOperationStatuses(taskId);
+
+    if (operations.length === 0) {
+      return { success: false, error: 'Task not found' };
+    }
+
+    // Get bank movement details if available
+    let bankMovement = null;
+    if (operations[0].bank_movement_id) {
+      try {
+        bankMovement = await db.getBankMovementById(operations[0].bank_movement_id);
+      } catch (err) {
+        console.error('Error fetching bank movement:', err);
+      }
+    }
+
+    // Extract summary info
+    const summary = {
+      taskId: taskId,
+      overallStatus: operations[0].status,
+      creationDate: operations[0].creation_date,
+      bankMovementId: operations[0].bank_movement_id,
+      totalOperations: operations.filter(op => op.task_type !== 'summary').length,
+      succeededCount: operations.filter(op => op.operation_status === 'completed').length,
+      failedCount: operations.filter(op => op.operation_status === 'failed').length,
+      bankMovement: bankMovement
+    };
+
+    return {
+      success: true,
+      summary,
+      operations: operations.filter(op => op.task_type !== 'summary')
+    };
+
+  } catch (error) {
+    console.error('Error getting task details:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get all tasks with statistics
+ipcMain.handle('get-tasks-list', async (event, { filters = {} }) => {
+  try {
+    const tasks = await db.getTasksWithStatistics(filters);
+
+    return {
+      success: true,
+      tasks: tasks,
+      totalCount: tasks.length
+    };
+
+  } catch (error) {
+    console.error('Error getting tasks list:', error);
+    return { success: false, error: error.message, tasks: [] };
   }
 });
 

@@ -268,6 +268,11 @@ function switchToTab(tabId) {
         if (typeof initializeTreasuryForecast === 'function') {
             initializeTreasuryForecast();
         }
+    } else if (tabId === 'task-monitor') {
+        // Initialize Task Monitor if needed
+        if (typeof initTaskMonitor === 'function') {
+            initTaskMonitor();
+        }
     }
 }
 

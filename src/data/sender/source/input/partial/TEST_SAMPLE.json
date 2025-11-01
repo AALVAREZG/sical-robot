@@ -1,0 +1,55 @@
+{
+  "id_task": "TEST_31102025_500.00",
+  "num_operaciones": 3,
+  "liquido_operaciones": 500.00,
+  "creation_date": "2025-10-31T16:00:00.000Z",
+  "bank_movement": {
+    "id": "201_CRURAL - 0727_31102025_500.00",
+    "caja": "201_CRURAL - 0727",
+    "fecha": "31/10/2025",
+    "normalized_date": "2025-10-31T00:00:00.000Z",
+    "concepto": "TRANSFER TEST - TESTING PARTIAL FAILURE TRACKING",
+    "importe": 500.00,
+    "saldo": 15000.00,
+    "id_apunte_banco": "TEST-APT-20251031-001",
+    "insertion_date": "2025-10-31T16:00:00.000Z",
+    "is_contabilized": 1,
+    "id_apunte_contable": "TEST_31102025_500.00"
+  },
+  "operaciones": [
+    {
+      "tipo": "arqueo",
+      "detalle": {
+        "fecha": "31102025",
+        "caja": "201",
+        "tercero": "12345678A",
+        "naturaleza": "4",
+        "final": ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+        "texto_sical": ["01|201|31102025|12345678A|4|200.00|TEST OPERATION 1"]
+      }
+    },
+    {
+      "tipo": "ado220",
+      "detalle": {
+        "fecha": "31102025",
+        "caja": "201",
+        "tercero": "98765432B",
+        "fpago": "01",
+        "tpago": "TRANSFERENCIA",
+        "texto": ["220|201|31102025|98765432B|200.00|TEST OPERATION 2"],
+        "aplicaciones": ["APP1", "APP2"]
+      }
+    },
+    {
+      "tipo": "arqueo",
+      "detalle": {
+        "fecha": "31102025",
+        "caja": "201",
+        "tercero": "11223344C",
+        "naturaleza": "3",
+        "final": ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+        "texto_sical": ["01|201|31102025|11223344C|3|100.00|TEST OPERATION 3"]
+      }
+    }
+  ]
+}
