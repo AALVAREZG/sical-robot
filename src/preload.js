@@ -88,6 +88,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 
+contextBridge.exposeInMainWorld('api', {
+    invoke: (channel, data) => ipcRenderer.invoke(channel, data)
+});
+
 contextBridge.exposeInMainWorld('versions', {
     node: () => process.versions.node,
     chrome: () => process.versions.chrome,

@@ -53,6 +53,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+venv
 
 # Bak and Temp files
 *.bak*
@@ -60,7 +61,16 @@ Thumbs.db
 
 # Claude AI files
 *.md 
+
+# Test files
 test-*
+*.bat
+
+# PyInstaller
+dist/
+build/
+# *.spec ??
+
 
 
 

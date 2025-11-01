@@ -88,6 +88,46 @@ this.db.run(`CREATE TABLE IF NOT EXISTS accounting_tasks (
   this.db.run(`CREATE INDEX IF NOT EXISTS idx_accounting_tasks_bank_movement ON accounting_tasks(bank_movement_id)`);
   this.db.run(`CREATE INDEX IF NOT EXISTS idx_accounting_tasks_task_id ON accounting_tasks(task_id)`);
   this.db.run(`CREATE INDEX IF NOT EXISTS idx_accounting_tasks_status ON accounting_tasks(status)`);
+
+  // ===== NEW: Add columns for operation-level tracking =====
+  this.db.run(`ALTER TABLE accounting_tasks ADD COLUMN operation_index INTEGER`, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('Error adding operation_index column:', err);
+    }
+  });
+
+  this.db.run(`ALTER TABLE accounting_tasks ADD COLUMN operation_status TEXT DEFAULT 'pending'`, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('Error adding operation_status column:', err);
+    }
+  });
+
+  this.db.run(`ALTER TABLE accounting_tasks ADD COLUMN sical_response TEXT`, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('Error adding sical_response column:', err);
+    }
+  });
+
+  this.db.run(`ALTER TABLE accounting_tasks ADD COLUMN error_message TEXT`, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('Error adding error_message column:', err);
+    }
+  });
+
+  this.db.run(`ALTER TABLE accounting_tasks ADD COLUMN last_attempt_date TEXT`, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('Error adding last_attempt_date column:', err);
+    }
+  });
+
+  this.db.run(`ALTER TABLE accounting_tasks ADD COLUMN attempt_count INTEGER DEFAULT 0`, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('Error adding attempt_count column:', err);
+    }
+  });
+
+  // Create index for operation_status
+  this.db.run(`CREATE INDEX IF NOT EXISTS idx_operation_status ON accounting_tasks(operation_status)`);
   
   // Create needed indexes
   this.db.run(`CREATE INDEX IF NOT EXISTS idx_accounting_account ON accounting_entries(account_code)`);
@@ -1097,6 +1137,173 @@ run(sql, params = []) {
     });
   });
 }
+
+// ===== NEW METHODS FOR PHASE 2: Operation-Level Tracking =====
+
+/**
+ * Update operation status from Python service results
+ * @param {Object} params - Operation status parameters
+ * @returns {Promise<Object>} Result with success status
+ */
+async updateOperationStatus(params) {
+  return new Promise((resolve, reject) => {
+    const sql = `
+      UPDATE accounting_tasks
+      SET
+        operation_status = ?,
+        sical_response = ?,
+        error_message = ?,
+        processed_date = ?,
+        last_attempt_date = ?,
+        attempt_count = attempt_count + 1
+      WHERE task_id = ? AND operation_index = ?
+    `;
+
+    this.db.run(sql, [
+      params.status,
+      params.sicalResponse,
+      params.errorMessage,
+      params.processedAt,
+      new Date().toISOString(),
+      params.taskId,
+      params.operationIndex
+    ], function (err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve({ success: true, changes: this.changes });
+      }
+    });
+  });
+}
+
+/**
+ * Update overall task status
+ * @param {string} taskId - Task ID
+ * @param {string} overallStatus - Overall status (completed/failed/partial)
+ * @returns {Promise<Object>} Result with success status
+ */
+async updateTaskOverallStatus(taskId, overallStatus) {
+  return new Promise((resolve, reject) => {
+    const sql = `
+      UPDATE accounting_tasks
+      SET status = ?, processed_date = ?
+      WHERE task_id = ?
+    `;
+
+    this.db.run(sql, [
+      overallStatus,
+      new Date().toISOString(),
+      taskId
+    ], function (err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve({ success: true, changes: this.changes });
+      }
+    });
+  });
+}
+
+/**
+ * Get task with operation-level status breakdown
+ * @param {string} taskId - Task ID
+ * @returns {Promise<Array>} Array of operations with status
+ */
+async getTaskWithOperationStatuses(taskId) {
+  return new Promise((resolve, reject) => {
+    const sql = `
+      SELECT *
+      FROM accounting_tasks
+      WHERE task_id = ?
+      ORDER BY operation_index
+    `;
+
+    this.db.all(sql, [taskId], (err, rows) => {
+      if (err) {
+        reject(err);
+      } else {
+        const tasks = (rows || []).map(row => ({
+          ...row,
+          task_data: row.task_data ? JSON.parse(row.task_data) : null,
+          sical_response: row.sical_response ? JSON.parse(row.sical_response) : null
+        }));
+        resolve(tasks);
+      }
+    });
+  });
+}
+
+/**
+ * Get all tasks with statistics
+ * @param {Object} filters - Filter options
+ * @returns {Promise<Object>} Tasks with statistics
+ */
+async getTasksWithStatistics(filters = {}) {
+  return new Promise((resolve, reject) => {
+    let sql = `
+      SELECT
+        task_id,
+        MAX(creation_date) as creation_date,
+        MAX(status) as overall_status,
+        COUNT(*) as total_operations,
+        SUM(CASE WHEN operation_status = 'completed' THEN 1 ELSE 0 END) as succeeded_count,
+        SUM(CASE WHEN operation_status = 'failed' THEN 1 ELSE 0 END) as failed_count,
+        MAX(bank_movement_id) as bank_movement_id
+      FROM accounting_tasks
+      WHERE task_type != 'summary'
+    `;
+
+    const params = [];
+
+    if (filters.status) {
+      sql += ` AND status = ?`;
+      params.push(filters.status);
+    }
+
+    sql += `
+      GROUP BY task_id
+      ORDER BY creation_date DESC
+    `;
+
+    if (filters.limit) {
+      sql += ` LIMIT ?`;
+      params.push(filters.limit);
+    }
+
+    this.db.all(sql, params, (err, rows) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(rows || []);
+      }
+    });
+  });
+}
+
+/**
+ * Get bank movement by ID
+ * @param {string} id - Bank movement ID
+ * @returns {Promise<Object>} Bank movement details
+ */
+async getBankMovementById(id) {
+  return new Promise((resolve, reject) => {
+    const sql = `
+      SELECT *
+      FROM movimientos_bancarios
+      WHERE id = ?
+    `;
+
+    this.db.get(sql, [id], (err, row) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(row || null);
+      }
+    });
+  });
+}
+
 }
 
 module.exports = Database;

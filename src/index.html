@@ -7,8 +7,9 @@
     <link rel="stylesheet" href="tabNavigation.css">
     <link rel="stylesheet" href="treasuryDataInput.css">
     <link rel="stylesheet" href="treasuryForecastStyles.css">
-    
-   
+    <link rel="stylesheet" href="taskMonitor.css">
+
+
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto+Condensed:wght@700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -42,6 +43,7 @@
                 <button class="tab-item active" data-tab="movimientos">Movimientos</button>
                 <button class="tab-item" data-tab="treasury" id="treasuryTab">Treasury Forecast</button>
                 <button class="tab-item" data-tab="reports">Reports</button>
+                <button class="tab-item" data-tab="task-monitor" id="taskMonitorTab">Task Monitor</button>
             </div>
 
             <!-- Movimientos Tab Content (EXISTING CONTENT WRAPPED) -->
@@ -158,6 +160,109 @@
                     <p>Advanced reporting features will be available here.</p>
                 </div>
             </div>
+
+            <!-- Task Monitor Tab Content (PHASE 3 - NEW) -->
+            <div id="task-monitor-content" class="tab-content" style="display: none;">
+                <!-- Statistics Cards -->
+                <div class="task-monitor-stats">
+                    <div class="stat-card stat-card-pending">
+                        <div class="stat-card-header">
+                            <span class="stat-card-icon">⏳</span>
+                            <span class="stat-card-title">Pending</span>
+                        </div>
+                        <div class="stat-card-value" id="statPendingCount">0</div>
+                        <div class="stat-card-footer">
+                            <button class="btn-stat-action" id="btnRetryAllPending">Retry All</button>
+                        </div>
+                    </div>
+
+                    <div class="stat-card stat-card-completed">
+                        <div class="stat-card-header">
+                            <span class="stat-card-icon">✅</span>
+                            <span class="stat-card-title">Completed</span>
+                        </div>
+                        <div class="stat-card-value" id="statCompletedCount">0</div>
+                        <div class="stat-card-footer">
+                            <span class="stat-card-subtext" id="statSuccessRate">0% Success</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card stat-card-failed">
+                        <div class="stat-card-header">
+                            <span class="stat-card-icon">❌</span>
+                            <span class="stat-card-title">Failed</span>
+                        </div>
+                        <div class="stat-card-value" id="statFailedCount">0</div>
+                        <div class="stat-card-footer">
+                            <button class="btn-stat-action" id="btnRetryAllFailed">Retry All</button>
+                        </div>
+                    </div>
+
+                    <div class="stat-card stat-card-partial">
+                        <div class="stat-card-header">
+                            <span class="stat-card-icon">⚠️</span>
+                            <span class="stat-card-title">Partial</span>
+                        </div>
+                        <div class="stat-card-value" id="statPartialCount">0</div>
+                        <div class="stat-card-footer">
+                            <span class="stat-card-subtext">Needs Attention</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card stat-card-total">
+                        <div class="stat-card-header">
+                            <span class="stat-card-icon">📊</span>
+                            <span class="stat-card-title">Total</span>
+                        </div>
+                        <div class="stat-card-value" id="statTotalCount">0</div>
+                        <div class="stat-card-footer">
+                            <span class="stat-card-subtext">All Tasks</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter and Search Section -->
+                <div class="task-monitor-controls">
+                    <div class="task-filter-tabs">
+                        <button class="filter-tab active" data-filter="all">All</button>
+                        <button class="filter-tab" data-filter="pending">Pending</button>
+                        <button class="filter-tab" data-filter="completed">Completed</button>
+                        <button class="filter-tab" data-filter="failed">Failed</button>
+                        <button class="filter-tab" data-filter="partial">Partial</button>
+                    </div>
+                    <div class="task-search-bar">
+                        <input type="text" id="taskSearchInput" placeholder="Search tasks by ID or bank movement...">
+                        <button class="btn-secondary" id="btnRefreshTasks">🔄 Refresh</button>
+                    </div>
+                </div>
+
+                <!-- Task List Table -->
+                <div class="task-monitor-table-container">
+                    <table class="task-monitor-table" id="taskMonitorTable">
+                        <thead>
+                            <tr>
+                                <th>Task ID</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Operations</th>
+                                <th>Bank Movement</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="taskMonitorTableBody">
+                            <!-- Rows will be dynamically inserted -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="task-monitor-pagination">
+                    <span id="taskMonitorPaginationInfo">Showing 0-0 of 0 tasks</span>
+                    <div class="pagination-controls" id="taskMonitorPaginationControls">
+                        <!-- Pagination buttons will be dynamically inserted -->
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -185,5 +290,6 @@
     <script src="treasuryForecastRenderer.js"></script>
     <script src="renderer.js"></script>
     <script src="tabNavigation.js"></script>
+    <script src="taskMonitor.js"></script>
 </body>
 </html>

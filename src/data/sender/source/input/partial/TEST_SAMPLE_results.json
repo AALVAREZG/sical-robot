@@ -1,0 +1,46 @@
+{
+  "task_file": "TEST_SAMPLE.json",
+  "processed_at": "2025-10-31T11:34:01.997261",
+  "overall_status": "PARTIAL",
+  "total_operations": 3,
+  "succeeded_count": 2,
+  "failed_count": 1,
+  "operation_results": [
+    {
+      "index": 0,
+      "op_id": "TEST_SAMPLE.json_000",
+      "tipo": "arqueo",
+      "status": "COMPLETED",
+      "response": {
+        "status": "COMPLETED",
+        "sical_id": "MOCK-SICAL-dfb67d3b",
+        "task_id": "dfb67d3b-4848-44e9-a053-19aba6448785",
+        "processed_at": "2025-10-31T11:34:01.342093",
+        "message": "Mock: arqueo operation completed successfully"
+      },
+      "error": null
+    },
+    {
+      "index": 1,
+      "op_id": "TEST_SAMPLE.json_001",
+      "tipo": "ado220",
+      "status": "FAILED",
+      "response": null,
+      "error": "Connection lost during processing"
+    },
+    {
+      "index": 2,
+      "op_id": "TEST_SAMPLE.json_002",
+      "tipo": "arqueo",
+      "status": "COMPLETED",
+      "response": {
+        "status": "COMPLETED",
+        "sical_id": "MOCK-SICAL-582c5f35",
+        "task_id": "582c5f35-131b-4088-b03b-a081db0fb95b",
+        "processed_at": "2025-10-31T11:34:01.946247",
+        "message": "Mock: arqueo operation completed successfully"
+      },
+      "error": null
+    }
+  ]
+}
